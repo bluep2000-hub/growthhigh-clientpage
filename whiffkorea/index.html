@@ -186,8 +186,13 @@ body.locked>aside,body.locked>main{display:none}
   background:var(--bg);z-index:60}
 body.locked #gate{display:grid}
 .gt{width:100%;max-width:340px;text-align:center}
+/* 잠금 화면은 그로스하이 로고를 쓴다. 클라이언트 로고를 여기 두면
+   비밀번호를 넣기 전에 어느 회사 페이지인지 알 수 있다.
+   로고 PNG 는 배경이 검정이라 다크 테마에서 타일 경계가 사라진다 → 테두리를 준다 */
 .gt .mk{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:12px;
-  background:#123027;margin-bottom:15px}
+  background:#000;border:1px solid var(--line-2);overflow:hidden;margin-bottom:15px}
+.gt .mk img{width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block}
+[data-theme="dark"] .gt .mk{border-color:rgba(255,255,255,.28)}
 .gt h1{font-size:16px;font-weight:600;letter-spacing:-.02em}
 .gt .sub{font-size:12.5px;color:var(--tx-3);margin-top:6px;line-height:1.65}
 .gt form{margin-top:19px;display:flex;flex-direction:column;gap:8px}
@@ -200,7 +205,6 @@ body.locked #gate{display:grid}
 .gt button[disabled]{opacity:.55;cursor:default}
 .gt .msg{font-size:12px;min-height:18px;color:var(--no);line-height:1.5}
 .gt .msg.busy{color:var(--tx-3)}
-.gt .brand{margin-top:20px;font-size:10.5px;color:var(--tx-3);letter-spacing:.06em}
 
 .err{max-width:560px;margin:64px auto;padding:0 20px;text-align:left}
 .err h1{font-size:17px;font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
@@ -229,7 +233,6 @@ body.locked #gate{display:grid}
       <button type="submit" id="gbtn">확인</button>
       <p class="msg" id="gmsg" role="status" aria-live="polite"></p>
     </form>
-    <p class="brand">GROWTHHIGH</p>
   </div>
 </div>
 
@@ -281,13 +284,9 @@ const CATNM = { fund:'정부지원사업', cert:'기업인증·지식재산권',
 const BADGE = { run:'진행', ok:'종료', no:'보류', wait:'예정' };
 const GL = { info:'▣', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
 
-const MARK = s=>`<svg viewBox="0 0 40 40" width="${s}" height="${s}" aria-hidden="true">
-<rect width="40" height="40" rx="9" fill="#123027"/>
-<path d="M12 26c0-6 3-11 8-11s8 4 8 9" stroke="#5DCAA5" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-<path d="M16 15c2-3 5-4 8-3" stroke="#5DCAA5" stroke-width="2" fill="none" stroke-linecap="round" opacity=".55"/>
-</svg>`;
-/* 사이드바 마크는 데이터를 받은 뒤 기업 로고로 채운다 (init 참고).
-   잠금 화면의 마크는 기업 정보를 알기 전이라 MARK() 를 그대로 쓴다. */
+/* 사이드바·헤더 마크는 복호화한 뒤에야 기업 로고로 채운다 (init 참고).
+   잠금 화면(루트·404 안내 포함)은 그로스하이 로고만 쓴다. */
+const BRAND_LOGO = `${BASE}assets/growthhigh-logo.png`;
 
 /* 노션 텍스트가 그대로 들어오므로 <, & 등을 이스케이프한다 */
 const esc = v => String(v ?? '').replace(/[&<>"']/g,
@@ -307,7 +306,7 @@ const fmt = d => {
    .enc 는 AES-GCM 봉투다. 비밀번호를 URL·로그·localStorage 어디에도 남기지 않는다.
    복호화된 JSON 은 sessionStorage 에만 둔다 — 탭을 닫으면 사라진다. */
 const $ = id => document.getElementById(id);
-$('mk-g').innerHTML = MARK(52);
+$('mk-g').innerHTML = `<img src="${encodeURI(BRAND_LOGO)}" alt="그로스하이">`;
 
 const b64bytes = b64 => Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
 
