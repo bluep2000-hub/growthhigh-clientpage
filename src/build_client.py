@@ -920,15 +920,25 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# 소통 내역 — 다우오피스 메일
+# 소통 내역
 #
-# 헤더만 읽는다. 제목이 곧 내용이라 본문·첨부는 건드리지 않는다.
-# 본문을 안 읽으면 사내 논의가 새어 나갈 일도, 요약이 틀릴 일도 없다.
+# 메일은 곧바로 화면에 나가지 않는다. 노션 소통 DB 에 「검토대기」로 앉히고,
+# 담당자가 「공개」로 바꾼 것만 JSON 에 실린다. 통화·미팅 요약이 붙기 시작하면
+# AI 가 쓴 문장이 확인 없이 클라이언트에게 나가게 되므로 한 번 걸러야 한다.
 #
-# 읽기 규칙은 check_imap.py 와 같다.
+# 드라이브·요약은 이 스크립트가 만들지 않는다 (클로드 코워크가 노션에 기록한다).
+# 이 스크립트가 노션에 쓰는 것은 IMAP 메일 헤더뿐이다.
+#
+# 메일 읽기 규칙은 check_imap.py 와 같다.
 #   EXAMINE 으로 연다 (SELECT 금지). 읽음 처리되면 안 된다
 #   BODY.PEEK[HEADER.FIELDS ...] 만 쓴다. STORE·EXPUNGE·DELETE 는 쓰지 않는다
 # ══════════════════════════════════════════════════════════════════════════
+
+# 소통 내역 DB. database_id 라우트 + 2022-06-28 로 접근된다 (확인 완료).
+TALKS_DB_ID = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de"
+TALK_STATUS_NEW = "검토대기"
+TALK_STATUS_PUBLIC = "공개"
+TALK_CHANNEL_MAIL = "메일"
 
 # 사람이 손으로 분류해둔 고객사 폴더를 그대로 쓴다. 발신 도메인 추측보다 정확하다.
 TALKS_FOLDER_PREFIX = "Inbox.고객사."
@@ -975,7 +985,9 @@ def strip_reply_prefix(title: str) -> str:
     return REPLY_PREFIX_RE.sub("", title).strip() or title.strip()
 
 
-def fetch_talks(company_name: str) -> list[dict]:
+# ── IMAP: 메일 헤더 수집 ─────────────────────────────────────────────────
+
+def fetch_mail_headers(company_name: str) -> list[dict]:
     """고객사 폴더에서 최근 90일치 메일 헤더를 읽는다.
 
     폴더명이 정확히 일치하는 것만 쓴다. 없으면 빈 목록 + 경고 — 추측하지 않는다.
@@ -984,16 +996,16 @@ def fetch_talks(company_name: str) -> list[dict]:
     user = os.environ.get("IMAP_USER", "").strip()
     password = os.environ.get("IMAP_PASS", "")
     if not (host and user and password):
-        warn("IMAP 접속 정보가 없습니다 — talks=[]")
+        warn("IMAP 접속 정보가 없습니다 — 메일 수집 생략")
         return []
     if not company_name:
-        warn("기업명이 없어 메일 폴더를 찾지 못했습니다 — talks=[]")
+        warn("기업명이 없어 메일 폴더를 찾지 못했습니다 — 메일 수집 생략")
         return []
 
     try:
         M = imaplib.IMAP4_SSL(host, IMAP_PORT, timeout=60)
     except Exception as e:                       # noqa: BLE001
-        warn(f"메일 서버 연결 실패 — talks=[]: {type(e).__name__}")
+        warn(f"메일 서버 연결 실패 — 메일 수집 생략: {type(e).__name__}")
         return []
 
     try:
@@ -1004,13 +1016,13 @@ def fetch_talks(company_name: str) -> list[dict]:
         folder = next((raw for raw in (list_raw_name(x) for x in data or [])
                        if raw and nfc(imap_utf7_decode(raw)) == target), None)
         if folder is None:
-            warn(f"메일 폴더 없음 — talks=[]: {TALKS_FOLDER_PREFIX}{company_name}")
+            warn(f"메일 폴더 없음 — 메일 수집 생략: {TALKS_FOLDER_PREFIX}{company_name}")
             return []
 
         # EXAMINE = 읽기 전용. SELECT 로 열면 읽음 처리가 될 수 있다.
         typ, data = M.select(f'"{folder}"', readonly=True)
         if typ != "OK":
-            warn(f"메일 폴더를 열지 못했습니다 — talks=[]: {folder}")
+            warn(f"메일 폴더를 열지 못했습니다: {folder}")
             return []
         exists = int(data[0])
         if exists == 0:
@@ -1023,7 +1035,7 @@ def fetch_talks(company_name: str) -> list[dict]:
         start = max(1, exists - TALKS_SCAN_MAX + 1)
         typ, data = M.fetch(f"{start}:{exists}", HEADER_SPEC)
         if typ != "OK":
-            warn(f"메일 헤더를 읽지 못했습니다 — talks=[]: {folder}")
+            warn(f"메일 헤더를 읽지 못했습니다: {folder}")
             return []
 
         cutoff = (today_kst() - timedelta(days=TALKS_DAYS)).isoformat()
@@ -1046,7 +1058,7 @@ def fetch_talks(company_name: str) -> list[dict]:
         log(f"  메일 {len(mails)}건 (전체 {exists}통 중 최근 {TALKS_DAYS}일, 헤더만)")
         return mails[:TALKS_FETCH_MAX]
     except Exception as e:                       # noqa: BLE001
-        warn(f"메일 수집 실패 — talks=[]: {type(e).__name__}: {e}")
+        warn(f"메일 수집 실패: {type(e).__name__}: {e}")
         return []
     finally:
         for close in (M.close, M.logout):
@@ -1070,115 +1082,102 @@ def parse_header(raw: bytes) -> dict | None:
     sender = parseaddr(msg.get("From") or "")[1].lower()
     return {
         "date": when,
-        "channel": "메일",
         "title": strip_reply_prefix(decode_mime(msg.get("Subject"))) or "(제목 없음)",
         # 우리 도메인에서 나갔으면 「보냄」. Inbox 아래에도 발신 사본이 섞여 있다.
         "direction": "보냄" if sender.endswith("@" + OWN_MAIL_DOMAIN) else "받음",
-        "_message_id": (msg.get("Message-ID") or "").strip(),
+        "message_id": (msg.get("Message-ID") or "").strip(),
     }
 
 
-# ── 게이트 ───────────────────────────────────────────────────────────────
+# ── 노션 소통 DB: 쓰기 ───────────────────────────────────────────────────
 
-def visible_talks(talks: list[dict]) -> list[dict]:
-    """화면(JSON)에 내보낼 것만 고른다.
-
-    지금은 노션 소통 DB 가 없어 전부 통과시킨다.
-    DB 가 생기면 「상태 = 공개」인 것만 남기도록 이 함수만 고치면 된다.
-    """
-    return talks
-
-
-def build_talks(company_name: str) -> list[dict]:
-    talks = fetch_talks(company_name)
-    if not talks:
-        return []
-
-    push_talks_to_notion(talks, company_name)
-
-    talks = visible_talks(talks)
-    talks.sort(key=lambda t: t["date"] or "", reverse=True)
-    return [{k: v for k, v in t.items() if not k.startswith("_")}
-            for t in talks[:TALKS_OUTPUT_MAX]]
-
-
-# ── 노션 소통 DB (선택) ──────────────────────────────────────────────────
-# DB 는 아직 없다. NOTION_TALKS_DB_ID 가 있으면 쓰고, 없으면 건너뛴다.
-# 스키마를 모르므로 DB 속성을 먼저 읽어 실제로 있는 것만 채운다.
-
-TALK_FIELDS = {                     # 우리 값 → (속성명 후보, 노션 타입)
-    "title":     (["제목", "내용", "소통 내역"], "title"),
-    "date":      (["일자", "날짜"], "date"),
-    "channel":   (["채널", "경로"], "select"),
-    "direction": (["방향"], "select"),
-    "company":   (["기업명", "고객사"], "rich_text"),
-    "status":    (["상태"], "select"),
-}
-TALK_MSGID_NAMES = ["Message-ID", "메시지 ID", "message_id"]
-TALK_INITIAL_STATUS = "검토대기"
-
-
-def push_talks_to_notion(talks: list[dict], company_name: str) -> None:
-    db_id = os.environ.get("NOTION_TALKS_DB_ID", "").strip()
-    if not db_id:
-        return
-
-    nt = Notion(os.environ.get("NOTION_TOKEN", "").strip())
+def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> None:
+    """새 메일만 「검토대기」로 넣는다. 화면에는 아직 나가지 않는다."""
+    # 기존 Message-ID 를 한 번에 받아 메모리에서 대조한다. 건마다 조회하지 않는다.
     try:
-        schema = nt.get(f"/databases/{db_id}").get("properties", {})
+        rows = nt.query_all(TALKS_DB_ID, {
+            "filter": {"property": "클라이언트",
+                       "relation": {"contains": client_page_id}},
+        })
     except ClientFailure as e:
-        warn(f"소통 DB 스키마를 읽지 못했습니다 — 노션 쓰기 생략: {e}")
+        warn(f"소통 DB 기존 항목 조회 실패 — 노션 쓰기 생략: {e}")
         return
+    seen = {p_text(r.get("properties", {}), "Message-ID") for r in rows}
+    seen.discard("")
 
-    def pick(names, want_type):
-        return next((n for n in names
-                     if (schema.get(n) or {}).get("type") == want_type), None)
-
-    # Message-ID 로 중복을 막는다. 저장할 데가 없으면 쓰지 않는다.
-    msgid_prop = pick(TALK_MSGID_NAMES, "rich_text")
-    if not msgid_prop:
-        warn("소통 DB 에 Message-ID(rich_text) 속성이 없습니다 — "
-             "중복을 막을 수 없어 노션 쓰기를 건너뜁니다")
-        return
-
-    mapping = {k: pick(names, typ) for k, (names, typ) in TALK_FIELDS.items()}
     added = skipped = 0
-    for t in talks:
-        mid = t.get("_message_id") or ""
+    for m in mails:
+        mid = m["message_id"]
         if not mid:
-            warn(f"Message-ID 없는 메일 — 노션 쓰기 건너뜀: {t['title'][:30]}")
+            warn(f"Message-ID 없는 메일 — 노션 쓰기 건너뜀: {m['title'][:30]}")
             continue
+        if mid in seen:
+            skipped += 1
+            continue
+
+        props = {
+            "제목": {"title": [{"text": {"content": m["title"][:2000]}}]},
+            "클라이언트": {"relation": [{"id": client_page_id}]},
+            "채널": {"select": {"name": TALK_CHANNEL_MAIL}},
+            "방향": {"select": {"name": m["direction"]}},
+            "Message-ID": {"rich_text": [{"text": {"content": mid[:2000]}}]},
+            "상태": {"select": {"name": TALK_STATUS_NEW}},
+            # 요약은 비워 둔다 — 메일은 제목이 곧 내용이다.
+        }
+        if m["date"]:
+            props["일자"] = {"date": {"start": m["date"]}}
+
         try:
-            hit = nt.post(f"/databases/{db_id}/query", {
-                "page_size": 1,
-                "filter": {"property": msgid_prop, "rich_text": {"equals": mid}},
-            })
-            if hit.get("results"):
-                skipped += 1
-                continue
-
-            props = {msgid_prop: {"rich_text": [{"text": {"content": mid[:2000]}}]}}
-            values = {**t, "company": company_name, "status": TALK_INITIAL_STATUS}
-            for key, prop in mapping.items():
-                val = values.get(key)
-                if not prop or not val:
-                    continue
-                kind = schema[prop]["type"]
-                if kind == "title":
-                    props[prop] = {"title": [{"text": {"content": str(val)[:2000]}}]}
-                elif kind == "rich_text":
-                    props[prop] = {"rich_text": [{"text": {"content": str(val)[:2000]}}]}
-                elif kind == "select":
-                    props[prop] = {"select": {"name": str(val)}}
-                elif kind == "date":
-                    props[prop] = {"date": {"start": str(val)}}
-
-            nt.post("/pages", {"parent": {"database_id": db_id}, "properties": props})
+            nt.post("/pages", {"parent": {"database_id": TALKS_DB_ID},
+                               "properties": props})
+            seen.add(mid)                        # 같은 실행 안의 중복도 막는다
             added += 1
         except ClientFailure as e:
             warn(f"소통 DB 쓰기 실패 — 건너뜁니다: {e}")
 
-    log(f"  소통 DB: {added}건 추가 · {skipped}건 중복 건너뜀")
+    log(f"  소통 DB: {added}건 추가(검토대기) · {skipped}건 중복 건너뜀")
+
+
+# ── 노션 소통 DB: 읽기 (공개 게이트) ─────────────────────────────────────
+
+def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
+    """「공개」인 것만 읽는다. 화면에 무엇이 나갈지는 이 함수 하나가 정한다."""
+    try:
+        res = nt.post(f"/databases/{TALKS_DB_ID}/query", {
+            "page_size": TALKS_OUTPUT_MAX,
+            "filter": {"and": [
+                {"property": "클라이언트", "relation": {"contains": client_page_id}},
+                {"property": "상태", "select": {"equals": TALK_STATUS_PUBLIC}},
+            ]},
+            "sorts": [{"property": "일자", "direction": "descending"}],
+        })
+    except ClientFailure as e:
+        warn(f"소통 DB 조회 실패 — talks=[]: {e}")
+        return []
+
+    out = []
+    for pg in res.get("results", []):
+        pr = pg.get("properties", {})
+        out.append({
+            "date": (p_date(pr, "일자").get("start") or "")[:10],
+            "channel": p_select(pr, "채널") or "",
+            "title": p_text(pr, "제목"),
+            "summary": nn(p_text(pr, "요약")),
+            "direction": p_select(pr, "방향"),
+        })
+    return out
+
+
+def build_talks(nt: Notion, client: dict, company_name: str,
+                skip_imap: bool) -> list[dict]:
+    if skip_imap:
+        log("  메일 수집 건너뜀 (--skip-imap)")
+    else:
+        mails = fetch_mail_headers(company_name)
+        if mails:
+            sync_mails_to_notion(nt, client["page_id"], mails)
+    # IMAP 이 실패해도 읽기는 그대로 진행한다.
+    return read_talks(nt, client["page_id"])
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -1239,7 +1238,8 @@ def write_client_page(slug: str, dry_run: bool) -> None:
 # 빌드
 # ══════════════════════════════════════════════════════════════════════════
 
-def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool) -> dict:
+def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
+              skip_imap: bool) -> dict:
     slug = client["slug"]
     log(f"\n▶ {slug}")
 
@@ -1259,8 +1259,8 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool) ->
     recommend = fetch_recommend(name, include_expired)
     log(f"  추천 지원사업 {len(recommend)}건")
 
-    talks = build_talks(name)
-    log(f"  소통 내역 {len(talks)}건")
+    talks = build_talks(nt, client, name, skip_imap)
+    log(f"  소통 내역 {len(talks)}건 (공개)")
 
     events = build_events(progress, recommend, name, include_expired)
     log(f"  일정 {len(events)}건")
@@ -1309,7 +1309,8 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool) ->
     return {"slug": slug, "encrypted": bool(password), "payload": payload}
 
 
-def build(only: str | None, include_expired: bool, dry_run: bool) -> int:
+def build(only: str | None, include_expired: bool, dry_run: bool,
+          skip_imap: bool) -> int:
     token = os.environ.get("NOTION_TOKEN", "").strip()
     if not token:
         log("NOTION_TOKEN 이 없습니다. .env 를 확인하세요 (.env.example 참고).")
@@ -1325,7 +1326,7 @@ def build(only: str | None, include_expired: bool, dry_run: bool) -> int:
     failed, plaintext = [], []
     for c in clients:
         try:
-            res = build_one(nt, c, include_expired, dry_run)
+            res = build_one(nt, c, include_expired, dry_run, skip_imap)
             if not res["encrypted"]:
                 plaintext.append(res["slug"])
         except ClientFailure as e:
@@ -1355,11 +1356,13 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="파일을 쓰지 않는다")
     ap.add_argument("--no-include-expired", action="store_true",
                     help="마감이 지난 추천 사업·일정을 제외한다")
+    ap.add_argument("--skip-imap", action="store_true",
+                    help="메일 수집을 건너뛰고 노션 소통 DB 만 읽는다")
     args = ap.parse_args()
 
     load_dotenv(ROOT / ".env")
     include_expired = INCLUDE_EXPIRED and not args.no_include_expired
-    return build(args.client, include_expired, args.dry_run)
+    return build(args.client, include_expired, args.dry_run, args.skip_imap)
 
 
 if __name__ == "__main__":

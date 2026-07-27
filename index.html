@@ -630,17 +630,20 @@ function init(D){
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${table('cert')}`;
   V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
 
-  /* 소통 내역 — 주고받은 메일의 헤더만 온다. 본문은 수집하지 않는다. */
+  /* 소통 내역 — 노션 소통 DB 에서 「공개」인 것만 온다.
+     요약은 사람이 확인한 것만 채워지므로 없으면 칸을 비운다. */
   V.talk=()=>`<div class="vh"><h1>소통 내역</h1>
     ${talks.length?`<span class="n">${talks.length}건</span>`:''}</div>
    ${talks.length?`<div class="card"><table><thead><tr>
-    <th style="width:14%">일자</th><th style="width:10%">채널</th>
-    <th>제목</th><th style="width:10%">방향</th></tr></thead>
+    <th style="width:13%">일자</th><th style="width:14%">채널</th>
+    <th style="width:38%">제목</th><th>요약</th></tr></thead>
    <tbody>${talks.map(t=>`<tr>
      <td class="dtc">${fmt(t.date)}</td>
-     <td class="dtc">${esc(t.channel||'')}</td>
-     <td><div class="t-nm">${esc(t.title||'')}</div></td>
-     <td class="dtc">${esc(t.direction||'')}</td></tr>`).join('')}
+     <td class="dtc">${esc(t.channel||'')}${t.direction
+        ?`<span class="co" style="margin-left:5px">${esc(t.direction)}</span>`:''}</td>
+     <td class="lead"><div class="t-nm">${esc(t.title||'')}</div></td>
+     <td class="lead">${t.summary?`<div class="t-sub" style="margin-top:0">${esc(t.summary)}</div>`:''}</td>
+     </tr>`).join('')}
    </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
 
   /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
