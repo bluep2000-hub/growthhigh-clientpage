@@ -19,6 +19,7 @@ import base64
 import imaplib
 import json
 import os
+import quopri
 import re
 import sys
 import time
@@ -27,6 +28,7 @@ import urllib.parse
 from datetime import date, datetime, timedelta, timezone
 from email import message_from_bytes
 from email.utils import parseaddr, parsedate_to_datetime
+from html import unescape as html_unescape
 from pathlib import Path
 
 import requests
@@ -922,16 +924,17 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 # ══════════════════════════════════════════════════════════════════════════
 # 소통 내역
 #
-# 메일은 곧바로 화면에 나가지 않는다. 노션 소통 DB 에 「검토대기」로 앉히고,
-# 담당자가 「공개」로 바꾼 것만 JSON 에 실린다. 통화·미팅 요약이 붙기 시작하면
-# AI 가 쓴 문장이 확인 없이 클라이언트에게 나가게 되므로 한 번 걸러야 한다.
+# 메일은 곧바로 화면에 나가지 않는다. 본문까지 읽어 노션 소통 DB 에
+# 「검토대기」로 앉히고, 담당자가 「공개」로 바꾼 것만 JSON 에 실린다.
+# 본문에는 사내 판단이 섞여 있을 수 있으므로 사람이 한 번 거른다.
 #
-# 드라이브·요약은 이 스크립트가 만들지 않는다 (클로드 코워크가 노션에 기록한다).
-# 이 스크립트가 노션에 쓰는 것은 IMAP 메일 헤더뿐이다.
+# 통화록·요약은 이 스크립트가 만들지 않는다 (클로드 코워크가 노션에 기록한다).
+# 이 스크립트는 IMAP 을 노션에 쓰고, 노션을 읽는다.
 #
 # 메일 읽기 규칙은 check_imap.py 와 같다.
 #   EXAMINE 으로 연다 (SELECT 금지). 읽음 처리되면 안 된다
-#   BODY.PEEK[HEADER.FIELDS ...] 만 쓴다. STORE·EXPUNGE·DELETE 는 쓰지 않는다
+#   BODY.PEEK 만 쓴다. STORE·EXPUNGE·DELETE 는 쓰지 않는다
+#   첨부는 BODYSTRUCTURE 로 파일명만 읽고 내려받지 않는다
 # ══════════════════════════════════════════════════════════════════════════
 
 # 소통 내역 DB. database_id 라우트 + 2022-06-28 로 접근된다 (확인 완료).
@@ -950,12 +953,39 @@ OWN_MAIL_DOMAIN = "growthhigh.co.kr"
 # 메일함 뒤쪽에서 이만큼만 훑는다. 도착순이라 최근 건은 항상 이 구간에 있다.
 TALKS_SCAN_MAX = 300
 
+BODY_FETCH_MAX = 200_000        # 텍스트 파트를 이 바이트까지만 받는다
+BODY_MAX_CHARS = 2000           # 노션 rich_text 한계이자 화면에 싣는 한계
+BODY_MIN_CHARS = 50             # 이보다 짧으면 제목만 있는 메일로 본다
+BODY_TRUNC_MARK = "…(이하 생략)"
+
 IMAP_PORT = 993
 HEADER_SPEC = "(BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)])"
 
 # 「RE: FW: 회신: 제목」 처럼 겹쳐 붙은 것까지 한 번에 뗀다. Re[2]: 형태도 처리.
 REPLY_PREFIX_RE = re.compile(
     r"^(?:\s*(?:RE|FW|FWD|회신|전달)\s*(?:\[\d+\])?\s*:\s*)+", re.IGNORECASE)
+
+# 이 줄부터 아래는 인용문이거나 서명·면책이다. 통째로 잘라낸다.
+BODY_CUT_RES = [
+    re.compile(r"^\s*-{2,}\s*Original Message\s*-{2,}", re.IGNORECASE),
+    re.compile(r"^\s*-{2,}\s*원본\s*메일\s*-{2,}"),
+    # 「보낸 사람」은 아웃룩이 띄어쓰기를 넣는다. 붙여 쓴 형태만 보면 인용이 안 잘린다.
+    re.compile(r"^\s*_{10,}\s*$"),                          # 아웃룩 인용 구분선
+    re.compile(r"^\s*보낸\s*사람\s*:"),
+    re.compile(r"^\s*\d{4}년\s*\d{1,2}월\s*\d{1,2}일.*작성\s*:"),   # 지메일 한국어
+    re.compile(r"^\s*본\s*메일은"),
+    re.compile(r"^\s*이\s*메일은"),
+    re.compile(r"^\s*Confidential", re.IGNORECASE),
+]
+
+# 메일 클라이언트가 text/plain 에 남기는 찌꺼기. 사람이 읽을 내용이 아니다.
+CID_RE = re.compile(r"\[cid:[^\]]*\]")
+ANGLE_URL_RE = re.compile(r"<(?:https?|mailto):[^>\s]*>")
+PIXEL_LINE_RE = re.compile(r"^\s*\[https?://[^\]]*\]\s*$")
+
+TAG_RE = re.compile(r"<[^>]+>")
+BR_RE = re.compile(r"(?i)<\s*(?:br\s*/?|/p|/div|/tr)\s*>")
+SPACE_RE = re.compile(r"[ \t ]+")
 
 # LIST 응답에서 메일함 원본 이름(수정 UTF-7)을 뽑는다.
 # SELECT 에는 이 원본을 그대로 쓴다 — imaplib 은 명령을 ASCII 로만 보내므로
@@ -985,10 +1015,176 @@ def strip_reply_prefix(title: str) -> str:
     return REPLY_PREFIX_RE.sub("", title).strip() or title.strip()
 
 
-# ── IMAP: 메일 헤더 수집 ─────────────────────────────────────────────────
+# ── BODYSTRUCTURE 파서 ───────────────────────────────────────────────────
+# 첨부를 내려받지 않고 텍스트 파트만 받으려면 구조를 먼저 알아야 한다.
+# 표준 파서가 없어 S-식을 직접 훑는다.
 
-def fetch_mail_headers(company_name: str) -> list[dict]:
-    """고객사 폴더에서 최근 90일치 메일 헤더를 읽는다.
+def bs_tokens(s: bytes):
+    i, n = 0, len(s)
+    while i < n:
+        c = s[i:i + 1]
+        if c in b" \t\r\n":
+            i += 1
+        elif c in b"()":
+            yield c.decode(), None
+            i += 1
+        elif c == b'"':
+            j, out = i + 1, bytearray()
+            while j < n and s[j:j + 1] != b'"':
+                if s[j:j + 1] == b"\\":
+                    out += s[j + 1:j + 2]
+                    j += 2
+                else:
+                    out += s[j:j + 1]
+                    j += 1
+            yield "v", out.decode("utf-8", "replace")
+            i = j + 1
+        elif c == b"{":                       # 리터럴 {n}\r\n<바이트>
+            j = s.find(b"}", i)
+            if j < 0:
+                return
+            ln = int(s[i + 1:j] or 0)
+            start = j + 3
+            yield "v", s[start:start + ln].decode("utf-8", "replace")
+            i = start + ln
+        else:
+            j = i
+            while j < n and s[j:j + 1] not in b" \t\r\n()":
+                j += 1
+            tok = s[i:j].decode("ascii", "replace")
+            yield "v", (None if tok.upper() == "NIL" else tok)
+            i = j
+
+
+def bs_parse(tokens) -> list:
+    root: list = []
+    stack = [root]
+    for kind, val in tokens:
+        if kind == "(":
+            node: list = []
+            stack[-1].append(node)
+            stack.append(node)
+        elif kind == ")":
+            if len(stack) > 1:
+                stack.pop()
+        else:
+            stack[-1].append(val)
+    return root
+
+
+def bs_find(node):
+    """FETCH 응답 어딘가에 있는 BODYSTRUCTURE 본체를 찾는다."""
+    if not isinstance(node, list):
+        return None
+    for i, x in enumerate(node):
+        if isinstance(x, str) and x.upper() == "BODYSTRUCTURE" and i + 1 < len(node):
+            return node[i + 1]
+        found = bs_find(x)
+        if found is not None:
+            return found
+    return None
+
+
+def bs_parts(node, prefix=""):
+    """(파트번호, 노드) 를 RFC 3501 번호 체계로 훑는다."""
+    if not isinstance(node, list) or not node:
+        return
+    if isinstance(node[0], list):                 # multipart
+        idx = 1
+        for child in node:
+            if not isinstance(child, list):
+                break
+            yield from bs_parts(child, f"{prefix}{idx}.")
+            idx += 1
+    else:
+        yield prefix[:-1] or "1", node
+
+
+def bs_pairs(lst) -> dict:
+    if not isinstance(lst, list):
+        return {}
+    return {str(lst[i]).lower(): lst[i + 1]
+            for i in range(0, len(lst) - 1, 2) if isinstance(lst[i], str)}
+
+
+def bs_disposition(node) -> tuple[str | None, dict]:
+    for x in node:
+        if (isinstance(x, list) and x and isinstance(x[0], str)
+                and x[0].lower() in ("attachment", "inline")):
+            return x[0].lower(), bs_pairs(x[1] if len(x) > 1 else [])
+    return None, {}
+
+
+# ── 본문 정리 ────────────────────────────────────────────────────────────
+
+def decode_part(raw: bytes, encoding: str | None, charset: str | None) -> str:
+    """Content-Transfer-Encoding 을 풀고 charset 으로 디코딩한다 (EUC-KR 다수)."""
+    enc = (encoding or "").lower()
+    if enc == "base64":
+        b = b"".join(raw.split())
+        b = b[:len(b) - len(b) % 4]              # 잘린 스트림도 풀리게 맞춘다
+        try:
+            raw = base64.b64decode(b)
+        except Exception:                        # noqa: BLE001
+            return ""
+    elif enc == "quoted-printable":
+        try:
+            raw = quopri.decodestring(raw)
+        except Exception:                        # noqa: BLE001
+            return ""
+    try:
+        return raw.decode(charset or "utf-8", "replace")
+    except LookupError:                          # 알 수 없는 charset 이름
+        return raw.decode("utf-8", "replace")
+
+
+def clean_body(text: str, is_html: bool) -> str:
+    """인용문·서명을 걷어내고 사람이 읽을 만한 본문만 남긴다."""
+    if is_html:
+        text = BR_RE.sub("\n", text)             # 줄바꿈 태그는 개행으로 살린다
+        text = TAG_RE.sub("", text)
+        text = html_unescape(text)
+
+    # 첨부 참조·추적 픽셀·꺾쇠 링크는 본문이 아니라 메일 클라이언트 흔적이다
+    text = CID_RE.sub("", text)
+    text = ANGLE_URL_RE.sub("", text)
+
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+    # 인용문·서명이 시작되는 줄부터 아래는 통째로 버린다
+    for i, ln in enumerate(lines):
+        if any(r.match(ln) for r in BODY_CUT_RES):
+            lines = lines[:i]
+            break
+
+    lines = [SPACE_RE.sub(" ", ln).strip() for ln in lines
+             if not ln.lstrip().startswith(">")            # 인용 줄 제거
+             and not PIXEL_LINE_RE.match(ln)]
+    text = "\n".join(lines)
+    text = re.sub(r"\n{3,}", "\n\n", text)           # 빈 줄이 여러 개면 하나로
+    return text.strip()
+
+
+def compose_body(text: str, attachments: list[str]) -> str:
+    """정리한 본문 + 첨부 파일명 한 줄. 노션 rich_text 한계에 맞춰 자른다."""
+    # 너무 짧으면 제목이 곧 내용인 메일이다. 본문은 비운다.
+    if len(text) < BODY_MIN_CHARS:
+        text = ""
+
+    tail = f"첨부: {', '.join(attachments)}" if attachments else ""
+    room = BODY_MAX_CHARS - (len(tail) + 1 if tail else 0)
+
+    if len(text) > room:
+        text = text[:max(0, room - len(BODY_TRUNC_MARK))].rstrip() + BODY_TRUNC_MARK
+
+    parts = [p for p in (text, tail) if p]
+    return "\n".join(parts)[:BODY_MAX_CHARS]
+
+
+# ── IMAP: 헤더 + 본문 수집 ───────────────────────────────────────────────
+
+def fetch_mails(company_name: str) -> list[dict]:
+    """고객사 폴더에서 최근 90일치 메일을 읽는다.
 
     폴더명이 정확히 일치하는 것만 쓴다. 없으면 빈 목록 + 경고 — 추측하지 않는다.
     """
@@ -1046,6 +1242,10 @@ def fetch_mail_headers(company_name: str) -> list[dict]:
             mail = parse_header(item[1])
             if not mail:
                 continue
+            try:
+                mail["seq"] = item[0].split()[0].decode()
+            except Exception:                    # noqa: BLE001
+                continue
             if not mail["date"]:
                 undated += 1
                 continue
@@ -1055,8 +1255,18 @@ def fetch_mail_headers(company_name: str) -> list[dict]:
             warn(f"날짜를 읽을 수 없는 메일 {undated}건 — 제외했습니다")
 
         mails.sort(key=lambda m: m["date"], reverse=True)
-        log(f"  메일 {len(mails)}건 (전체 {exists}통 중 최근 {TALKS_DAYS}일, 헤더만)")
-        return mails[:TALKS_FETCH_MAX]
+        mails = mails[:TALKS_FETCH_MAX]
+        log(f"  메일 {len(mails)}건 (전체 {exists}통 중 최근 {TALKS_DAYS}일)")
+
+        # 본문은 건별로 읽는다. 한 건이 죽어도 나머지는 계속.
+        for m in mails:
+            try:
+                text, attachments = read_body(M, m["seq"])
+            except Exception as e:               # noqa: BLE001
+                warn(f"본문 파싱 실패 — 요약 비움: {m['title'][:28]} ({type(e).__name__})")
+                text, attachments = "", []
+            m["body"] = compose_body(text, attachments)
+        return mails
     except Exception as e:                       # noqa: BLE001
         warn(f"메일 수집 실패: {type(e).__name__}: {e}")
         return []
@@ -1089,6 +1299,53 @@ def parse_header(raw: bytes) -> dict | None:
     }
 
 
+def read_body(M: imaplib.IMAP4_SSL, seq: str) -> tuple[str, list[str]]:
+    """텍스트 파트만 받고, 첨부는 파일명만 읽는다."""
+    typ, data = M.fetch(seq, "(BODYSTRUCTURE)")
+    if typ != "OK" or not data:
+        return "", []
+    line = data[0] if isinstance(data[0], bytes) else b" ".join(
+        x for x in data[0] if isinstance(x, bytes))
+    struct = bs_find(bs_parse(bs_tokens(line)))
+    if struct is None:
+        return "", []
+
+    attachments: list[str] = []
+    text_part = None                             # (파트번호, 노드, subtype)
+    for part_no, node in bs_parts(struct):
+        kind = (node[0] or "").lower() if node else ""
+        sub = (node[1] or "").lower() if len(node) > 1 else ""
+        params = bs_pairs(node[2]) if len(node) > 2 else {}
+        disp, dparams = bs_disposition(node[3:] if len(node) > 3 else [])
+        filename = dparams.get("filename") or params.get("name")
+
+        if disp == "attachment" or (filename and kind != "text"):
+            attachments.append(decode_mime(filename) if filename else f"(이름없음).{sub}")
+            continue
+        # text/plain 우선, 없으면 text/html
+        if kind == "text" and (text_part is None or
+                               (sub == "plain" and text_part[2] != "plain")):
+            text_part = (part_no, node, sub)
+
+    if text_part is None:
+        return "", attachments
+
+    part_no, node, sub = text_part
+    size = node[6] if len(node) > 6 and isinstance(node[6], str) and node[6].isdigit() else None
+    spec = f"BODY.PEEK[{part_no}]"
+    if size and int(size) > BODY_FETCH_MAX:
+        spec += f"<0.{BODY_FETCH_MAX}>"
+    typ, data = M.fetch(seq, f"({spec})")
+    if typ != "OK" or not data or not isinstance(data[0], tuple):
+        return "", attachments
+
+    params = bs_pairs(node[2]) if len(node) > 2 else {}
+    text = decode_part(data[0][1],
+                       node[5] if len(node) > 5 else None,
+                       params.get("charset"))
+    return clean_body(text, sub == "html"), attachments
+
+
 # ── 노션 소통 DB: 쓰기 ───────────────────────────────────────────────────
 
 def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> None:
@@ -1115,14 +1372,15 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
             skipped += 1
             continue
 
+        body = m.get("body") or ""
         props = {
             "제목": {"title": [{"text": {"content": m["title"][:2000]}}]},
             "클라이언트": {"relation": [{"id": client_page_id}]},
             "채널": {"select": {"name": TALK_CHANNEL_MAIL}},
             "방향": {"select": {"name": m["direction"]}},
+            "요약": {"rich_text": ([{"text": {"content": body}}] if body else [])},
             "Message-ID": {"rich_text": [{"text": {"content": mid[:2000]}}]},
             "상태": {"select": {"name": TALK_STATUS_NEW}},
-            # 요약은 비워 둔다 — 메일은 제목이 곧 내용이다.
         }
         if m["date"]:
             props["일자"] = {"date": {"start": m["date"]}}
@@ -1162,7 +1420,7 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
             "date": (p_date(pr, "일자").get("start") or "")[:10],
             "channel": p_select(pr, "채널") or "",
             "title": p_text(pr, "제목"),
-            "summary": nn(p_text(pr, "요약")),
+            "body": nn(p_text(pr, "요약")),
             "direction": p_select(pr, "방향"),
         })
     return out
@@ -1173,7 +1431,7 @@ def build_talks(nt: Notion, client: dict, company_name: str,
     if skip_imap:
         log("  메일 수집 건너뜀 (--skip-imap)")
     else:
-        mails = fetch_mail_headers(company_name)
+        mails = fetch_mails(company_name)
         if mails:
             sync_mails_to_notion(nt, client["page_id"], mails)
     # IMAP 이 실패해도 읽기는 그대로 진행한다.
