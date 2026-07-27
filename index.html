@@ -90,6 +90,7 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:16px}
 .card>.ch{padding:11px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
 .card>.ch h2{font-size:12.5px;font-weight:600;letter-spacing:-.01em}
+.card>.ch .d{font-size:11.5px;color:var(--tx-3);font-variant-numeric:tabular-nums}
 .card>.ch .more{margin-left:auto;font-size:11.5px;color:var(--tx-3)}
 .card>.cb{padding:15px}
 
@@ -441,11 +442,9 @@ function init(D){
     p.style.display = '';
   }
 
-  /* 공지 라벨 — notice.title 에서 월을 뽑는다. 못 뽑으면 제목을 그대로 쓴다 */
-  const noticeMonth = notice ? (String(notice.title||'').match(/(\d{1,2})\s*월/)||[])[1] : null;
-  const noticeLabel = notice
-    ? (noticeMonth ? `${noticeMonth}월 공지사항` : (notice.title || '공지사항'))
-    : null;
+  /* 메뉴·breadcrumb·요약 카드는 '공지사항' 으로 고정한다.
+     몇 월인지는 공지 화면 제목(notice.title)에만 남긴다. */
+  const noticeLabel = '공지사항';
 
   /* 좌측 메뉴 — 공지가 없으면 항목 자체를 만들지 않는다 */
   const NAV = [
@@ -528,6 +527,7 @@ function init(D){
     const rest = items.length - shown.length;
     return `<div class="card" style="margin-top:24px">
       <div class="ch"><h2>${esc(noticeLabel)}</h2>
+        ${notice.date?`<span class="d">${esc(notice.date)}</span>`:''}
         <a class="more" href="#" data-go="notice">전체 보기 →</a></div>
       <div class="cb">
        ${shown.length
