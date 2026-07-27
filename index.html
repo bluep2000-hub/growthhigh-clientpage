@@ -129,16 +129,20 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .cal-g span.dim{opacity:.22}
 .cal-g span.ev{color:var(--tx);font-weight:600;background:var(--panel-2)}
 [data-theme="light"] .cal-g span.ev{background:var(--hover)}
+/* 점 색은 일정 종류에 따라 --dot 으로 들어온다 (진행 파랑 / 마감 노랑) */
 .cal-g span.ev::after{content:'';position:absolute;bottom:3px;width:3px;height:3px;
-  border-radius:50%;background:var(--run)}
+  border-radius:50%;background:var(--dot,var(--run))}
 .cal-g span.tdy{background:var(--accent);color:#fff;font-weight:600}
 .cal-g span.tdy::after{background:#fff}
 .evl{border-left:1px solid var(--line);padding-left:20px}
 .evl .e{display:flex;gap:11px;padding:0 0 12px}
 .evl .e:last-child{padding-bottom:0}
+.evl .e.gone{opacity:.55}
 .evl .e .dd{width:44px;flex:none;font-size:11.5px;color:var(--run);font-weight:500;
   font-variant-numeric:tabular-nums;padding-top:1px}
 .evl .e .t{font-size:12.5px;font-weight:500;line-height:1.45}
+.evl .e .t .kd{font-size:10px;font-weight:500;border:1px solid var(--line-2);
+  border-radius:3px;padding:0 5px;margin-left:6px;color:var(--tx-3);white-space:nowrap}
 .evl .e .m{font-size:11.5px;color:var(--tx-2);margin-top:2px}
 @media(max-width:900px){.cal-w{grid-template-columns:1fr}
   .evl{border-left:none;padding-left:0;border-top:1px solid var(--line);padding-top:14px}}
@@ -536,27 +540,41 @@ function init(D){
       </div></div>`;
   }
 
-  /* 일정 — 이벤트가 없어도 달력은 그대로 둔다 */
+  /* 일정 — progress 의 종료 예정일과 recommend 의 마감일에서 온다.
+     이벤트가 없어도 달력은 그대로 둔다. */
+  const KIND = { project:{label:'진행', dot:'var(--accent)'},
+                 deadline:{label:'마감', dot:'var(--run)'} };
+
   function calMonth(y,m){
     const first=new Date(y,m-1,1), last=new Date(y,m,0).getDate(), lead=first.getDay();
-    const evd=new Set(events.filter(e=>String(e.d||'').startsWith(`${y}-${pad2(m)}`))
-      .map(e=>+String(e.d).slice(8)));
+    /* 날짜별 점 색. 같은 날 여러 건이면 먼저 오는 건의 종류를 쓴다 */
+    const dot=new Map();
+    events.filter(e=>String(e.date||'').startsWith(`${y}-${pad2(m)}`))
+      .forEach(e=>{ const d=+String(e.date).slice(8);
+        if(!dot.has(d)) dot.set(d,(KIND[e.kind]||KIND.deadline).dot); });
     let c=''; ['일','월','화','수','목','금','토'].forEach(w=>c+=`<span class="wk">${w}</span>`);
     for(let i=0;i<lead;i++) c+='<span class="dim"></span>';
     for(let d=1;d<=last;d++){
       const iso=`${y}-${pad2(m)}-${pad2(d)}`;
-      c+=`<span class="${iso===TODAY?'tdy':evd.has(d)?'ev':''}">${d}</span>`;
+      const cls=iso===TODAY?'tdy':dot.has(d)?'ev':'';
+      const st=(cls==='ev')?` style="--dot:${dot.get(d)}"`:'';
+      c+=`<span class="${cls}"${st}>${d}</span>`;
     }
     return `<div class="cal"><h4>${m}월</h4><div class="cal-g">${c}</div></div>`;
   }
+
   function schedule(){
     const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
     const ny=m===12?y+1:y, nm=m===12?1:m+1;
     const list = events.length ? events.map(e=>{
-      const dd=Math.round((new Date(e.d)-new Date(TODAY))/864e5);
-      return `<div class="e"><span class="dd">${dd>=0?`D-${dd}`:`D+${-dd}`}</span><span>
-        <span class="t">${esc(e.t)}</span>
-        <span class="m">${esc(String(e.d||'').slice(5).replace('-','/'))}${e.m?` · ${esc(e.m)}`:''}</span>
+      const k = KIND[e.kind] || KIND.deadline;
+      /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
+      const left = e.past ? (e.kind==='project'?'종료':'마감') : (e.dday || '');
+      return `<div class="e${e.past?' gone':''}">
+        <span class="dd"${e.past?' style="color:var(--tx-3)"':''}>${esc(left)}</span><span>
+        <span class="t">${esc(e.title)}<span class="kd">${k.label}</span></span>
+        <span class="m">${esc(String(e.date||'').slice(5).replace('-','/'))}${
+          e.meta?` · ${esc(e.meta)}`:''}</span>
         </span></div>`;
     }).join('') : '<p class="empty">등록된 일정이 없습니다.</p>';
     return `<div class="card"><div class="ch"><h2>일정</h2></div><div class="cb">
@@ -566,7 +584,8 @@ function init(D){
 
   /* 화면 */
   const V={};
-  const nextEv = events.length ? events[0] : null;
+  /* KPI 「다음 일정」 타일은 아직 안 지난 것 중 가장 가까운 건을 쓴다 */
+  const nextEv = events.find(e => !e.past) || null;
 
   V.info=()=>`
    <div class="hero"><span class="${markCls}">${logoMark(52)}</span><div>
@@ -583,8 +602,8 @@ function init(D){
     <div class="k1"><div class="k">취득 인증</div><div class="v">${kpi.certs ?? 0}<small>건</small></div>
       <div class="s">기업인증·지식재산권 완료 건</div></div>
     <div class="k1"><div class="k">다음 일정</div>
-      <div class="v" style="font-size:19px">${nextEv?esc(String(nextEv.d).slice(5).replace('-','/')):'—'}</div>
-      <div class="s">${nextEv?esc(nextEv.t):'등록된 일정이 없습니다'}</div></div>
+      <div class="v" style="font-size:19px">${nextEv?esc(String(nextEv.date).slice(5).replace('-','/')):'—'}</div>
+      <div class="s">${nextEv?esc(nextEv.title):'예정된 일정이 없습니다'}</div></div>
    </div>
 
    ${noticeSummary()}
