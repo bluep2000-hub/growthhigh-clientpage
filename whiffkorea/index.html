@@ -457,7 +457,8 @@ function init(D){
       {id:'fund',ic:'fund',nm:CATNM.fund,ct:cnt('fund')},
       {id:'cert',ic:'cert',nm:CATNM.cert,ct:cnt('cert')},
       {id:'proj',ic:'proj',nm:CATNM.proj,ct:cnt('proj')},
-      {id:'talk',ic:'talk',nm:'소통 내역',ct:talks.length}]},
+      /* 주고받은 메일이 없으면 항목 자체를 만들지 않는다 */
+      ...(talks.length ? [{id:'talk',ic:'talk',nm:'소통 내역',ct:talks.length}] : [])]},
     /* 추천할 사업이 없으면 「제안」 그룹째 감춘다 */
     ...(recommend.length
       ? [{ g:'제안', items:[{id:'open',ic:'open',nm:'추천 지원사업',ct:recommend.length}]}] : []),
@@ -629,12 +630,17 @@ function init(D){
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${table('cert')}`;
   V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
 
+  /* 소통 내역 — 주고받은 메일의 헤더만 온다. 본문은 수집하지 않는다. */
   V.talk=()=>`<div class="vh"><h1>소통 내역</h1>
     ${talks.length?`<span class="n">${talks.length}건</span>`:''}</div>
-   ${talks.length?`<div class="card"><table><tbody>${talks.map(t=>`<tr>
-     <td><div class="t-nm">${esc(t.t||'')}</div>
-         ${t.m?`<div class="t-sub">${esc(t.m)}</div>`:''}</td>
-     <td class="dtc" style="width:16%">${fmt(t.d)}</td></tr>`).join('')}
+   ${talks.length?`<div class="card"><table><thead><tr>
+    <th style="width:14%">일자</th><th style="width:10%">채널</th>
+    <th>제목</th><th style="width:10%">방향</th></tr></thead>
+   <tbody>${talks.map(t=>`<tr>
+     <td class="dtc">${fmt(t.date)}</td>
+     <td class="dtc">${esc(t.channel||'')}</td>
+     <td><div class="t-nm">${esc(t.title||'')}</div></td>
+     <td class="dtc">${esc(t.direction||'')}</td></tr>`).join('')}
    </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
 
   /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
