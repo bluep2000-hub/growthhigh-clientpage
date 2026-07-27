@@ -300,7 +300,7 @@ const LABELS = {
 };
 const CATNM = { fund:'정부지원사업', cert:'기업인증·지식재산권', proj:'경영자문 프로젝트' };
 const BADGE = { run:'진행', ok:'종료', no:'보류', wait:'예정' };
-const GL = { info:'▣', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
+const GL = { info:'▣', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
 
 const MARK = s=>`<svg viewBox="0 0 40 40" width="${s}" height="${s}" aria-hidden="true">
 <rect width="40" height="40" rx="9" fill="#123027"/>
@@ -441,9 +441,17 @@ function init(D){
     p.style.display = '';
   }
 
-  /* 좌측 메뉴 */
+  /* 공지 라벨 — notice.title 에서 월을 뽑는다. 못 뽑으면 제목을 그대로 쓴다 */
+  const noticeMonth = notice ? (String(notice.title||'').match(/(\d{1,2})\s*월/)||[])[1] : null;
+  const noticeLabel = notice
+    ? (noticeMonth ? `${noticeMonth}월 공지사항` : (notice.title || '공지사항'))
+    : null;
+
+  /* 좌측 메뉴 — 공지가 없으면 항목 자체를 만들지 않는다 */
   const NAV = [
-    { g:'기업', items:[{id:'info',ic:'info',nm:'기업 정보'}]},
+    { g:'기업', items:[
+      {id:'info',ic:'info',nm:'기업 정보'},
+      ...(notice ? [{id:'notice',ic:'notice',nm:noticeLabel}] : [])]},
     { g:'진행 현황', items:[
       {id:'fund',ic:'fund',nm:CATNM.fund,ct:cnt('fund')},
       {id:'cert',ic:'cert',nm:CATNM.cert,ct:cnt('cert')},
@@ -510,6 +518,25 @@ function init(D){
       </div></div>`).join('');
   }
 
+  /* 공지 요약 — 첫 화면에서는 첫 섹션의 1단 항목만, 최대 5개까지 보여준다 */
+  const SUMMARY_MAX = 5;
+  function noticeSummary(){
+    if(!notice) return '';
+    const first = (notice.sections || [])[0];
+    const items = (first && first.items) || [];
+    const shown = items.slice(0, SUMMARY_MAX);
+    const rest = items.length - shown.length;
+    return `<div class="card" style="margin-top:24px">
+      <div class="ch"><h2>${esc(noticeLabel)}</h2>
+        <a class="more" href="#" data-go="notice">전체 보기 →</a></div>
+      <div class="cb">
+       ${shown.length
+         ? `<ul class="ck">${shown.map(i=>noticeItem({...i, children:[]}, 1)).join('')}</ul>
+            ${rest > 0 ? `<p class="empty" style="margin-top:6px">외 ${rest}건</p>` : ''}`
+         : `<p class="empty">등록된 내용이 없습니다.</p>`}
+      </div></div>`;
+  }
+
   /* 일정 — 이벤트가 없어도 달력은 그대로 둔다 */
   function calMonth(y,m){
     const first=new Date(y,m-1,1), last=new Date(y,m,0).getDate(), lead=first.getDay();
@@ -561,9 +588,7 @@ function init(D){
       <div class="s">${nextEv?esc(nextEv.t):'등록된 일정이 없습니다'}</div></div>
    </div>
 
-   <div class="vh" style="margin-top:24px"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
-     ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
-   ${noticeFeed()}
+   ${noticeSummary()}
    ${schedule()}
 
    <div class="card" style="margin-top:24px">
@@ -576,6 +601,10 @@ function init(D){
       <td class="dtc">${CATNM[r.cat].split('·')[0]}</td>
       <td>${steps(r)}</td><td>${tag(r)}</td><td class="dtc">${esc(r.log_date)}</td></tr>`).join('')}
     </tbody></table>`:`<div class="cb"><p class="empty">진행 중인 건이 없습니다.</p></div>`}</div>`;
+
+  V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
+    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
+   ${noticeFeed()}`;
 
   V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${table('cert')}`;
@@ -620,8 +649,10 @@ function init(D){
 
   const CR={info:'기업 정보',fund:CATNM.fund,cert:CATNM.cert,
     proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
+  if(notice) CR.notice = noticeLabel;
   function go(id){
     if(!V[id])return;
+    if(id === 'notice' && !notice) return;      /* 공지가 없으면 이 화면은 없다 */
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        기준일은 상단 우측 pill 에만 표시한다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
