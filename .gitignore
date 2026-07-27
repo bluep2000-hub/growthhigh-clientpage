@@ -1,0 +1,9 @@
+.env
+*.tmp
+
+.claude/settings.local.json
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
