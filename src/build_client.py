@@ -965,18 +965,29 @@ HEADER_SPEC = "(BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)])"
 REPLY_PREFIX_RE = re.compile(
     r"^(?:\s*(?:RE|FW|FWD|회신|전달)\s*(?:\[\d+\])?\s*:\s*)+", re.IGNORECASE)
 
-# 이 줄부터 아래는 인용문이거나 서명·면책이다. 통째로 잘라낸다.
-BODY_CUT_RES = [
+# 이 줄부터 아래는 인용문이다.
+# 「보낸 사람」은 아웃룩이 띄어쓰기를 넣는다. 붙여 쓴 형태만 보면 인용이 안 잘린다.
+QUOTE_CUT_RES = [
     re.compile(r"^\s*-{2,}\s*Original Message\s*-{2,}", re.IGNORECASE),
     re.compile(r"^\s*-{2,}\s*원본\s*메일\s*-{2,}"),
-    # 「보낸 사람」은 아웃룩이 띄어쓰기를 넣는다. 붙여 쓴 형태만 보면 인용이 안 잘린다.
     re.compile(r"^\s*_{10,}\s*$"),                          # 아웃룩 인용 구분선
     re.compile(r"^\s*보낸\s*사람\s*:"),
     re.compile(r"^\s*\d{4}년\s*\d{1,2}월\s*\d{1,2}일.*작성\s*:"),   # 지메일 한국어
+]
+
+# 이 줄부터 아래는 서명·면책이다. 인용과 달리 되살리지 않는다.
+SIG_CUT_RES = [
     re.compile(r"^\s*본\s*메일은"),
     re.compile(r"^\s*이\s*메일은"),
     re.compile(r"^\s*Confidential", re.IGNORECASE),
 ]
+
+BODY_CUT_RES = QUOTE_CUT_RES + SIG_CUT_RES
+
+# 인용부 머리에 붙는 헤더 줄. 전달 메일을 되살릴 때 이 블록을 걷어낸다.
+QUOTE_HEADER_RE = re.compile(
+    r"^\s*(?:보낸\s*사람|보낸\s*날짜|받는\s*사람|참조|숨은\s*참조|제목|"
+    r"From|Sent|To|Cc|Bcc|Subject|Date)\s*:", re.IGNORECASE)
 
 # 메일 클라이언트가 text/plain 에 남기는 찌꺼기. 사람이 읽을 내용이 아니다.
 CID_RE = re.compile(r"\[cid:[^\]]*\]")
@@ -1138,6 +1149,34 @@ def decode_part(raw: bytes, encoding: str | None, charset: str | None) -> str:
         return raw.decode("utf-8", "replace")
 
 
+def cut_at_quote(lines: list[str]) -> tuple[list[str], list[str]]:
+    """(인용·서명 위, 그 아래) 로 가른다. 없으면 아래는 빈 목록."""
+    for i, ln in enumerate(lines):
+        if any(r.match(ln) for r in BODY_CUT_RES):
+            return lines[:i], lines[i:]
+    return lines, []
+
+
+def strip_quote_header(lines: list[str]) -> list[str]:
+    """인용 구분선과 「보낸 사람:」류 헤더 줄을 걷어내고 내용부터 돌려준다."""
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+        if (not ln.strip() or QUOTE_HEADER_RE.match(ln)
+                or any(r.match(ln) for r in QUOTE_CUT_RES)):
+            i += 1
+            continue
+        break
+    return lines[i:]
+
+
+def tidy(lines: list[str]) -> str:
+    lines = [SPACE_RE.sub(" ", ln).strip() for ln in lines
+             if not ln.lstrip().startswith(">")            # 인용 줄 제거
+             and not PIXEL_LINE_RE.match(ln)]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
 def clean_body(text: str, is_html: bool) -> str:
     """인용문·서명을 걷어내고 사람이 읽을 만한 본문만 남긴다."""
     if is_html:
@@ -1150,19 +1189,15 @@ def clean_body(text: str, is_html: bool) -> str:
     text = ANGLE_URL_RE.sub("", text)
 
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    above, below = cut_at_quote(lines)
+    body = tidy(above)
+    if body or not below:
+        return body
 
-    # 인용문·서명이 시작되는 줄부터 아래는 통째로 버린다
-    for i, ln in enumerate(lines):
-        if any(r.match(ln) for r in BODY_CUT_RES):
-            lines = lines[:i]
-            break
-
-    lines = [SPACE_RE.sub(" ", ln).strip() for ln in lines
-             if not ln.lstrip().startswith(">")            # 인용 줄 제거
-             and not PIXEL_LINE_RE.match(ln)]
-    text = "\n".join(lines)
-    text = re.sub(r"\n{3,}", "\n\n", text)           # 빈 줄이 여러 개면 하나로
-    return text.strip()
+    # 새로 쓴 문장이 없는 전달 메일이다. 인용부가 곧 본문이므로 되살린다.
+    # 헤더 블록을 걷어내고, 전달의 전달이면 한 겹 더 자른다.
+    rest, _ = cut_at_quote(strip_quote_header(below))
+    return tidy(rest)
 
 
 def compose_body(text: str, attachments: list[str]) -> str:
@@ -1427,12 +1462,15 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
 
 
 def build_talks(nt: Notion, client: dict, company_name: str,
-                skip_imap: bool) -> list[dict]:
+                skip_imap: bool, dry_run: bool) -> list[dict]:
     if skip_imap:
         log("  메일 수집 건너뜀 (--skip-imap)")
     else:
         mails = fetch_mails(company_name)
-        if mails:
+        if mails and dry_run:
+            # dry-run 은 아무것도 바꾸지 않는다. 파일도, 노션도.
+            log(f"  (dry-run) 노션 쓰기 건너뜀 — 대상 {len(mails)}건")
+        elif mails:
             sync_mails_to_notion(nt, client["page_id"], mails)
     # IMAP 이 실패해도 읽기는 그대로 진행한다.
     return read_talks(nt, client["page_id"])
@@ -1517,7 +1555,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     recommend = fetch_recommend(name, include_expired)
     log(f"  추천 지원사업 {len(recommend)}건")
 
-    talks = build_talks(nt, client, name, skip_imap)
+    talks = build_talks(nt, client, name, skip_imap, dry_run)
     log(f"  소통 내역 {len(talks)}건 (공개)")
 
     events = build_events(progress, recommend, name, include_expired)
@@ -1611,7 +1649,8 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
 def main() -> int:
     ap = argparse.ArgumentParser(description="클라이언트 페이지 빌더")
     ap.add_argument("--client", metavar="슬러그", default=None, help="한 곳만 빌드")
-    ap.add_argument("--dry-run", action="store_true", help="파일을 쓰지 않는다")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="아무것도 바꾸지 않는다 — 파일도, 노션도 쓰지 않는다")
     ap.add_argument("--no-include-expired", action="store_true",
                     help="마감이 지난 추천 사업·일정을 제외한다")
     ap.add_argument("--skip-imap", action="store_true",
