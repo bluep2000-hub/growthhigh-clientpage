@@ -259,9 +259,10 @@ body.locked #gate{display:grid}
    데이터는 전부 build_client.py 가 만든 c/{슬러그}.enc 에서 온다.
    하드코딩된 값은 없다. 화면에 쓰이는 표현(단계 라벨·구분명)만 여기 남는다.
 
-   file:// 로 열면 CORS 때문에 fetch 가 막힌다. dist/ 에서
-     python -m http.server 8000
+   file:// 로 열면 CORS 때문에 fetch 가 막힌다. 레포 루트에서
+     python -m http.server 8000 --bind 127.0.0.1
    으로 띄운 뒤 http://localhost:8000/{슬러그}/ 로 열 것.
+   --bind 를 빼면 0.0.0.0 이라 이 디렉터리가 같은 네트워크에 통째로 열린다.
 
    슬러그는 두 경로로 들어온다.
      경로형  /{슬러그}/  → 빌드가 만든 사본에 window.__SLUG__ 가 주입돼 있다
