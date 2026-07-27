@@ -66,11 +66,15 @@ python src/build_client.py --no-include-expired  # 마감 지난 추천·일정 
 ## 로컬 확인
 
 ```bash
-python -m http.server 8000
+python -m http.server 8000 --bind 127.0.0.1
 ```
 
 `http://localhost:8000/whiffkorea/` 로 연다.
 `file://` 로 열면 CORS 때문에 `fetch` 가 막혀 데이터를 못 읽는다.
+
+**`--bind 127.0.0.1` 을 빼지 말 것.** 기본값은 `0.0.0.0` 이라 레포 루트가
+같은 네트워크에 통째로 열린다. 이 디렉터리에 있는 것은 뭐든 그대로 받아갈 수 있다.
+비밀키·서비스 계정 키를 레포 안에 두지 않는 이유이기도 하다.
 
 ---
 

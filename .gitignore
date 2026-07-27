@@ -1,6 +1,13 @@
 .env
 *.tmp
 
+# 서비스 계정 키. 원래는 레포 밖에 두고 GOOGLE_APPLICATION_CREDENTIALS 로
+# 경로만 넘긴다 — 레포 루트는 통째로 웹에 서빙되므로 여기 두면 커밋 여부와
+# 무관하게 로컬 서버로 새어 나간다. 실수로 떨어뜨렸을 때를 막는 안전망이다.
+google-key.json
+*-service-account.json
+*.serviceaccount.json
+
 .claude/settings.local.json
 
 __pycache__/
