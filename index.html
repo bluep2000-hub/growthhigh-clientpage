@@ -174,30 +174,6 @@ tbody tr:hover{background:var(--hover)}
 .chip.on{background:var(--accent);color:#fff}
 .chip span{opacity:.6;margin-left:4px;font-variant-numeric:tabular-nums}
 
-.dw-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;
-  transition:opacity .18s;z-index:40}
-.dw-ov.on{opacity:1;pointer-events:auto}
-.dw{position:fixed;top:0;right:0;bottom:0;width:min(600px,94vw);background:var(--bg);
-  border-left:1px solid var(--line);z-index:50;transform:translateX(100%);
-  transition:transform .22s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column}
-.dw.on{transform:none}
-.dw-h{height:46px;flex:none;border-bottom:1px solid var(--line);display:flex;
-  align-items:center;gap:10px;padding:0 16px}
-.dw-h .t{font-size:13px;font-weight:600}
-.dw-h .x{margin-left:auto;width:26px;height:26px;border-radius:var(--r);
-  display:grid;place-items:center;color:var(--tx-2);font-size:15px}
-.dw-h .x:hover{background:var(--hover);color:var(--tx)}
-.dw-b{flex:1;overflow-y:auto;padding:18px 20px 50px}
-.rvh{font-size:17px;font-weight:600;letter-spacing:-.025em;line-height:1.35}
-.rvm{font-size:12px;color:var(--tx-3);margin-top:4px}
-.blk{margin-top:20px}
-.blk>.bh{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.04em;margin-bottom:8px}
-.kv{border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.kv .r{display:flex;border-bottom:1px solid var(--line);font-size:12.5px}
-.kv .r:last-child{border-bottom:none}
-.kv .r>.k{width:104px;flex:none;padding:9px 12px;color:var(--tx-3);background:var(--panel);font-size:11.5px}
-.kv .r>.v{padding:9px 12px;line-height:1.6}
-
 /* ── 비밀번호 게이트 ── */
 body.locked>aside,body.locked>main{display:none}
 #gate{position:fixed;inset:0;display:none;place-items:center;padding:24px;
@@ -263,12 +239,6 @@ body.locked #gate{display:grid}
       <button class="tgl" id="tgl" aria-label="밝기 전환">◐</button></span></div>
   <div class="scroll" id="scroll"></div>
 </main>
-
-<div class="dw-ov" id="ov"></div>
-<aside class="dw" id="dw" aria-hidden="true">
-  <div class="dw-h"><span class="t">사업 검토서</span><button class="x" id="dwx" aria-label="닫기">✕</button></div>
-  <div class="dw-b" id="dwb"></div>
-</aside>
 
 <script>
 /* ══════════════════════════════════════════════════════════════════
@@ -445,7 +415,9 @@ function init(D){
       {id:'cert',ic:'cert',nm:CATNM.cert,ct:cnt('cert')},
       {id:'proj',ic:'proj',nm:CATNM.proj,ct:cnt('proj')},
       {id:'talk',ic:'talk',nm:'소통 내역',ct:talks.length}]},
-    { g:'제안', items:[{id:'open',ic:'open',nm:'추천 지원사업',ct:recommend.length}]},
+    /* 추천할 사업이 없으면 「제안」 그룹째 감춘다 */
+    ...(recommend.length
+      ? [{ g:'제안', items:[{id:'open',ic:'open',nm:'추천 지원사업',ct:recommend.length}]}] : []),
     { g:'자료', items:[
       {id:'x1',nm:'기업자료 드라이브',ext:1},
       {id:'x2',nm:'사업계획서',ext:1},
@@ -607,34 +579,21 @@ function init(D){
      <td class="dtc" style="width:16%">${fmt(t.d)}</td></tr>`).join('')}
    </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
 
+  /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
+     검토서는 발행된 HTML 이라 새 탭으로 연다. */
   V.open=()=>`<div class="vh"><h1>추천 지원사업</h1>
     ${recommend.length?`<span class="n">${recommend.length}건</span>`:''}</div>
    ${recommend.length?`<div class="card"><table><thead><tr>
-    <th style="width:9%">마감</th><th style="width:62%">사업명</th><th class="num">지원 규모</th></tr></thead>
-   <tbody>${recommend.map((o,i)=>`<tr>
-    <td class="dtc" style="color:var(--run);font-weight:500">${esc(o.dd||'')}</td>
-    <td><div class="t-nm">${esc(o.t||'')}${o.review?`<button class="rv" data-rv="${i}">검토서</button>`:''}</div>
-        ${o.s?`<div class="t-sub">${esc(o.s)}</div>`:''}</td>
-    <td class="num">${esc(o.a||'')}</td></tr>`).join('')}
+    <th style="width:10%">마감</th><th style="width:62%">사업명</th>
+    <th class="num">지원 규모</th></tr></thead>
+   <tbody>${recommend.map(o=>`<tr>
+    <td class="dtc" style="color:var(--run);font-weight:600">${esc(o.dday||'상시')}</td>
+    <td class="lead"><div class="t-nm">${esc(o.title||'')}${o.review_url
+        ?`<a class="rv" href="${encodeURI(o.review_url)}" target="_blank" rel="noopener">검토서</a>`:''}</div>
+        ${[o.org, o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')
+          ?`<div class="t-sub">${[o.org?esc(o.org):'', o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')}</div>`:''}</td>
+    <td class="num">${o.amount?esc(o.amount):'—'}</td></tr>`).join('')}
    </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
-
-  /* 검토서 서랍 — recommend 항목에 review 가 붙으면 열린다 */
-  function openRv(i){
-    const r = (recommend[i]||{}).review; if(!r) return;
-    document.getElementById('dwb').innerHTML=`
-     <div class="rvh">${esc(r.t||'')}</div><div class="rvm">${esc(r.org||'')}${r.pub?` · ${esc(r.pub)}`:''}</div>
-     ${['A','B'].map(k=>(r[k]||[]).length?`
-       <div class="blk"><div class="bh">${k}. ${k==='A'?'사업 개요':'사업 핵심'}</div><div class="kv">
-        ${r[k].map(([a,b])=>`<div class="r"><span class="k">${esc(a)}</span><span class="v">${esc(b)}</span></div>`).join('')}
-       </div></div>`:'').join('')}`;
-    document.getElementById('dw').classList.add('on');
-    document.getElementById('ov').classList.add('on');
-  }
-  const closeRv=()=>{document.getElementById('dw').classList.remove('on');
-    document.getElementById('ov').classList.remove('on')};
-  document.getElementById('dwx').onclick=closeRv;
-  document.getElementById('ov').onclick=closeRv;
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeRv()});
 
   const CR={info:'기업 정보',fund:CATNM.fund,cert:CATNM.cert,
     proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
@@ -648,7 +607,6 @@ function init(D){
     document.getElementById('crumb').innerHTML=`${esc(CO.name||CLIENT)}<i>/</i>${esc(CR[id])}`;
     document.querySelectorAll('.nv').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
     document.getElementById('scroll').scrollTop=0;
-    document.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>openRv(+b.dataset.rv));
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});
   }
   document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});
