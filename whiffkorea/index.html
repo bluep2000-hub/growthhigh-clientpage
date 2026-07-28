@@ -28,7 +28,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 
 aside{width:238px;flex:none;background:var(--panel);border-right:1px solid var(--line);
   display:flex;flex-direction:column;height:100vh}
-.ws{padding:13px 12px;border-bottom:1px solid var(--line);display:flex;gap:9px;align-items:center}
+/* 우측 .top 과 같은 48px. 높이가 다르면 좌우 경계선이 어긋나 보인다 */
+.ws{height:48px;flex:none;padding:0 12px;border-bottom:1px solid var(--line);
+  display:flex;gap:9px;align-items:center}
 .ws .mk{width:28px;height:28px;border-radius:7px;flex:none;background:#123027;
   display:grid;place-items:center;overflow:hidden}
 /* 로고 — 이미지는 투명 배경이 많아 마크 배경을 중립으로 바꾼다 */
