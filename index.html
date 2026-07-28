@@ -8,7 +8,7 @@
 <style>
 :root{--sans:'Pretendard',-apple-system,system-ui,sans-serif;--r:6px;--accent:#5E6AD2;
   --run:#D9A441;--run-bg:rgba(217,164,65,.14);--ok:#4CAF7D;--ok-bg:rgba(76,175,125,.14);
-  --no:#C0645F;--no-bg:rgba(192,100,95,.14)}
+  --no:#C0645F;--no-bg:rgba(192,100,95,.14);--accent-bg:rgba(94,106,210,.18)}
 [data-theme="dark"]{--bg:#1A1A1E;--panel:#212127;--panel-2:#26262D;--hover:#2C2C34;
   --line:rgba(255,255,255,.07);--line-2:rgba(255,255,255,.13);
   --tx:#E4E4E8;--tx-2:#9A9AA6;--tx-3:#6E6E7C}
@@ -17,7 +17,7 @@
   --line:#E3E5EA;--line-2:#C9CDD5;--tx:#16181D;--tx-2:#4A4F5A;--tx-3:#8A909C;
   --accent:#3D4BA8;
   --run:#8F5F0D;--run-bg:#FDF3E0;--ok:#1F7A52;--ok-bg:#E6F4EC;
-  --no:#A34B45;--no-bg:#FBEAE8}
+  --no:#A34B45;--no-bg:#FBEAE8;--accent-bg:#E9EBF6}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:13px;
@@ -187,6 +187,20 @@ tbody tr:hover{background:var(--hover)}
 [data-theme="light"] .g-wait{background:var(--hover);color:var(--tx-2)}
 tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 
+/* 소통 내역 — 열 폭을 고정해 제목 열이 나머지를 갖는다 */
+.tktbl{table-layout:fixed}
+/* 회의록 안쪽 표까지 걸리지 않도록 바깥 표의 직계만 잡는다 */
+.tktbl>tbody>tr>td{padding:9px 13px}          /* preview 가 빠져 행을 줄인다 */
+.tktbl .tkpv{font-size:11.5px;color:var(--tx-3);line-height:1.5;margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 채널도 방향과 같은 배지로 통일한다 */
+.ch-b{display:inline-block;font-size:10.5px;font-weight:600;border-radius:4px;
+  padding:2px 7px;white-space:nowrap;line-height:1.5}
+.ch-mail{background:var(--panel-2);color:var(--tx-2)}
+[data-theme="light"] .ch-mail{background:var(--hover)}
+.ch-call{background:var(--ok-bg);color:var(--ok)}
+.ch-meet{background:var(--accent-bg);color:var(--accent)}
+
 /* 소통 내역 아코디언 — 본문이 있는 행만 펼쳐진다 */
 tr.tk.has{cursor:pointer}
 .tw{display:inline-block;width:11px;font-style:normal;color:var(--tx-3);
@@ -238,6 +252,8 @@ tr.tkb>td{padding:0 13px 13px;border-bottom:1px solid var(--line)}
 [data-theme="light"] .chip{background:var(--panel-2)}
 .chip:hover{background:var(--hover);color:var(--tx)}
 .chip.on{background:var(--accent);color:#fff}
+.chip.zero{color:var(--tx-3)}                 /* 0건이어도 눌러볼 수 있게 남긴다 */
+.chip.zero.on{color:#fff}
 .chip span{opacity:.6;margin-left:4px;font-variant-numeric:tabular-nums}
 
 /* ── 비밀번호 게이트 ── */
@@ -710,24 +726,49 @@ function init(D){
   /* 소통 내역 — 노션 소통 DB 에서 「공개」인 것만 온다.
      목록에는 일자·채널·제목만 두고, 본문은 행을 눌렀을 때 펼친다.
      body 가 null 이면 펼칠 것이 없으므로 표시도 하지 않는다. */
+  /* 소통 내역 — 채널 탭으로 거른다. 좌측 메뉴는 「소통 내역」 하나로 둔다.
+     preview 는 미팅·유선(안건 목록)만 한 줄 보여준다. 메일 preview 는
+     본문 첫머리라 인사말·서명만 나와 목록에서 값을 못 한다. */
+  const TALK_TABS = [{k:'all',nm:'전체'},{k:'메일',nm:'메일'},
+                     {k:'유선',nm:'유선'},{k:'미팅',nm:'미팅'}];
+  const TALK_BADGE = {'메일':'ch-mail','유선':'ch-call','미팅':'ch-meet'};
+  const talkCount = k => k==='all' ? talks.length : talks.filter(t=>t.channel===k).length;
+  let talkTab = 'all';
+
+  function talkList(){
+    const list = talks
+      .map((t,i)=>({t,i}))                       /* 아코디언 짝을 위해 원래 번호를 유지 */
+      .filter(({t})=> talkTab==='all' || t.channel===talkTab);
+    if(!list.length) return emptyBox('등록된 내용이 없습니다.');
+    return `<div class="card"><table class="tktbl"><thead><tr>
+      <th style="width:90px">일자</th><th style="width:110px">채널</th>
+      <th>제목</th></tr></thead>
+     <tbody>${list.map(({t,i})=>`<tr class="tk${t.hasBody?' has':''}" data-tk="${i}">
+       <td class="dtc">${fmt(t.date)}</td>
+       <td><span class="ch-b ${TALK_BADGE[t.channel]||'ch-mail'}">${esc(t.channel||'—')}</span>${
+         t.direction?`<span class="co${t.direction==='보냄'?' out':''}">${esc(t.direction)}</span>`:''}</td>
+       <td class="lead"><div class="t-nm">${t.hasBody?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div>
+         ${t.channel!=='메일'&&t.preview?`<div class="tkpv">${esc(t.preview)}</div>`:''}</td>
+      </tr>${t.hasBody?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
+       ${t.body_html
+         /* body_html 은 build_client.py 가 이스케이프해 조립한 HTML 이다 */
+         ?`<div class="tkbd doc">${t.body_html}</div>`
+         :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`).join('')}
+     </tbody></table></div>`;
+  }
+
+  function talkTabs(){
+    return `<div class="chips" id="tkTabs">${TALK_TABS.map(x=>{
+      const n = talkCount(x.k);
+      return `<button class="chip${talkTab===x.k?' on':''}${n?'':' zero'}" data-tktab="${esc(x.k)}"
+        >${x.nm}<span>${n}</span></button>`;
+    }).join('')}</div>`;
+  }
+
   V.talk=()=>`<div class="vh"><h1>소통 내역</h1>
     ${talks.length?`<span class="n">${talks.length}건</span>`:''}</div>
-   ${talks.length?`<div class="card"><table><thead><tr>
-    <th style="width:14%">일자</th><th style="width:16%">채널</th>
-    <th>제목</th></tr></thead>
-   <tbody>${talks.map((t,i)=>`<tr class="tk${t.hasBody?' has':''}" data-tk="${i}">
-     <td class="dtc">${fmt(t.date)}</td>
-     <td class="dtc">${esc(t.channel||'')}${t.direction
-        ?`<span class="co${t.direction==='보냄'?' out':''}" style="margin-left:5px">${
-          esc(t.direction)}</span>`:''}</td>
-     <td class="lead"><div class="t-nm">${t.hasBody?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div>
-       ${t.preview?`<div class="t-sub tkpv">${esc(t.preview)}</div>`:''}</td>
-    </tr>${t.hasBody?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
-     ${t.body_html
-       /* body_html 은 build_client.py 가 이스케이프해 조립한 HTML 이다 */
-       ?`<div class="tkbd doc">${t.body_html}</div>`
-       :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`).join('')}
-   </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
+   ${talks.length?`${talkTabs()}<div id="tkList">${talkList()}</div>`
+                 :emptyBox('등록된 내용이 없습니다.')}`;
 
   /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
      검토서는 발행된 HTML 이라 새 탭으로 연다. */
@@ -760,11 +801,23 @@ function init(D){
     document.querySelectorAll('.nv').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
     document.getElementById('scroll').scrollTop=0;
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});
-    /* 소통 내역 아코디언 */
+    bindTalks();
+  }
+
+  /* 아코디언과 채널 탭. 탭을 누르면 목록만 다시 그리고 다시 묶는다 */
+  function bindTalks(){
     document.querySelectorAll('tr.tk.has').forEach(tr=>tr.onclick=()=>{
       const body=document.querySelector(`tr.tkb[data-tkb="${tr.dataset.tk}"]`);
       tr.classList.toggle('open');
       if(body) body.classList.toggle('open');
+    });
+    document.querySelectorAll('[data-tktab]').forEach(b=>b.onclick=()=>{
+      talkTab = b.dataset.tktab;
+      const box = document.getElementById('tkList');
+      if(box) box.innerHTML = talkList();
+      document.querySelectorAll('[data-tktab]').forEach(x=>
+        x.classList.toggle('on', x.dataset.tktab===talkTab));
+      bindTalks();
     });
   }
   document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});
