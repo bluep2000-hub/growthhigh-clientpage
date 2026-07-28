@@ -1516,7 +1516,9 @@ def write_client_page(slug: str, dry_run: bool) -> None:
         warn("루트 index.html 이 없어 클라이언트 페이지를 만들지 못했습니다")
         return
 
-    raw = src.read_text(encoding="utf-8", newline="")     # 줄바꿈을 원본 그대로 둔다
+    # 줄바꿈을 원본 그대로 둔다. read_text(newline=...) 은 3.13+ 이라 open 으로 연다.
+    with src.open(encoding="utf-8", newline="") as f:
+        raw = f.read()
     nl = "\r\n" if "\r\n" in raw else "\n"
     inject = f'<script>window.__SLUG__="{slug}";window.__BASE__="../";</script>'
 
