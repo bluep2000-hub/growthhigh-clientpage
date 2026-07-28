@@ -504,6 +504,8 @@ def runs_to_html(runs: list[dict]) -> str:
             h = f"<code>{h}</code>"
         if a.get("underline"):
             h = f"<u>{h}</u>"
+        if a.get("italic"):
+            h = f"<i>{h}</i>"
         if a.get("strikethrough"):
             h = f"<s>{h}</s>"
         if a.get("bold"):
@@ -953,6 +955,8 @@ TALK_STATUS_NEW = "검토대기"
 TALK_STATUS_PUBLIC = "공개"
 TALK_STATUS_HIDDEN = "보류"     # 담당자가 의도적으로 숨긴 것. 읽기에서 뺀다
 TALK_CHANNEL_MAIL = "메일"
+# 이 채널들은 회의록이 페이지 본문에 들어간다 — 속성만 읽으면 안건 한 줄뿐이다
+TALK_CHANNELS_WITH_MINUTES = {"미팅", "유선"}
 
 # 사람이 손으로 분류해둔 고객사 폴더를 그대로 쓴다. 발신 도메인 추측보다 정확하다.
 TALKS_FOLDER_PREFIX = "Inbox.고객사."
@@ -1639,6 +1643,121 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
     log(f"  소통 DB: {added}건 추가(공개) · {skipped}건 중복 건너뜀")
 
 
+# ── 회의록 본문: 페이지 블록 → HTML ──────────────────────────────────────
+# 미팅·유선 건은 회의록 전체가 페이지 본문에 들어간다. 「요약」 속성에는
+# 안건 목록 한 줄뿐이라 속성만 읽으면 화면에 아무것도 나오지 않는다.
+# 서식 변환은 공지 파서의 runs_to_html / block_runs 를 그대로 쓴다.
+
+TALK_BODY_MAX_DEPTH = 6          # 폭주 방지. 실제 회의록은 2~3단이다
+TALK_HEADING_TAG = {"heading_1": "h2", "heading_2": "h3", "heading_3": "h4"}
+TALK_LIST_TAG = {"bulleted_list_item": "ul", "numbered_list_item": "ol"}
+
+
+def talk_table_html(nt: Notion, block: dict) -> str:
+    """회의록의 Action Items 표. table 의 자식은 table_row 뿐이다."""
+    meta = block.get("table") or {}
+    try:
+        rows = nt.children(block["id"])
+    except ClientFailure as e:
+        warn(f"회의록 표 조회 실패 — 표 생략: {e}")
+        return ""
+
+    cells_of = lambda r: ((r.get("table_row") or {}).get("cells") or [])
+    header = bool(meta.get("has_column_header"))
+    row_header = bool(meta.get("has_row_header"))
+
+    out = []
+    for i, r in enumerate(rows):
+        if r.get("type") != "table_row":
+            continue
+        head = header and i == 0
+        tds = []
+        for j, cell in enumerate(cells_of(r)):
+            tag = "th" if head or (row_header and j == 0) else "td"
+            tds.append(f"<{tag}>{runs_to_html(cell)}</{tag}>")
+        if not tds:
+            continue
+        out.append(("<thead><tr>" + "".join(tds) + "</tr></thead>") if head
+                   else ("<tr>" + "".join(tds) + "</tr>"))
+    if not out:
+        return ""
+    if out and out[0].startswith("<thead>"):
+        return f"<table>{out[0]}<tbody>{''.join(out[1:])}</tbody></table>"
+    return f"<table><tbody>{''.join(out)}</tbody></table>"
+
+
+def talk_body_html(nt: Notion, blocks: list[dict], depth: int = 0) -> str:
+    """지원 블록만 HTML 로 옮긴다. 그 밖은 조용히 건너뛴다."""
+    if depth > TALK_BODY_MAX_DEPTH:
+        return ""
+
+    parts: list[str] = []
+    i = 0
+    while i < len(blocks):
+        b = blocks[i]
+        t = b.get("type")
+
+        # 연속된 같은 종류의 리스트는 하나의 ul/ol 로 묶는다
+        if t in TALK_LIST_TAG:
+            tag = TALK_LIST_TAG[t]
+            lis = []
+            while i < len(blocks) and blocks[i].get("type") == t:
+                li = blocks[i]
+                inner = runs_to_html(block_runs(li))
+                kids = ""
+                if li.get("has_children"):
+                    try:
+                        kids = talk_body_html(nt, nt.children(li["id"]), depth + 1)
+                    except ClientFailure as e:
+                        warn(f"회의록 하위 항목 조회 실패 — 건너뜁니다: {e}")
+                if inner or kids:
+                    lis.append(f"<li>{inner}{kids}</li>")
+                i += 1
+            if lis:
+                parts.append(f"<{tag}>{''.join(lis)}</{tag}>")
+            continue
+
+        if t in TALK_HEADING_TAG:
+            h = runs_to_html(block_runs(b))
+            if h:
+                parts.append(f"<{TALK_HEADING_TAG[t]}>{h}</{TALK_HEADING_TAG[t]}>")
+
+        elif t == "paragraph":
+            h = runs_to_html(block_runs(b))
+            if h:
+                parts.append(f"<p>{h}</p>")
+
+        elif t == "divider":
+            parts.append("<hr>")
+
+        elif t == "table":
+            parts.append(talk_table_html(nt, b))
+
+        elif t == "callout":
+            h = runs_to_html(block_runs(b))
+            kids = ""
+            if b.get("has_children"):
+                try:
+                    kids = talk_body_html(nt, nt.children(b["id"]), depth + 1)
+                except ClientFailure as e:
+                    warn(f"회의록 콜아웃 조회 실패 — 건너뜁니다: {e}")
+            if h or kids:
+                parts.append(f'<div class="cl">{f"<p>{h}</p>" if h else ""}{kids}</div>')
+
+        # 그 밖(image·embed·child_database 등)은 조용히 건너뛴다
+        i += 1
+
+    return "".join(p for p in parts if p)
+
+
+def fetch_talk_body(nt: Notion, page_id: str, title: str) -> str:
+    try:
+        return talk_body_html(nt, nt.children(page_id))
+    except ClientFailure as e:
+        warn(f"회의록 본문 조회 실패 — 본문 없이 내보냅니다({title[:24]}): {e}")
+        return ""
+
+
 # ── 노션 소통 DB: 읽기 (보류만 제외) ─────────────────────────────────────
 
 def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
@@ -1664,11 +1783,24 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
     out = []
     for pg in res.get("results", []):
         pr = pg.get("properties", {})
+        channel = p_select(pr, "채널") or ""
+        summary = p_text(pr, "요약")
+
+        # 미팅·유선은 회의록이 페이지 본문에 있다. 메일은 지금처럼 「요약」이 본문이다.
+        body = body_html = None
+        if channel in TALK_CHANNELS_WITH_MINUTES:
+            body_html = fetch_talk_body(nt, pg["id"], p_text(pr, "제목")) or None
+        else:
+            body = nn(summary)
+
         out.append({
             "date": (p_date(pr, "일자").get("start") or "")[:10],
-            "channel": p_select(pr, "채널") or "",
+            "channel": channel,
             "title": p_text(pr, "제목"),
-            "body": nn(p_text(pr, "요약")),
+            # 목록 한 줄은 채널과 무관하게 「요약」을 쓴다
+            "preview": nn(summary),
+            "body": body,
+            "body_html": body_html,
             "direction": p_select(pr, "방향"),
         })
     return out

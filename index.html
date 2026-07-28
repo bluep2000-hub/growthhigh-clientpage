@@ -198,6 +198,31 @@ tr.tkb:hover{background:transparent}
 tr.tkb>td{padding:0 13px 13px;border-bottom:1px solid var(--line)}
 .tkbd{font-size:11.5px;color:var(--tx-2);line-height:1.75;white-space:pre-wrap;
   word-break:break-word;border-left:2px solid var(--line-2);padding-left:11px}
+/* 회의록 본문 — 노션 페이지 블록을 옮긴 HTML 이라 pre-wrap 을 끈다 */
+.tkbd.doc{white-space:normal;font-size:12.5px;padding-top:2px}
+.tkbd.doc>*:first-child{margin-top:0}
+.tkbd.doc h2{font-size:14px;font-weight:600;color:var(--tx);margin:16px 0 6px;letter-spacing:-.015em}
+.tkbd.doc h3{font-size:13px;font-weight:600;color:var(--tx);margin:14px 0 5px}
+.tkbd.doc h4{font-size:12.5px;font-weight:600;color:var(--tx);margin:12px 0 4px}
+.tkbd.doc p{margin:5px 0}
+.tkbd.doc hr{border:none;border-top:1px solid var(--line);margin:14px 0}
+.tkbd.doc ul,.tkbd.doc ol{margin:5px 0 5px 17px}
+.tkbd.doc li{margin:2px 0}
+.tkbd.doc li>ul,.tkbd.doc li>ol{margin:2px 0 2px 15px}   /* 중첩 들여쓰기 */
+.tkbd.doc code{background:var(--panel-2);border-radius:3px;padding:1px 5px;font-size:11.5px;color:var(--tx)}
+[data-theme="light"] .tkbd.doc code{background:var(--hover)}
+.tkbd.doc .cl{background:var(--panel-2);border-radius:6px;padding:9px 12px;margin:9px 0}
+[data-theme="light"] .tkbd.doc .cl{background:var(--hover)}
+/* 표는 본문 표 스타일을 그대로 쓰되 폭만 100% 로 맞춘다 */
+.tkbd.doc table{width:100%;margin:9px 0;border:1px solid var(--line);border-radius:8px;
+  border-collapse:separate;border-spacing:0;overflow:hidden}
+.tkbd.doc th,.tkbd.doc td{padding:8px 10px;font-size:12px;text-align:left;vertical-align:top;
+  border-bottom:1px solid var(--line);white-space:normal}
+.tkbd.doc thead th{background:var(--panel-2);color:var(--tx-2);font-weight:600;
+  border-bottom:1px solid var(--line-2)}
+.tkbd.doc tbody tr:last-child th,.tkbd.doc tbody tr:last-child td{border-bottom:none}
+.tkbd.doc tbody tr:hover{background:transparent}
+.tkpv{color:var(--tx-3)}
 .co{font-size:10.5px;border:1px solid var(--line-2);border-radius:3px;padding:0 6px;color:var(--tx-3)}
 /* 우리가 보낸 메일. 받은 것과 한눈에 갈리도록 강조색만 얹는다 */
 .co.out{color:var(--accent);border-color:var(--accent);font-weight:600}
@@ -442,9 +467,14 @@ function init(D){
   const rows = Array.isArray(D.progress) ? D.progress : [];
   const events = Array.isArray(D.events) ? D.events : [];
   const recommend = Array.isArray(D.recommend) ? D.recommend : [];
-  /* 공백뿐인 본문은 없는 것으로 본다 — 아래 t.body 검사가 모두 이 값을 쓴다 */
+  /* 공백뿐인 본문은 없는 것으로 본다 — 아래 검사가 모두 이 값을 쓴다.
+     body 는 평문(메일), body_html 은 회의록 HTML(미팅·유선)이다. */
   const talks = (Array.isArray(D.talks) ? D.talks : [])
-    .map(t => ({ ...t, body: (t.body || '').trim() || null }));
+    .map(t => ({ ...t,
+      body: (t.body || '').trim() || null,
+      body_html: (t.body_html || '').trim() || null,
+      preview: (t.preview || '').trim() || null }))
+    .map(t => ({ ...t, hasBody: !!(t.body || t.body_html) }));
   const kpi = D.kpi || {};
   const notice = D.notice;
 
@@ -685,14 +715,18 @@ function init(D){
    ${talks.length?`<div class="card"><table><thead><tr>
     <th style="width:14%">일자</th><th style="width:16%">채널</th>
     <th>제목</th></tr></thead>
-   <tbody>${talks.map((t,i)=>`<tr class="tk${t.body?' has':''}" data-tk="${i}">
+   <tbody>${talks.map((t,i)=>`<tr class="tk${t.hasBody?' has':''}" data-tk="${i}">
      <td class="dtc">${fmt(t.date)}</td>
      <td class="dtc">${esc(t.channel||'')}${t.direction
         ?`<span class="co${t.direction==='보냄'?' out':''}" style="margin-left:5px">${
           esc(t.direction)}</span>`:''}</td>
-     <td><div class="t-nm">${t.body?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div></td>
-    </tr>${t.body?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
-     <div class="tkbd">${esc(t.body)}</div></td></tr>`:''}`).join('')}
+     <td class="lead"><div class="t-nm">${t.hasBody?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div>
+       ${t.preview?`<div class="t-sub tkpv">${esc(t.preview)}</div>`:''}</td>
+    </tr>${t.hasBody?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
+     ${t.body_html
+       /* body_html 은 build_client.py 가 이스케이프해 조립한 HTML 이다 */
+       ?`<div class="tkbd doc">${t.body_html}</div>`
+       :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`).join('')}
    </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
 
   /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
