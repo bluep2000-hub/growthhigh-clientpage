@@ -369,6 +369,37 @@ body.locked #gate{display:grid}
   .notice,.k1,.evl .e{break-inside:avoid}
   .card{box-shadow:none;break-inside:auto}
 
+  /* ── 요약 리포트 — A4 한두 장에 들어가도록 전체를 한 단계 줄인다.
+        섹션 사이에 개행을 넣지 않고 이어서 흐르게 둔다 ── */
+  .psum{font-size:10px;line-height:1.5}
+  .psum .sh{display:flex;align-items:center;gap:12px;
+    padding-bottom:9px;margin-bottom:12px;border-bottom:1.5px solid var(--line-2)}
+  .psum .sh-m{display:flex;align-items:center;gap:8px;flex:none}
+  .psum .sh-m img{height:26px;width:auto;object-fit:contain}
+  .psum .sh-t{display:flex;flex-direction:column;gap:1px}
+  .psum .sh-t b{font-size:14px;font-weight:600;letter-spacing:-.02em}
+  .psum .sh-t span{font-size:9.5px;color:var(--tx-2)}
+  .psum .ssec{margin-bottom:11px;break-inside:auto}
+  .psum .ssec>h2{font-size:12px;font-weight:600;letter-spacing:-.015em;
+    margin-bottom:5px;break-after:avoid}
+  .psum .skpi{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .psum .skpi>div{border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;
+    display:flex;flex-direction:column;gap:1px}
+  .psum .skpi .k{font-size:9px;color:var(--tx-2)}
+  .psum .skpi .v{font-size:14px;font-weight:600;letter-spacing:-.02em}
+  .psum .skpi .s{font-size:8.5px;color:var(--tx-3)}
+  .psum table{width:100%;border-collapse:collapse}
+  .psum th{font-size:9px;padding:5px 6px;background:var(--panel-2);
+    border-bottom:1px solid var(--line-2)}
+  .psum td{font-size:10px;padding:6px;border-bottom:1px solid var(--line);
+    vertical-align:middle}
+  .psum tbody tr:last-child td{border-bottom:none}
+  .psum .snote{font-size:9.5px;color:var(--tx-3);margin-top:5px}
+  .psum .ck>li{font-size:10px;line-height:1.5;padding:2px 0 2px 18px}
+  .psum .ck li.chk::before{top:8px}
+  .psum .ck li.chk.on::before{top:5.5px}
+  .psum .empty{font-size:9.5px}
+
   /* 화면 전용 장치는 뺀다 */
   .chips,.more,.emore,.tw,.rpt,.tgl,.top{display:none!important}
   /* 일정은 달력을 빼고 목록만 — 종이에서 달력은 자리만 차지한다 */
@@ -413,8 +444,9 @@ body.locked #gate{display:grid}
       <span class="rpt"><button class="rpb" id="rptbtn" aria-haspopup="true"
         aria-expanded="false">리포트</button>
         <span class="rpm" id="rptmenu" hidden>
-          <button data-rp="cur">현재 화면</button>
+          <button data-rp="sum">요약 리포트</button>
           <button data-rp="all">전체 리포트</button>
+          <button data-rp="cur">현재 화면</button>
         </span></span>
       <button class="tgl" id="tgl" aria-label="밝기 전환">◐</button></span></div>
   <div class="scroll" id="scroll"></div>
@@ -981,7 +1013,97 @@ function init(D){
     return V[id] ? V[id]() : '';
   }
 
+  /* ── 요약 리포트 — A4 한두 장. 표지 없이 머리글부터 바로 내용 ── */
+  function printSummary(){
+    const p = (D.generated_at||'').slice(0,10).split('-');
+    const when = p.length===3 ? `${+p[0]}년 ${+p[1]}월 ${+p[2]}일 기준` : '';
+    const nextEvSum = events.find(e => !e.past) || null;
+
+    /* 아직 손에 쥐고 있는 건만. 끝난 것은 건수로만 알린다 */
+    const live = rows.filter(r => r.badge==='run' || r.badge==='wait');
+    const done = rows.filter(r => r.badge==='ok').length;
+    const held = rows.filter(r => r.badge==='no').length;
+
+    const notice1 = (notice && (notice.sections||[])[0]) || null;
+    const rec5 = recommend.slice(0, 5);        /* 이미 마감 임박순이다 */
+    const talk5 = talks.slice(0, 5);           /* 노션에서 일자 내림차순으로 온다 */
+
+    return `<div class="psum">
+      <header class="sh">
+        <span class="sh-m">
+          <img src="${encodeURI(BRAND_LOGO)}" alt="그로스하이">
+          ${CO.logo?`<img src="${encodeURI(BASE+CO.logo)}" alt="">`:''}
+        </span>
+        <span class="sh-t"><b>${esc(CO.name||CLIENT)} 진행 요약</b>
+          <span>${esc(when)}${CO.manager?` · 담당 ${esc(CO.manager)}`:''}</span></span>
+      </header>
+
+      <section class="ssec"><h2>현황 요약</h2>
+        <div class="skpi">
+          <div><span class="k">진행 중</span><span class="v">${kpi.running ?? live.length}건</span></div>
+          <div><span class="k">완료</span><span class="v">${kpi.done ?? done}건</span></div>
+          <div><span class="k">취득 인증</span><span class="v">${kpi.certs ?? 0}건</span></div>
+          <div><span class="k">다음 일정</span><span class="v">${nextEvSum
+            ? esc(String(nextEvSum.date).slice(5).replace('-','/')) : '—'}</span>
+            <span class="s">${nextEvSum?esc(nextEvSum.title):'예정 없음'}</span></div>
+        </div></section>
+
+      ${notice1 ? `<section class="ssec">
+        <h2>${esc(notice1.heading || '이달 공지사항')}</h2>
+        ${(notice1.items||[]).length
+          ? `<ul class="ck">${notice1.items.map(i =>
+              noticeItem({...i, children:[]}, 1)).join('')}</ul>`
+          : '<p class="empty">등록된 내용이 없습니다.</p>'}
+      </section>` : ''}
+
+      <section class="ssec"><h2>진행 중인 건</h2>
+        ${live.length ? `<table><thead><tr>
+          <th style="width:44%">사업명</th><th style="width:16%">구분</th>
+          <th style="width:16%">단계</th>
+          <th class="num" style="width:24%">지원내용</th></tr></thead>
+        <tbody>${live.map(r=>`<tr>
+          <td>${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</td>
+          <td>${esc(CATNM[r.cat].split('·')[0])}</td>
+          <td>${esc(r.stage_label||'')}</td>
+          <td class="num">${support(r)}</td></tr>`).join('')}
+        </tbody></table>` : '<p class="empty">진행 중인 건이 없습니다.</p>'}
+        ${(done||held) ? `<p class="snote">그 외 완료 ${done}건${
+          held?` · 보류 ${held}건`:''}</p>` : ''}
+      </section>
+
+      <section class="ssec"><h2>다가오는 일정</h2>
+        ${events.length ? `<table><tbody>${events.map(e=>`<tr>
+          <td style="width:14%">${esc(e.past?'지남':(e.dday||''))}</td>
+          <td style="width:20%">${esc(String(e.date||'').slice(5).replace('-','/'))}${
+            e.time?` ${esc(e.time)}`:''}</td>
+          <td>${esc(e.title)}</td></tr>`).join('')}
+        </tbody></table>` : '<p class="empty">등록된 일정이 없습니다.</p>'}
+      </section>
+
+      ${rec5.length ? `<section class="ssec"><h2>추천 지원사업</h2>
+        <table><thead><tr><th style="width:14%">마감</th><th>사업명</th>
+          <th class="num" style="width:26%">지원 규모</th></tr></thead>
+        <tbody>${rec5.map(o=>`<tr>
+          <td>${o.expired?'마감':esc(o.dday||'상시')}</td>
+          <td>${esc(o.title||'')}</td>
+          <td class="num">${o.amount?esc(o.amount):'—'}</td></tr>`).join('')}
+        </tbody></table></section>` : ''}
+
+      ${talk5.length ? `<section class="ssec"><h2>최근 소통</h2>
+        <table><tbody>${talk5.map(t=>`<tr>
+          <td style="width:14%">${fmt(t.date)}</td>
+          <td style="width:12%">${esc(t.channel||'')}</td>
+          <td>${esc(t.title||'')}</td></tr>`).join('')}
+        </tbody></table>
+        <p class="snote">누적 ${talks.length}건</p></section>` : ''}
+    </div>`;
+  }
+
   function buildPrintDoc(scope){
+    if(scope === 'sum'){
+      document.getElementById('printdoc').innerHTML = printSummary();
+      return;
+    }
     const cur = document.querySelector('.nv.on');
     const only = cur && cur.dataset ? cur.dataset.id : 'info';
     const list = scope === 'cur'
