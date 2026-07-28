@@ -611,10 +611,10 @@ function init(D){
     const list = rows.filter(r=>r.cat===cat);
     if(!list.length) return emptyBox('등록된 내용이 없습니다.');
     return `<div class="card"><table><thead><tr>
-      <th style="width:42%">${cat==='cert'?'인증·권리':'사업명'}</th>
-      <th style="width:20%">단계</th><th style="width:10%">상태</th>
-      <th style="width:16%">기간</th>
-      <th class="num" style="width:130px">지원내용</th></tr></thead>
+      <th style="width:38%">${cat==='cert'?'인증·권리':'사업명'}</th>
+      <th style="width:18%">단계</th><th style="width:10%">상태</th>
+      <th style="width:13%">기간</th>
+      <th class="num" style="width:21%">지원내용</th></tr></thead>
     <tbody>${list.map(r=>`<tr>
       <td class="lead"><div class="t-nm">${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</div>
           ${logLine(r)}</td>
@@ -760,17 +760,18 @@ function init(D){
    ${schedule()}
 
    <div class="card" style="margin-top:24px">
-    <div class="ch"><h2>진행 중인 건</h2><a class="more" href="#" data-go="fund">전체 보기 →</a></div>
-    ${running.length?`<table><thead><tr><th style="width:42%">건</th><th style="width:14%">구분</th>
-     <th style="width:20%">단계</th><th style="width:12%">상태</th>
-     <th class="num" style="width:130px">지원내용</th></tr></thead>
+    <div class="ch"><h2>진행 중인 프로젝트</h2><a class="more" href="#" data-go="fund">전체 보기 →</a></div>
+    ${running.length?`<table><thead><tr>
+     <th style="width:38%">프로젝트</th><th style="width:13%">구분</th>
+     <th style="width:18%">단계</th><th style="width:10%">상태</th>
+     <th class="num" style="width:21%">지원내용</th></tr></thead>
     <tbody>${running.map(r=>`<tr>
       <td class="lead"><div class="t-nm">${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</div>
           ${logLine(r)}</td>
       <td class="dtc">${CATNM[r.cat].split('·')[0]}</td>
       <td>${steps(r)}</td><td>${tag(r)}</td>
       <td class="num sup">${support(r)}</td></tr>`).join('')}
-    </tbody></table>`:`<div class="cb"><p class="empty">진행 중인 건이 없습니다.</p></div>`}</div>`;
+    </tbody></table>`:`<div class="cb"><p class="empty">진행 중인 프로젝트가 없습니다.</p></div>`}</div>`;
 
   V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
     ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
@@ -832,8 +833,8 @@ function init(D){
   V.open=()=>`<div class="vh"><h1>추천 지원사업</h1>
     ${recommend.length?`<span class="n">${recommend.length}건</span>`:''}</div>
    ${recommend.length?`<div class="card"><table><thead><tr>
-    <th style="width:10%">마감</th><th style="width:62%">사업명</th>
-    <th class="num">지원 규모</th></tr></thead>
+    <th style="width:12%">마감</th><th style="width:66%">사업명</th>
+    <th class="num" style="width:22%">지원 규모</th></tr></thead>
    <tbody>${recommend.map(o=>`<tr${o.expired?' class="gone"':''}>
     <td class="dtc" style="${o.expired?'':'color:var(--run);'}font-weight:600">${
       o.expired?'마감':esc(o.dday||'상시')}</td>
