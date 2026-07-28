@@ -883,9 +883,11 @@ def build_events(progress: list[dict], recommend: list[dict],
         events = [e for e in events if not e["past"]]
 
     # 동명 프로젝트가 있다. (제목, 날짜) 짝으로 중복을 본다.
+    # 12건 상한에서 미팅이 잘려 나가지 않도록 종류를 먼저 본다.
+    rank = {"meeting": 0, "project": 1, "deadline": 2}
     seen = set()
     uniq = []
-    for e in sorted(events, key=lambda x: (x["date"], x["kind"], x["title"])):
+    for e in sorted(events, key=lambda x: (rank.get(x["kind"], 9), x["date"], x["title"])):
         k = (e["kind"], e["title"], e["date"])
         if k in seen:
             continue
@@ -894,49 +896,113 @@ def build_events(progress: list[dict], recommend: list[dict],
     return uniq[:MAX_EVENTS]
 
 
+LEAD_BRACKETS_RE = re.compile(r"^(?:\[[^\]]*\])+")
+CAL_MIN_PREFIX = 2          # 한 글자 접두어는 오탐이 너무 많다
+
+
+def cal_prefixes(summary: str) -> list[str]:
+    """제목 앞의 대괄호 묶음을 전부 돌려준다. 「[웰스][위프]…」 처럼 겹쳐 붙는다."""
+    head = LEAD_BRACKETS_RE.match(summary or "")
+    if not head:
+        return []
+    return [p.strip() for p in re.findall(r"\[([^\]]*)\]", head.group(0))]
+
+
+def cal_matches(summary: str, company_name: str) -> bool:
+    """
+    접두어 표기가 섞여 있다 — 「[위프코리아]」와 「[위프]」가 같이 쓰인다.
+    기업명이 접두어로 시작하거나 접두어가 기업명으로 시작하면 같은 곳으로 본다.
+    접두어가 없는 일정(사내 일정)은 가져오지 않는다.
+    """
+    for p in cal_prefixes(summary):
+        if len(p) < CAL_MIN_PREFIX:
+            continue
+        if company_name.startswith(p) or p.startswith(company_name):
+            return True
+    return False
+
+
+def cal_when(ev) -> tuple[date, str | None] | None:
+    """DTSTART 를 KST 기준 (날짜, 시각) 으로. 종일 일정이면 시각은 None."""
+    dt = ev.get("DTSTART")
+    if not dt:
+        return None
+    v = dt.dt
+    if isinstance(v, datetime):
+        # 떠 있는 시각(tzinfo 없음)은 현지 시각으로 본다
+        v = (v if v.tzinfo else v.replace(tzinfo=KST)).astimezone(KST)
+        return v.date(), v.strftime("%H:%M")
+    if isinstance(v, date):
+        return v, None
+    return None
+
+
 def fetch_calendar(company_name: str, today: date) -> list[dict]:
-    """CALENDAR_ICS_URL 이 설정돼 있을 때만. 미설정이면 조용히 건너뛴다."""
+    """
+    CALENDAR_ICS_URL 이 설정돼 있을 때만. 미설정이면 조용히 건너뛴다.
+    실패해도 경고만 남기고 빈 목록을 돌려준다 — 캘린더가 빌드를 죽이면 안 된다.
+    ics 주소는 로그에도 남기지 않는다.
+    """
     url = os.environ.get("CALENDAR_ICS_URL", "").strip()
     if not url or not company_name:
         return []
     try:
         from icalendar import Calendar
+        import recurring_ical_events
     except ImportError:
-        warn("icalendar 미설치 — 캘린더 생략")
+        warn("icalendar / recurring-ical-events 미설치 — 캘린더 생략")
         return []
 
+    horizon = today + timedelta(days=CAL_HORIZON_DAYS)
     try:
         r = requests.get(url, timeout=60)
         r.raise_for_status()
         cal = Calendar.from_ical(r.content)
+        # 반복 일정을 이 구간에서만 전개한다. 상한이 있어 무한 반복이 없다.
+        occurrences = recurring_ical_events.of(cal).between(today, horizon)
     except Exception as e:                      # noqa: BLE001
-        warn(f"캘린더 조회 실패 — 생략: {type(e).__name__}")
+        warn(f"캘린더 조회 실패 — 생략: {type(e).__name__}")   # 주소는 남기지 않는다
         return []
 
-    prefix = f"[{company_name}]"
-    horizon = today + timedelta(days=CAL_HORIZON_DAYS)
     out = []
-    for ev in cal.walk("VEVENT"):
+    for ev in occurrences:
         summary = str(ev.get("SUMMARY") or "")
-        if not summary.startswith(prefix):
+        if not cal_matches(summary, company_name):
             continue
-        dt = ev.get("DTSTART")
-        if not dt:
+        when = cal_when(ev)
+        if not when:
             continue
-        v = dt.dt
-        d = v.date() if isinstance(v, datetime) else v
-        if not isinstance(d, date) or d < today or d > horizon:
+        d, hhmm = when
+        if d < today or d > horizon:
             continue
+
+        body = LEAD_BRACKETS_RE.sub("", summary).strip()
+        if " - " in body:
+            title, meta = body.split(" - ", 1)
+            title, meta = title.strip(), meta.strip() or None
+        else:
+            title = body
+            meta = str(ev.get("LOCATION") or "").strip() or None
+
         out.append({
             "date": d.isoformat(),
-            "title": summary[len(prefix):].strip(),   # 접두어는 표시할 때 뗀다
-            "kind": "project",
-            "meta": "일정",
+            "time": hhmm,
+            "title": title or summary,
+            "kind": "meeting",
+            "meta": meta,
             "dday": dday(d, today),
-            "past": False,
+            "past": d < today,
         })
-    out.sort(key=lambda e: e["date"])
-    return out[:MAX_CAL_EVENTS]
+
+    # 같은 날 같은 제목이 겹치면 한 번만 (전개 결과가 겹치는 경우를 막는다)
+    seen, uniq = set(), []
+    for e in sorted(out, key=lambda x: (x["date"], x["time"] or "", x["title"])):
+        k = (e["date"], e["time"], e["title"])
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(e)
+    return uniq[:MAX_CAL_EVENTS]
 
 
 # ══════════════════════════════════════════════════════════════════════════

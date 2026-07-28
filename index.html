@@ -754,9 +754,10 @@ function init(D){
       </div></div>`;
   }
 
-  /* 일정 — progress 의 종료 예정일과 recommend 의 마감일에서 온다.
+  /* 일정 — 구글 캘린더의 미팅, progress 의 종료 예정일, recommend 의 마감일.
      이벤트가 없어도 달력은 그대로 둔다. */
-  const KIND = { project:{label:'진행', dot:'var(--accent)'},
+  const KIND = { meeting:{label:'미팅', dot:'var(--ok)'},
+                 project:{label:'진행', dot:'var(--accent)'},
                  deadline:{label:'마감', dot:'var(--run)'} };
 
   function calMonth(y,m){
@@ -781,7 +782,8 @@ function init(D){
      카드 오른쪽만 길어져 아래 표가 밀린다. 달력 점은 자르지 않는다.
      우리가 진행 중인 건(project)이 남의 마감 공고에 밀리지 않도록 먼저 놓는다. */
   const EVENT_SHOWN_MAX = 5;
-  const KIND_ORDER = { project:0, deadline:1 };
+  /* 미팅이 남의 마감 공고에 밀리면 안 된다 */
+  const KIND_ORDER = { meeting:0, project:1, deadline:2 };
   const eventsRanked = [...events].sort((a,b)=>
     (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9)
     || String(a.date||'').localeCompare(String(b.date||'')));
@@ -789,13 +791,16 @@ function init(D){
   function eventItem(e){
     const k = KIND[e.kind] || KIND.deadline;
     /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
-    const left = e.past ? (e.kind==='project'?'종료':'마감') : (e.dday || '');
+    const PASSED = { project:'종료', deadline:'마감', meeting:'지남' };
+    const left = e.past ? (PASSED[e.kind] || '지남') : (e.dday || '');
     /* 7일 이내만 강조. D-DAY 도 임박으로 본다 */
     const n = /^D-(\d+)$/.exec(e.dday || '');
     const soon = !e.past && (e.dday === 'D-DAY' || (n && +n[1] <= 7));
     /* D-day 는 왼쪽 열에 이미 있다. 여기서는 날짜와 단계만 */
-    const sub = [String(e.date||'').slice(5).replace('-','/'), e.meta]
-      .filter(Boolean).map(esc).join(' · ');
+    /* 미팅은 시각이 있다. 종일 일정이면 time 이 없어 날짜만 나온다 */
+    const when = [String(e.date||'').slice(5).replace('-','/'), e.time]
+      .filter(Boolean).join(' ');
+    const sub = [when, e.meta].filter(Boolean).map(esc).join(' · ');
     return `<div class="e${e.past?' gone':''}">
       <span class="dd${soon?' soon':''}">${esc(left)}</span>
       <span class="ei">

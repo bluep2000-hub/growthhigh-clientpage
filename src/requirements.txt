@@ -1,4 +1,5 @@
 requests>=2.31
 python-dotenv>=1.0
 cryptography>=42.0
-icalendar>=6.0   # CALENDAR_ICS_URL 을 쓸 때만 필요하다
+icalendar>=6.0            # CALENDAR_ICS_URL 을 쓸 때만 필요하다
+recurring-ical-events>=3.0  # 반복 일정(RRULE) 전개
