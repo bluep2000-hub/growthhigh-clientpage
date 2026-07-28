@@ -56,6 +56,9 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
   align-items:center;gap:10px;padding:0 16px}
 .crumb{font-size:13px;font-weight:600;letter-spacing:-.01em}
 .crumb i{font-style:normal;color:var(--tx-3);font-weight:400;margin:0 7px}
+/* 기업명은 한 단계 물리고 현재 페이지를 앞세운다 */
+.crumb .c0{color:var(--tx-2)}
+.crumb .c1{color:var(--tx)}
 .top .rt{margin-left:auto;display:flex;align-items:center;gap:6px}
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--tx-2);
   padding:3px 10px;border-radius:99px;background:var(--panel-2);
@@ -65,7 +68,7 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
   color:var(--tx-2);font-size:14px}
 .tgl:hover{background:var(--hover);color:var(--tx)}
 .scroll{flex:1;overflow-y:auto}
-.view{padding:26px 24px 90px;max-width:1010px}
+.view{padding:28px 32px 90px;max-width:1240px}
 .vh{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}
 .vh h1{font-size:19px;font-weight:600;letter-spacing:-.025em}
 .vh .n{font-size:12px;color:var(--tx-3);font-variant-numeric:tabular-nums}
@@ -80,7 +83,7 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .mini{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--panel-2);color:var(--tx-2)}
 [data-theme="light"] .mini{background:var(--hover)}
 
-.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:9px;margin-bottom:16px}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:9px;margin-bottom:16px}
 .k1{border:1px solid var(--line-2);border-radius:10px;padding:13px 15px;background:var(--panel)}
 .k1 .k{font-size:11.5px;color:var(--tx-2)}
 .k1 .v{font-size:26px;font-weight:600;letter-spacing:-.03em;margin-top:4px;font-variant-numeric:tabular-nums}
@@ -120,10 +123,13 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 [data-theme="light"] .ck code{background:var(--hover)}
 .empty{font-size:12.5px;color:var(--tx-3);padding:2px 0}
 
-.cal-w{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:20px}
+.cal-w{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px}
 .cal h4{font-size:11.5px;font-weight:600;margin-bottom:7px}
-.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
-.cal-g span{height:25px;display:grid;place-items:center;font-size:11px;color:var(--tx-2);
+/* 6주로 밀리는 달이 있어 높이를 미리 잡아둔다 — 두 달력의 아래가 어긋나지 않게.
+   align-items:start 가 없으면 5주짜리 달의 칸이 늘어나 높이만 맞고 칸이 어긋난다 */
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;
+  align-items:start;min-height:191px}
+.cal-g span{height:28px;display:grid;place-items:center;font-size:11.5px;color:var(--tx-2);
   position:relative;border-radius:5px;font-variant-numeric:tabular-nums}
 .cal-g span.wk{height:17px;font-size:9.5px;color:var(--tx-3)}
 .cal-g span.dim{opacity:.22}
@@ -135,15 +141,21 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .cal-g span.tdy{background:var(--accent);color:#fff;font-weight:600}
 .cal-g span.tdy::after{background:#fff}
 .evl{border-left:1px solid var(--line);padding-left:20px}
-.evl .e{display:flex;gap:11px;padding:0 0 12px}
+.evl .e{display:flex;gap:11px;padding:0 0 14px}
 .evl .e:last-child{padding-bottom:0}
-.evl .e.gone{opacity:.55}
-.evl .e .dd{width:44px;flex:none;font-size:11.5px;color:var(--run);font-weight:500;
+.evl .e.gone{opacity:.5}
+/* 임박한 건만 색을 준다. 전부 빨가면 무엇이 급한지 알 수 없다 */
+.evl .e .dd{width:48px;flex:none;font-size:11.5px;color:var(--tx-3);font-weight:500;
   font-variant-numeric:tabular-nums;padding-top:1px}
-.evl .e .t{font-size:12.5px;font-weight:500;line-height:1.45}
-.evl .e .t .kd{font-size:10px;font-weight:500;border:1px solid var(--line-2);
-  border-radius:3px;padding:0 5px;margin-left:6px;color:var(--tx-3);white-space:nowrap}
-.evl .e .m{font-size:11.5px;color:var(--tx-2);margin-top:2px}
+.evl .e .dd.soon{color:var(--run)}
+.evl .e .ei{min-width:0;display:flex;flex-direction:column;gap:2px}
+/* min-width:0 이 없으면 flex 안에서 말줄임이 걸리지 않는다 */
+.evl .e .t{display:flex;align-items:center;gap:6px;min-width:0;
+  font-size:12.5px;font-weight:500;line-height:1.45}
+.evl .e .t .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.evl .e .t .kd{flex:none;font-size:10px;font-weight:500;border:1px solid var(--line-2);
+  border-radius:3px;padding:0 5px;color:var(--tx-3);white-space:nowrap}
+.evl .e .m{font-size:11.5px;color:var(--tx-2);font-variant-numeric:tabular-nums}
 @media(max-width:900px){.cal-w{grid-template-columns:1fr}
   .evl{border-left:none;padding-left:0;border-top:1px solid var(--line);padding-top:14px}}
 
@@ -298,7 +310,8 @@ const LABELS = {
   cert:['진단','서류','접수','심사','취득'],
   proj:['착수','분석','작성','검토','완료'],
 };
-const CATNM = { fund:'정부지원사업', cert:'기업인증·지식재산권', proj:'경영자문 프로젝트' };
+/* fund 에는 (런웨이)정책자금도 들어온다. 사이드바·본문 제목·breadcrumb 이 모두 이 값을 쓴다 */
+const CATNM = { fund:'정부지원사업·정책자금', cert:'기업인증·지식재산권', proj:'경영자문 프로젝트' };
 const BADGE = { run:'진행', ok:'종료', no:'보류', wait:'예정' };
 const GL = { info:'▣', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
 
@@ -588,11 +601,16 @@ function init(D){
       const k = KIND[e.kind] || KIND.deadline;
       /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
       const left = e.past ? (e.kind==='project'?'종료':'마감') : (e.dday || '');
+      /* 7일 이내만 강조. D-DAY 도 임박으로 본다 */
+      const n = /^D-(\d+)$/.exec(e.dday || '');
+      const soon = !e.past && (e.dday === 'D-DAY' || (n && +n[1] <= 7));
+      const sub = [e.dday, String(e.date||'').slice(5).replace('-','/'), e.meta]
+        .filter(Boolean).map(esc).join(' · ');
       return `<div class="e${e.past?' gone':''}">
-        <span class="dd"${e.past?' style="color:var(--tx-3)"':''}>${esc(left)}</span><span>
-        <span class="t">${esc(e.title)}<span class="kd">${k.label}</span></span>
-        <span class="m">${esc(String(e.date||'').slice(5).replace('-','/'))}${
-          e.meta?` · ${esc(e.meta)}`:''}</span>
+        <span class="dd${soon?' soon':''}">${esc(left)}</span>
+        <span class="ei">
+        <span class="t"><span class="nm">${esc(e.title)}</span><span class="kd">${k.label}</span></span>
+        <span class="m">${sub}</span>
         </span></div>`;
     }).join('') : '<p class="empty">등록된 일정이 없습니다.</p>';
     return `<div class="card"><div class="ch"><h2>일정</h2></div><div class="cb">
@@ -690,7 +708,9 @@ function init(D){
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        기준일은 상단 우측 pill 에만 표시한다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
-    document.getElementById('crumb').innerHTML=`${esc(CO.name||CLIENT)}<i>/</i>${esc(CR[id])}`;
+    document.getElementById('crumb').innerHTML=
+      `<span class="c0">${esc(CO.name||CLIENT)}</span><i>/</i>` +
+      `<span class="c1">${esc(CR[id])}</span>`;
     document.querySelectorAll('.nv').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
     document.getElementById('scroll').scrollTop=0;
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});

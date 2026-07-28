@@ -63,7 +63,7 @@ POLICY_DATA_URL = "https://bluep2000-hub.github.io/growthhigh-policy/data-full.j
 POLICY_BASE_URL = "https://bluep2000-hub.github.io/growthhigh-policy/"
 
 # 마감이 지난 추천 사업·일정도 내보낼지. 운영 전환 시 False.
-INCLUDE_EXPIRED = True
+INCLUDE_EXPIRED = False
 
 PBKDF2_ITERATIONS = 200_000
 
