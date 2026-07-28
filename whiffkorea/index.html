@@ -583,12 +583,14 @@ function init(D){
     return `<div class="t-sub">${d?`<span class="lgd">${d}</span>`:''}${esc(r.log_text||'')}</div>`;
   };
 
+  /* 지원내용 — 확보금액이 있으면 그 값, 없으면 빈칸.
+     확보금액은 노션에서 rich_text 라 「100,000,000원」 같은 금액과
+     「하이서울기업 인증서」 같은 산출물이 함께 들어온다. 원문을 그대로 쓰고,
+     숫자만 들어온 경우에만 세 자리로 끊는다. */
   const support = r => {
     const a = (r.amount == null ? '' : String(r.amount)).trim();
-    if(a) return /^\d+$/.test(a) ? esc(Number(a).toLocaleString('ko-KR')) : esc(a);
-    if(r.drive_url)
-      return `<a class="rv" href="${encodeURI(r.drive_url)}" target="_blank" rel="noopener">자료 →</a>`;
-    return '';
+    if(!a) return '';
+    return /^\d+$/.test(a) ? esc(Number(a).toLocaleString('ko-KR')) : esc(a);
   };
 
   function table(cat){
