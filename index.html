@@ -164,6 +164,9 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .evl .e .t .kd{flex:none;font-size:10px;font-weight:500;border:1px solid var(--line-2);
   border-radius:3px;padding:0 5px;color:var(--tx-3);white-space:nowrap}
 .evl .e .m{font-size:11.5px;color:var(--tx-2);font-variant-numeric:tabular-nums}
+/* 잘려 나간 나머지. 목록 항목과 같은 들여쓰기에 맞춘다 */
+.evl .emore{display:block;padding-left:59px;font-size:11.5px;color:var(--tx-3);padding-bottom:0}
+.evl .emore:hover{color:var(--tx)}
 @media(max-width:900px){.cal-w{grid-template-columns:1fr}
   .evl{border-left:none;padding-left:0;border-top:1px solid var(--line);padding-top:14px}}
 
@@ -691,10 +694,21 @@ function init(D){
     return `<div class="cal"><h4>${m}월</h4><div class="cal-g">${c}</div></div>`;
   }
 
+  /* 오른쪽 목록은 5건까지만 — 달력 2개월이 200px 남짓인데 목록이 12건이면
+     카드 오른쪽만 길어져 아래 표가 밀린다. 달력 점은 자르지 않는다.
+     우리가 진행 중인 건(project)이 남의 마감 공고에 밀리지 않도록 먼저 놓는다. */
+  const EVENT_SHOWN_MAX = 5;
+  const KIND_ORDER = { project:0, deadline:1 };
+  const eventsRanked = [...events].sort((a,b)=>
+    (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9)
+    || String(a.date||'').localeCompare(String(b.date||'')));
+
   function schedule(){
     const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
     const ny=m===12?y+1:y, nm=m===12?1:m+1;
-    const list = events.length ? events.map(e=>{
+    const shown = eventsRanked.slice(0, EVENT_SHOWN_MAX);
+    const rest = eventsRanked.length - shown.length;
+    const list = events.length ? shown.map(e=>{
       const k = KIND[e.kind] || KIND.deadline;
       /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
       const left = e.past ? (e.kind==='project'?'종료':'마감') : (e.dday || '');
@@ -710,7 +724,9 @@ function init(D){
         <span class="t"><span class="nm">${esc(e.title)}</span><span class="kd">${k.label}</span></span>
         <span class="m">${sub}</span>
         </span></div>`;
-    }).join('') : '<p class="empty">등록된 일정이 없습니다.</p>';
+    }).join('') + (rest > 0
+      ? `<a class="e emore" href="#" data-go="open">외 ${rest}건 →</a>` : '')
+      : '<p class="empty">등록된 일정이 없습니다.</p>';
     return `<div class="card"><div class="ch"><h2>일정</h2></div><div class="cb">
       <div class="cal-w">${calMonth(y,m)}${calMonth(ny,nm)}
       <div class="evl">${list}</div></div></div></div>`;
