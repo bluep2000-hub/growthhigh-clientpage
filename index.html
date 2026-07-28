@@ -422,7 +422,9 @@ function init(D){
   const rows = Array.isArray(D.progress) ? D.progress : [];
   const events = Array.isArray(D.events) ? D.events : [];
   const recommend = Array.isArray(D.recommend) ? D.recommend : [];
-  const talks = Array.isArray(D.talks) ? D.talks : [];
+  /* 공백뿐인 본문은 없는 것으로 본다 — 아래 t.body 검사가 모두 이 값을 쓴다 */
+  const talks = (Array.isArray(D.talks) ? D.talks : [])
+    .map(t => ({ ...t, body: (t.body || '').trim() || null }));
   const kpi = D.kpi || {};
   const notice = D.notice;
 

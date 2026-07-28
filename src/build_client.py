@@ -924,9 +924,9 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 # ══════════════════════════════════════════════════════════════════════════
 # 소통 내역
 #
-# 메일은 곧바로 화면에 나가지 않는다. 본문까지 읽어 노션 소통 DB 에
-# 「검토대기」로 앉히고, 담당자가 「공개」로 바꾼 것만 JSON 에 실린다.
-# 본문에는 사내 판단이 섞여 있을 수 있으므로 사람이 한 번 거른다.
+# 메일은 본문까지 읽어 노션 소통 DB 에 「공개」로 앉히고, 그대로 화면에 나간다.
+# 고객사와 오간 메일 아카이빙이라 우리가 검토할 대상이 아니고, 본문도 원문 그대로다.
+# 감출 것이 있으면 담당자가 「보류」로 바꾼다 — 읽을 때 그것만 뺀다.
 #
 # 통화록·요약은 이 스크립트가 만들지 않는다 (클로드 코워크가 노션에 기록한다).
 # 이 스크립트는 IMAP 을 노션에 쓰고, 노션을 읽는다.
@@ -939,8 +939,11 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 
 # 소통 내역 DB. database_id 라우트 + 2022-06-28 로 접근된다 (확인 완료).
 TALKS_DB_ID = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de"
+# 「검토대기」는 지금 아무것도 쓰지 않지만 옵션은 남겨둔다.
+# 통화·미팅 AI 요약이 붙으면 그때는 사람이 거를 대상이 생긴다.
 TALK_STATUS_NEW = "검토대기"
 TALK_STATUS_PUBLIC = "공개"
+TALK_STATUS_HIDDEN = "보류"     # 담당자가 의도적으로 숨긴 것. 읽기에서 뺀다
 TALK_CHANNEL_MAIL = "메일"
 
 # 사람이 손으로 분류해둔 고객사 폴더를 그대로 쓴다. 발신 도메인 추측보다 정확하다.
@@ -955,7 +958,7 @@ TALKS_SCAN_MAX = 300
 
 BODY_FETCH_MAX = 200_000        # 텍스트 파트를 이 바이트까지만 받는다
 BODY_MAX_CHARS = 2000           # 노션 rich_text 한계이자 화면에 싣는 한계
-BODY_MIN_CHARS = 50             # 이보다 짧으면 제목만 있는 메일로 본다
+BODY_MIN_CHARS = 10             # 이보다 짧으면 제목만 있는 메일로 본다
 BODY_TRUNC_MARK = "…(이하 생략)"
 
 IMAP_PORT = 993
@@ -1415,7 +1418,7 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
             "방향": {"select": {"name": m["direction"]}},
             "요약": {"rich_text": ([{"text": {"content": body}}] if body else [])},
             "Message-ID": {"rich_text": [{"text": {"content": mid[:2000]}}]},
-            "상태": {"select": {"name": TALK_STATUS_NEW}},
+            "상태": {"select": {"name": TALK_STATUS_PUBLIC}},
         }
         if m["date"]:
             props["일자"] = {"date": {"start": m["date"]}}
@@ -1428,19 +1431,24 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
         except ClientFailure as e:
             warn(f"소통 DB 쓰기 실패 — 건너뜁니다: {e}")
 
-    log(f"  소통 DB: {added}건 추가(검토대기) · {skipped}건 중복 건너뜀")
+    log(f"  소통 DB: {added}건 추가(공개) · {skipped}건 중복 건너뜀")
 
 
-# ── 노션 소통 DB: 읽기 (공개 게이트) ─────────────────────────────────────
+# ── 노션 소통 DB: 읽기 (보류만 제외) ─────────────────────────────────────
 
 def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
-    """「공개」인 것만 읽는다. 화면에 무엇이 나갈지는 이 함수 하나가 정한다."""
+    """클라이언트 릴레이션으로 거르고 「보류」만 뺀다.
+    화면에 무엇이 나갈지는 이 함수 하나가 정한다."""
     try:
         res = nt.post(f"/databases/{TALKS_DB_ID}/query", {
             "page_size": TALKS_OUTPUT_MAX,
             "filter": {"and": [
                 {"property": "클라이언트", "relation": {"contains": client_page_id}},
-                {"property": "상태", "select": {"equals": TALK_STATUS_PUBLIC}},
+                # 상태가 비어 있어도 내보낸다. 빼는 것은 「보류」뿐이다.
+                {"or": [
+                    {"property": "상태", "select": {"does_not_equal": TALK_STATUS_HIDDEN}},
+                    {"property": "상태", "select": {"is_empty": True}},
+                ]},
             ]},
             "sorts": [{"property": "일자", "direction": "descending"}],
         })
@@ -1558,7 +1566,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     log(f"  추천 지원사업 {len(recommend)}건")
 
     talks = build_talks(nt, client, name, skip_imap, dry_run)
-    log(f"  소통 내역 {len(talks)}건 (공개)")
+    log(f"  소통 내역 {len(talks)}건 (보류 제외)")
 
     events = build_events(progress, recommend, name, include_expired)
     log(f"  일정 {len(events)}건")
