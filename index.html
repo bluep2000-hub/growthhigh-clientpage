@@ -757,8 +757,8 @@ function init(D){
   /* 일정 — 구글 캘린더의 미팅, progress 의 종료 예정일, recommend 의 마감일.
      이벤트가 없어도 달력은 그대로 둔다. */
   const KIND = { meeting:{label:'미팅', dot:'var(--ok)'},
-                 project:{label:'진행', dot:'var(--accent)'},
-                 deadline:{label:'마감', dot:'var(--run)'} };
+                 project:{label:'진행', dot:'var(--accent)'} };
+  const kindOf = e => KIND[e.kind] || KIND.project;
 
   function calMonth(y,m){
     const first=new Date(y,m-1,1), last=new Date(y,m,0).getDate(), lead=first.getDay();
@@ -766,7 +766,7 @@ function init(D){
     const dot=new Map();
     events.filter(e=>String(e.date||'').startsWith(`${y}-${pad2(m)}`))
       .forEach(e=>{ const d=+String(e.date).slice(8);
-        if(!dot.has(d)) dot.set(d,(KIND[e.kind]||KIND.deadline).dot); });
+        if(!dot.has(d)) dot.set(d, kindOf(e).dot); });
     let c=''; ['일','월','화','수','목','금','토'].forEach(w=>c+=`<span class="wk">${w}</span>`);
     for(let i=0;i<lead;i++) c+='<span class="dim"></span>';
     for(let d=1;d<=last;d++){
@@ -783,16 +783,15 @@ function init(D){
      우리가 진행 중인 건(project)이 남의 마감 공고에 밀리지 않도록 먼저 놓는다. */
   const EVENT_SHOWN_MAX = 5;
   /* 미팅이 남의 마감 공고에 밀리면 안 된다 */
-  const KIND_ORDER = { meeting:0, project:1, deadline:2 };
+  const KIND_ORDER = { meeting:0, project:1 };
   const eventsRanked = [...events].sort((a,b)=>
     (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9)
     || String(a.date||'').localeCompare(String(b.date||'')));
 
   function eventItem(e){
-    const k = KIND[e.kind] || KIND.deadline;
+    const k = kindOf(e);
     /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
-    const PASSED = { project:'종료', deadline:'마감', meeting:'지남' };
-    const left = e.past ? (PASSED[e.kind] || '지남') : (e.dday || '');
+    const left = e.past ? (e.kind==='meeting' ? '지남' : '종료') : (e.dday || '');
     /* 7일 이내만 강조. D-DAY 도 임박으로 본다 */
     const n = /^D-(\d+)$/.exec(e.dday || '');
     const soon = !e.past && (e.dday === 'D-DAY' || (n && +n[1] <= 7));
@@ -1027,8 +1026,13 @@ function init(D){
   const CR={info:'기업 정보',fund:CATNM.fund,cert:CATNM.cert,
     proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
   CR.notice = noticeLabel;                     /* 공지가 없어도 화면은 있다 */
-  function go(id){
+  /* 화면 전환을 브라우저 히스토리에 남긴다. 안 남기면 뒤로 가기가
+     이전 화면이 아니라 사이트 밖으로 나가 버린다.
+     opt.replace  첫 진입 — 히스토리에 겹쳐 쌓지 않는다
+     opt.fromPop  뒤로/앞으로 — 그 이동을 다시 기록하지 않는다 */
+  function go(id, opt){
     if(!V[id])return;
+    const o = opt || {};
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        기준일은 상단 우측 pill 에만 표시한다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
@@ -1039,7 +1043,18 @@ function init(D){
     document.getElementById('scroll').scrollTop=0;
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});
     bindTalks();
+
+    if(!o.fromPop){
+      const url = '#' + id;
+      if(o.replace) history.replaceState({view:id}, '', url);
+      else if(location.hash !== url) history.pushState({view:id}, '', url);
+    }
   }
+
+  window.addEventListener('popstate', e => {
+    const id = (e.state && e.state.view) || (location.hash || '').slice(1);
+    go(V[id] ? id : 'info', {fromPop:true});
+  });
 
   /* 아코디언과 채널 탭. 탭을 누르면 목록만 다시 그리고 다시 묶는다 */
   function bindTalks(){
@@ -1058,7 +1073,9 @@ function init(D){
     });
   }
   document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});
-  go('info');
+  /* 주소에 해시가 있으면 그 화면에서 시작한다. 잠금이 풀린 뒤에만 온다 */
+  const startId = (location.hash || '').slice(1);
+  go(V[startId] ? startId : 'info', {replace:true});
 }
 
 document.getElementById('tgl').onclick=()=>{

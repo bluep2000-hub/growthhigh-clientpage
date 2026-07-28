@@ -839,8 +839,13 @@ MAX_CAL_EVENTS = 10
 CAL_HORIZON_DAYS = 90
 
 
-def build_events(progress: list[dict], recommend: list[dict],
-                 company_name: str, include_expired: bool) -> list[dict]:
+def build_events(progress: list[dict], company_name: str,
+                 include_expired: bool) -> list[dict]:
+    """
+    일정은 미팅과 프로젝트 종료 예정일 둘로만 만든다.
+    추천 사업 마감일은 넣지 않는다 — 「추천 지원사업」 화면에 D-day 와 함께
+    이미 나오는 정보이고, 공고가 일정 카드를 채우면 미팅이 뒤로 밀린다.
+    """
     today = today_kst()
     events: list[dict] = []
 
@@ -861,22 +866,7 @@ def build_events(progress: list[dict], recommend: list[dict],
             "past": d < today,
         })
 
-    # 원천 2 — 추천 사업 마감일
-    for o in recommend:
-        dl = o.get("deadline") or ""
-        if not DATE_RE.match(dl):
-            continue
-        d = date.fromisoformat(dl)
-        events.append({
-            "date": dl,
-            "title": o.get("title") or "",
-            "kind": "deadline",
-            "meta": o.get("amount") or "마감",
-            "dday": dday(d, today),
-            "past": d < today,
-        })
-
-    # 원천 3 (선택) — 캘린더
+    # 원천 2 (선택) — 캘린더
     events.extend(fetch_calendar(company_name, today))
 
     if not include_expired:
@@ -884,7 +874,7 @@ def build_events(progress: list[dict], recommend: list[dict],
 
     # 동명 프로젝트가 있다. (제목, 날짜) 짝으로 중복을 본다.
     # 12건 상한에서 미팅이 잘려 나가지 않도록 종류를 먼저 본다.
-    rank = {"meeting": 0, "project": 1, "deadline": 2}
+    rank = {"meeting": 0, "project": 1}
     seen = set()
     uniq = []
     for e in sorted(events, key=lambda x: (rank.get(x["kind"], 9), x["date"], x["title"])):
@@ -1979,7 +1969,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     talks = build_talks(nt, client, name, skip_imap, dry_run, known_names)
     log(f"  소통 내역 {len(talks)}건 (보류 제외)")
 
-    events = build_events(progress, recommend, name, include_expired)
+    events = build_events(progress, name, include_expired)
     log(f"  일정 {len(events)}건")
 
     next_ev = next((e for e in events if not e["past"]), None)
