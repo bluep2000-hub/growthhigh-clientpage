@@ -105,30 +105,35 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .card>.ch .more{margin-left:auto;font-size:11.5px;color:var(--tx-3)}
 .card>.cb{padding:15px}
 
-.notice{border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-bottom:11px}
+.notice{border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-bottom:16px}
 .notice>h3{font-size:13px;font-weight:600;padding:12px 15px 10px;letter-spacing:-.01em}
 .notice>.bd{padding:0 15px 13px}
 .ck{list-style:none}
 .ck>li{padding:3px 0 3px 22px;position:relative;font-size:13px;line-height:1.65}
 .ck>li>b{font-weight:600}
-/* 체크박스(to_do) / 일반 불릿(checked:null) 을 클래스로 구분한다 */
-.ck li.chk::before{content:'';position:absolute;left:0;top:6px;width:13px;height:13px;
-  border-radius:3.5px;border:1.4px solid var(--line-2)}
-.ck li.chk.on::before{background:var(--ok);border-color:var(--ok)}
-.ck li.chk.on::after{content:'✓';position:absolute;left:2.4px;top:3.2px;
-  font-size:9.5px;color:#0E2A1D;font-weight:700}
-/* 라이트의 --ok 는 진한 초록이라 어두운 체크가 묻힌다 */
-[data-theme="light"] .ck li.chk.on::after{color:#FFFFFF}
+/* 읽기 전용 화면이라 입력 컨트롤처럼 보이는 체크박스를 두지 않는다.
+   끝난 일은 체크 표시만, 남은 일은 빈 원만 둔다. */
+.ck li.chk{color:var(--tx)}                    /* 지금 해야 할 일 */
+/* 빈 원은 1.5px 링이라 --line-2 로는 두 테마 모두 1.5:1 대비로 묻힌다 */
+.ck li.chk::before{content:'';position:absolute;left:2px;top:11px;
+  width:5px;height:5px;border-radius:50%;border:1.5px solid var(--tx-3)}
+.ck li.chk.on{color:var(--tx-2)}               /* 끝난 일은 한 단계 죽인다 */
+.ck li.chk.on::before{                         /* 박스 없이 체크 모양만 */
+  left:3px;top:8.5px;width:6px;height:10px;border-radius:1px;
+  border:solid var(--ok);border-width:0 2px 2px 0;transform:rotate(45deg)}
 .ck li.plain::before{content:'';position:absolute;left:4px;top:11px;width:4px;height:4px;
   border-radius:50%;background:var(--tx-3)}
 .ck ul{list-style:none;margin:2px 0 4px}
-.ck ul li{padding:2px 0 2px 18px;position:relative;font-size:12.5px;color:var(--tx-2);line-height:1.6}
-.ck ul li.chk::before{width:11px;height:11px;border-radius:3px;top:5px}
-.ck ul li.chk.on::after{left:2px;top:2.6px;font-size:8.5px}
-.ck ul li.plain::before{left:5px;top:10px;width:3px;height:3px}
+.ck ul li{padding:2px 0 2px 16px;position:relative;font-size:12.5px;
+  color:var(--tx-2);line-height:1.65}
+.ck ul li.chk::before{left:1px;top:9px;width:4px;height:4px;border-width:1.5px}
+.ck ul li.chk.on::before{left:2px;top:6.5px;width:5px;height:8px;border-width:0 2px 2px 0}
+/* 하위 불릿은 상위와 위계가 갈리도록 한 단계 더 죽인다 */
+.ck ul li.plain::before{left:4px;top:9px;width:3px;height:3px;background:var(--line-2)}
 .ck s{opacity:.72}
-.ck code{background:var(--panel-2);border-radius:3px;padding:1px 5px;font-size:11.5px;color:var(--tx)}
-[data-theme="light"] .ck code{background:var(--hover)}
+/* 노션에서는 코드지만 여기서는 그냥 강조어다. 네모를 빼고 밑줄만 둔다 */
+.ck code{font-size:inherit;font-family:inherit;font-weight:600;color:var(--tx);
+  box-shadow:inset 0 -1px 0 var(--line-2)}
 .empty{font-size:12.5px;color:var(--tx-3);padding:2px 0}
 
 .cal-w{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px}
