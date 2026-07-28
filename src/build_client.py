@@ -27,7 +27,7 @@ import unicodedata
 import urllib.parse
 from datetime import date, datetime, timedelta, timezone
 from email import message_from_bytes
-from email.utils import parseaddr, parsedate_to_datetime
+from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 from html import unescape as html_unescape
 from pathlib import Path
 
@@ -297,7 +297,13 @@ def nn(v):
 # §3 클라이언트 목록
 # ══════════════════════════════════════════════════════════════════════════
 
-def fetch_clients(nt: Notion, only: str | None) -> list[dict]:
+def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
+    """빌드 대상과 함께 「우리 클라이언트 이름」 전부를 돌려준다.
+
+    이름 목록은 보낸메일함에서 남의 건을 가려낼 때 쓴다. 슬러그가 없어
+    빌드하지 않는 행의 이름도 필요하다 — 그 회사 메일이 옆 클라이언트
+    페이지로 새는 것을 막아야 하기 때문이다.
+    """
     rows = nt.query_all(SHARE_DB_ID, {
         "filter": {"property": "페이지 유형",
                    "multi_select": {"contains": CLIENT_PAGE_TYPE}},
@@ -305,11 +311,13 @@ def fetch_clients(nt: Notion, only: str | None) -> list[dict]:
     log(f"클라이언트 후보 {len(rows)}건")
 
     clients = []
+    known_names: set[str] = set()
     for row in rows:
         props = row.get("properties", {})
         name = p_text(props, "페이지명")
         slug = p_text(props, "슬러그")
         company_ids = p_relation(props, "기업 DB")
+        known_names |= client_name_tokens(name)
 
         if not slug:
             warn(f"슬러그 없음 — 건너뜀: {name!r}")
@@ -331,7 +339,7 @@ def fetch_clients(nt: Notion, only: str | None) -> list[dict]:
             "tags": p_multi(props, "업종"),
             "icon": row.get("icon"),
         })
-    return clients
+    return clients, known_names
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -950,7 +958,7 @@ TALK_CHANNEL_MAIL = "메일"
 TALKS_FOLDER_PREFIX = "Inbox.고객사."
 TALKS_DAYS = 90
 TALKS_FETCH_MAX = 30            # 폴더에서 읽어올 최근 메일 수
-TALKS_OUTPUT_MAX = 20           # JSON 에 담을 수
+TALKS_OUTPUT_MAX = 60           # JSON 에 담을 수. 90일치 받음+보냄이 다 들어가는 값
 OWN_MAIL_DOMAIN = "growthhigh.co.kr"
 
 # 메일함 뒤쪽에서 이만큼만 훑는다. 도착순이라 최근 건은 항상 이 구간에 있다.
@@ -962,7 +970,23 @@ BODY_MIN_CHARS = 10             # 이보다 짧으면 제목만 있는 메일로
 BODY_TRUNC_MARK = "…(이하 생략)"
 
 IMAP_PORT = 993
-HEADER_SPEC = "(BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)])"
+HEADER_SPEC = "(BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE MESSAGE-ID)])"
+
+# 보낸메일함 이름은 서버마다 다르다. LIST 결과에서 이 이름들을 찾는다.
+# 이 서버(다우오피스)의 실제 이름은 Sent — check_imap.py 로 확인했다.
+SENT_FOLDER_NAMES = frozenset({
+    "sent", "sent items", "sent messages", "sentmail",
+    "보낸메일함", "보낸편지함", "보낸 메일함",
+})
+
+# 공용 메일 도메인. 여기 속하면 도메인만으로는 어느 클라이언트인지 특정할 수
+# 없으므로, 로컬파트까지 붙인 전체 주소로만 맞춘다.
+PUBLIC_MAIL_DOMAINS = frozenset({
+    "naver.com", "gmail.com", "googlemail.com", "daum.net", "hanmail.net",
+    "nate.com", "kakao.com", "hotmail.com", "outlook.com", "live.com",
+    "yahoo.com", "yahoo.co.kr", "icloud.com", "me.com",
+    "empas.com", "dreamwiz.com", "korea.com",
+})
 
 # 「RE: FW: 회신: 제목」 처럼 겹쳐 붙은 것까지 한 번에 뗀다. Re[2]: 형태도 처리.
 REPLY_PREFIX_RE = re.compile(
@@ -1221,10 +1245,224 @@ def compose_body(text: str, attachments: list[str]) -> str:
 
 # ── IMAP: 헤더 + 본문 수집 ───────────────────────────────────────────────
 
-def fetch_mails(company_name: str) -> list[dict]:
-    """고객사 폴더에서 최근 90일치 메일을 읽는다.
+def scan_folder(M: imaplib.IMAP4_SSL, folder: str) -> tuple[list[dict], int]:
+    """폴더 뒤쪽을 훑어 최근 TALKS_DAYS 일치 헤더를 돌려준다. 본문은 읽지 않는다.
+
+    서버 SEARCH 를 쓰지 않는다. 다우오피스는 날짜 조건에 대해 매칭 개수만큼
+    1번부터 세어서 돌려주고(SEARCH ALL 은 0건), 그대로 믿으면 가장 오래된
+    메일이 최신인 것처럼 화면에 뜬다. 헤더를 받아 여기서 직접 거른다.
+
+    건수를 여기서 자르지 않는다 — 보낸메일함은 걸러낸 뒤에 잘라야 한다.
+    """
+    # EXAMINE = 읽기 전용. SELECT 로 열면 읽음 처리가 될 수 있다.
+    typ, data = M.select(f'"{folder}"', readonly=True)
+    if typ != "OK":
+        warn(f"메일 폴더를 열지 못했습니다: {folder}")
+        return [], 0
+    exists = int(data[0])
+    if exists == 0:
+        return [], 0
+
+    start = max(1, exists - TALKS_SCAN_MAX + 1)
+    typ, data = M.fetch(f"{start}:{exists}", HEADER_SPEC)
+    if typ != "OK":
+        warn(f"메일 헤더를 읽지 못했습니다: {folder}")
+        return [], exists
+
+    cutoff = (today_kst() - timedelta(days=TALKS_DAYS)).isoformat()
+    mails, undated = [], 0
+    for item in data:
+        if not isinstance(item, tuple):
+            continue
+        mail = parse_header(item[1])
+        if not mail:
+            continue
+        try:
+            mail["seq"] = item[0].split()[0].decode()
+        except Exception:                        # noqa: BLE001
+            continue
+        if not mail["date"]:
+            undated += 1
+            continue
+        if mail["date"] >= cutoff:
+            mails.append(mail)
+    if undated:
+        warn(f"날짜를 읽을 수 없는 메일 {undated}건 — 제외했습니다")
+
+    mails.sort(key=lambda m: m["date"], reverse=True)
+    return mails, exists
+
+
+def read_bodies(M: imaplib.IMAP4_SSL, mails: list[dict]) -> None:
+    """폴더가 열려 있는 동안 불러야 한다 — seq 는 폴더마다 다르다.
+    한 건이 죽어도 나머지는 계속."""
+    for m in mails:
+        try:
+            text, attachments = read_body(M, m["seq"])
+        except Exception as e:                   # noqa: BLE001
+            warn(f"본문 파싱 실패 — 요약 비움: {m['title'][:28]} ({type(e).__name__})")
+            text, attachments = "", []
+        m["body"] = compose_body(text, attachments)
+
+
+# ── 보낸메일함: 수신자로 클라이언트를 가려낸다 ───────────────────────────
+#
+# 받은 메일은 사람이 분류해둔 폴더가 곧 정답이었다. 보낸메일함에는 모든
+# 클라이언트 메일이 섞여 있어 그런 단서가 없다. 그래서 이미 수집한 받은
+# 메일의 발신자에서 상대방 주소를 뽑아, 그것을 수신자와 맞춘다.
+
+# 제목 말머리의 대괄호. 「[리마인드][위프코리아]…」 처럼 겹쳐 붙는다.
+BRACKET_RE = re.compile(r"[\[【]([^\]】]{1,40})[\]】]")
+# 「웰스앤헬스(위프코리아) 클라이언트페이지」 → {웰스앤헬스, 위프코리아}
+CLIENT_NAME_STRIP_RE = re.compile(r"\s*클라이언트\s*페이지\s*$")
+CLIENT_NAME_SPLIT_RE = re.compile(r"[()/·,\[\]]")
+
+
+def name_key(s: str) -> str:
+    """이름 비교용 키. 공백과 조합형 차이를 없앤다."""
+    return nfc(s).replace(" ", "")
+
+
+def client_name_tokens(page_name: str) -> set[str]:
+    """공유페이지 이름에서 기업명을 뽑는다. fetch_clients 가 목록을 만들 때 쓴다."""
+    base = CLIENT_NAME_STRIP_RE.sub("", nfc(page_name))
+    return {name_key(p) for p in CLIENT_NAME_SPLIT_RE.split(base) if name_key(p)}
+
+
+def subject_companies(title: str, known: set[str]) -> set[str]:
+    """제목 말머리 대괄호에서 「우리 클라이언트 이름」만 추린다.
+
+    [리마인드]·[기술이전] 같은 말머리는 기업명이 아니므로 걸러진다.
+    [웰스앤헬스/위프코리아] 처럼 한 괄호에 둘이 든 것도 나눠 본다.
+    """
+    out = set()
+    for token in BRACKET_RE.findall(title or ""):
+        for part in CLIENT_NAME_SPLIT_RE.split(token):
+            key = name_key(part)
+            if key and key in known:
+                out.add(key)
+    return out
+
+
+def own_addresses() -> set[str]:
+    """우리 쪽 주소. 담당자 개인 메일처럼 우리 도메인이 아닌 것도 있어
+    .env 의 OWN_MAIL_EXTRA 로 받는다. 이 주소들은 「상대방」이 아니다."""
+    raw = os.environ.get("OWN_MAIL_EXTRA", "")
+    own = {a.strip().lower() for a in re.split(r"[,;\s]+", raw) if a.strip()}
+    own.add(os.environ.get("IMAP_USER", "").strip().lower())
+    return {a for a in own if "@" in a}
+
+
+def client_match_keys(received: list[dict]) -> tuple[set[str], set[str]]:
+    """받은 메일의 발신자에서 (도메인, 전체주소) 두 벌의 기준을 만든다.
+
+    공용 도메인은 도메인만으로 클라이언트를 특정할 수 없으므로 전체 주소로만
+    맞춘다. 우리 도메인과 담당자 개인 주소는 어느 쪽에도 넣지 않는다 —
+    넣으면 사내 메일과 다른 클라이언트 건이 전부 걸린다.
+    """
+    own = own_addresses()
+    domains: set[str] = set()
+    addresses: set[str] = set()
+    for m in received:
+        addr = (m.get("sender") or "").strip().lower()
+        if "@" not in addr or addr in own:
+            continue
+        dom = addr.rsplit("@", 1)[1]
+        if not dom or dom == OWN_MAIL_DOMAIN:
+            continue
+        if dom in PUBLIC_MAIL_DOMAINS:
+            addresses.add(addr)
+        else:
+            domains.add(dom)
+    return domains, addresses
+
+
+def match_recipients(mail: dict, domains: set[str], addresses: set[str]) -> list[str]:
+    """수신자 중 기준에 걸린 주소를 돌려준다. 하나도 없으면 이 클라이언트 건이 아니다."""
+    hits = []
+    for addr in mail.get("recipients") or []:
+        dom = addr.rsplit("@", 1)[1] if "@" in addr else ""
+        if addr in addresses or (dom and dom not in PUBLIC_MAIL_DOMAINS and dom in domains):
+            hits.append(addr)
+    return hits
+
+
+def find_sent_folder(list_data) -> str | None:
+    """LIST 결과에서 보낸메일함을 찾는다. 못 찾으면 None — 추측하지 않는다."""
+    for raw in (list_raw_name(x) for x in list_data or []):
+        if not raw:
+            continue
+        name = nfc(imap_utf7_decode(raw))
+        leaf = re.split(r"[./]", name)[-1].strip().lower()
+        if leaf in SENT_FOLDER_NAMES or name.strip().lower() in SENT_FOLDER_NAMES:
+            return raw
+    return None
+
+
+def sent_belongs(mail: dict, company_key: str, known: set[str],
+                 domains: set[str], addresses: set[str]) -> list[str]:
+    """이 보낸 메일이 해당 클라이언트 건인지 판정하고 근거를 돌려준다.
+
+    제목 말머리에 기업명이 있으면 그것이 우선이다 — 담당자가 여러 회사를
+    겸하는 경우가 있어 도메인보다 제목이 정확하다. 「[웰스앤헬스]…」 는
+    수신자가 이 클라이언트여도 저쪽 건이다.
+    말머리가 없을 때만 수신자 도메인으로 맞춘다. 둘 다 아니면 넣지 않는다.
+    """
+    # 수신자가 전부 사내면 클라이언트와 오간 메일이 아니다. 제목이 무엇이든 뺀다.
+    # 「어느 클라이언트인가」와 별개의 조건이라 말머리보다 먼저 본다.
+    if not [a for a in (mail.get("recipients") or [])
+            if not a.endswith("@" + OWN_MAIL_DOMAIN)]:
+        return []
+
+    tagged = subject_companies(mail.get("title") or "", known)
+    if tagged:
+        return [f"제목 [{company_key}]"] if company_key in tagged else []
+    return [f"수신자 {a}" for a in match_recipients(mail, domains, addresses)]
+
+
+def fetch_sent(M: imaplib.IMAP4_SSL, list_data, received: list[dict],
+               company_name: str, known_names: set[str]) -> list[dict]:
+    """보낸메일함에서 이 클라이언트와 오간 것만 골라 온다."""
+    domains, addresses = client_match_keys(received)
+    if not (domains or addresses):
+        # 맞출 기준이 없다. 추측해서 넣느니 넣지 않는다.
+        log("  상대방 도메인을 못 찾아 보낸메일함은 건너뜁니다")
+        return []
+
+    folder = find_sent_folder(list_data)
+    if folder is None:
+        warn("보낸메일함을 찾지 못했습니다 — 보낸 메일 수집 생략")
+        return []
+
+    company_key = name_key(company_name)
+    known = known_names | {company_key}
+    seen = {m["message_id"] for m in received if m.get("message_id")}
+    cand, _ = scan_folder(M, folder)
+
+    out, by_title = [], 0
+    for m in cand:
+        if m.get("message_id") and m["message_id"] in seen:
+            continue                             # 고객사 폴더에 사본이 이미 있다
+        why = sent_belongs(m, company_key, known, domains, addresses)
+        if not why:
+            continue
+        m["direction"] = "보냄"                   # 보낸메일함에 있으면 우리가 보낸 것이다
+        m["matched"] = why
+        by_title += why[0].startswith("제목")
+        out.append(m)
+
+    out = out[:TALKS_FETCH_MAX]
+    log(f"  보낸메일 {len(out)}건 (보낸메일함 최근 {TALKS_DAYS}일 {len(cand)}건 중"
+        f" · 제목 {by_title}건 / 수신자 {len(out) - by_title}건)")
+    read_bodies(M, out)
+    return out
+
+
+def fetch_mails(company_name: str, known_names: set[str]) -> list[dict]:
+    """고객사 폴더 + 보낸메일함에서 최근 90일치 메일을 읽는다.
 
     폴더명이 정확히 일치하는 것만 쓴다. 없으면 빈 목록 + 경고 — 추측하지 않는다.
+    보낸 것은 폴더로 갈릴 수 없어 받은 메일에서 뽑은 주소로 수신자를 맞춘다.
     """
     host = os.environ.get("IMAP_HOST", "").strip()
     user = os.environ.get("IMAP_USER", "").strip()
@@ -1245,65 +1483,25 @@ def fetch_mails(company_name: str) -> list[dict]:
     try:
         M.login(user, password)
 
-        typ, data = M.list()
+        typ, list_data = M.list()
         target = nfc(TALKS_FOLDER_PREFIX + company_name)
-        folder = next((raw for raw in (list_raw_name(x) for x in data or [])
+        folder = next((raw for raw in (list_raw_name(x) for x in list_data or [])
                        if raw and nfc(imap_utf7_decode(raw)) == target), None)
         if folder is None:
             warn(f"메일 폴더 없음 — 메일 수집 생략: {TALKS_FOLDER_PREFIX}{company_name}")
             return []
 
-        # EXAMINE = 읽기 전용. SELECT 로 열면 읽음 처리가 될 수 있다.
-        typ, data = M.select(f'"{folder}"', readonly=True)
-        if typ != "OK":
-            warn(f"메일 폴더를 열지 못했습니다: {folder}")
-            return []
-        exists = int(data[0])
-        if exists == 0:
+        received, exists = scan_folder(M, folder)
+        received = received[:TALKS_FETCH_MAX]
+        if not received:
+            # 받은 메일이 없으면 보낸 것을 맞출 기준도 없다.
             log("  메일 0건")
             return []
+        log(f"  메일 {len(received)}건 (전체 {exists}통 중 최근 {TALKS_DAYS}일)")
+        read_bodies(M, received)
 
-        # 서버 SEARCH 를 쓰지 않는다. 다우오피스는 날짜 조건에 대해 매칭 개수만큼
-        # 1번부터 세어서 돌려주고(SEARCH ALL 은 0건), 그대로 믿으면 가장 오래된
-        # 메일이 최신인 것처럼 화면에 뜬다. 헤더를 받아 여기서 직접 거른다.
-        start = max(1, exists - TALKS_SCAN_MAX + 1)
-        typ, data = M.fetch(f"{start}:{exists}", HEADER_SPEC)
-        if typ != "OK":
-            warn(f"메일 헤더를 읽지 못했습니다: {folder}")
-            return []
-
-        cutoff = (today_kst() - timedelta(days=TALKS_DAYS)).isoformat()
-        mails, undated = [], 0
-        for item in data:
-            if not isinstance(item, tuple):
-                continue
-            mail = parse_header(item[1])
-            if not mail:
-                continue
-            try:
-                mail["seq"] = item[0].split()[0].decode()
-            except Exception:                    # noqa: BLE001
-                continue
-            if not mail["date"]:
-                undated += 1
-                continue
-            if mail["date"] >= cutoff:
-                mails.append(mail)
-        if undated:
-            warn(f"날짜를 읽을 수 없는 메일 {undated}건 — 제외했습니다")
-
+        mails = received + fetch_sent(M, list_data, received, company_name, known_names)
         mails.sort(key=lambda m: m["date"], reverse=True)
-        mails = mails[:TALKS_FETCH_MAX]
-        log(f"  메일 {len(mails)}건 (전체 {exists}통 중 최근 {TALKS_DAYS}일)")
-
-        # 본문은 건별로 읽는다. 한 건이 죽어도 나머지는 계속.
-        for m in mails:
-            try:
-                text, attachments = read_body(M, m["seq"])
-            except Exception as e:               # noqa: BLE001
-                warn(f"본문 파싱 실패 — 요약 비움: {m['title'][:28]} ({type(e).__name__})")
-                text, attachments = "", []
-            m["body"] = compose_body(text, attachments)
         return mails
     except Exception as e:                       # noqa: BLE001
         warn(f"메일 수집 실패: {type(e).__name__}: {e}")
@@ -1328,12 +1526,19 @@ def parse_header(raw: bytes) -> dict | None:
             pass
 
     sender = parseaddr(msg.get("From") or "")[1].lower()
+    # To·Cc 는 보낸메일함에서 클라이언트를 가려낼 유일한 단서다.
+    recipients = [a.strip().lower()
+                  for _, a in getaddresses((msg.get_all("To") or []) +
+                                           (msg.get_all("Cc") or []))
+                  if a and "@" in a]
     return {
         "date": when,
         "title": strip_reply_prefix(decode_mime(msg.get("Subject"))) or "(제목 없음)",
         # 우리 도메인에서 나갔으면 「보냄」. Inbox 아래에도 발신 사본이 섞여 있다.
         "direction": "보냄" if sender.endswith("@" + OWN_MAIL_DOMAIN) else "받음",
         "message_id": (msg.get("Message-ID") or "").strip(),
+        "sender": sender,
+        "recipients": recipients,
     }
 
 
@@ -1470,11 +1675,11 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
 
 
 def build_talks(nt: Notion, client: dict, company_name: str,
-                skip_imap: bool, dry_run: bool) -> list[dict]:
+                skip_imap: bool, dry_run: bool, known_names: set[str]) -> list[dict]:
     if skip_imap:
         log("  메일 수집 건너뜀 (--skip-imap)")
     else:
-        mails = fetch_mails(company_name)
+        mails = fetch_mails(company_name, known_names)
         if mails and dry_run:
             # dry-run 은 아무것도 바꾸지 않는다. 파일도, 노션도.
             log(f"  (dry-run) 노션 쓰기 건너뜀 — 대상 {len(mails)}건")
@@ -1545,7 +1750,7 @@ def write_client_page(slug: str, dry_run: bool) -> None:
 # ══════════════════════════════════════════════════════════════════════════
 
 def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
-              skip_imap: bool) -> dict:
+              skip_imap: bool, known_names: set[str]) -> dict:
     slug = client["slug"]
     log(f"\n▶ {slug}")
 
@@ -1565,7 +1770,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     recommend = fetch_recommend(name, include_expired)
     log(f"  추천 지원사업 {len(recommend)}건")
 
-    talks = build_talks(nt, client, name, skip_imap, dry_run)
+    talks = build_talks(nt, client, name, skip_imap, dry_run, known_names)
     log(f"  소통 내역 {len(talks)}건 (보류 제외)")
 
     events = build_events(progress, recommend, name, include_expired)
@@ -1623,7 +1828,7 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
         return 2
 
     nt = Notion(token)
-    clients = fetch_clients(nt, only)
+    clients, known_names = fetch_clients(nt, only)
     if only and not clients:
         log(f"슬러그 {only!r} 에 해당하는 클라이언트를 찾지 못했습니다.")
         return 2
@@ -1632,7 +1837,7 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
     failed, plaintext = [], []
     for c in clients:
         try:
-            res = build_one(nt, c, include_expired, dry_run, skip_imap)
+            res = build_one(nt, c, include_expired, dry_run, skip_imap, known_names)
             if not res["encrypted"]:
                 plaintext.append(res["slug"])
         except ClientFailure as e:

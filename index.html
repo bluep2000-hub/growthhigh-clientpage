@@ -182,6 +182,8 @@ tr.tkb>td{padding:0 13px 13px;border-bottom:1px solid var(--line)}
 .tkbd{font-size:11.5px;color:var(--tx-2);line-height:1.75;white-space:pre-wrap;
   word-break:break-word;border-left:2px solid var(--line-2);padding-left:11px}
 .co{font-size:10.5px;border:1px solid var(--line-2);border-radius:3px;padding:0 6px;color:var(--tx-3)}
+/* 우리가 보낸 메일. 받은 것과 한눈에 갈리도록 강조색만 얹는다 */
+.co.out{color:var(--accent);border-color:var(--accent);font-weight:600}
 .rv{font-size:10.5px;border:1px solid var(--line-2);border-radius:3px;padding:1px 6px;color:var(--tx-2)}
 .rv:hover{background:var(--hover);color:var(--tx);border-color:var(--accent)}
 .steps{display:flex;gap:3px;margin-top:2px;max-width:150px}
@@ -655,7 +657,8 @@ function init(D){
    <tbody>${talks.map((t,i)=>`<tr class="tk${t.body?' has':''}" data-tk="${i}">
      <td class="dtc">${fmt(t.date)}</td>
      <td class="dtc">${esc(t.channel||'')}${t.direction
-        ?`<span class="co" style="margin-left:5px">${esc(t.direction)}</span>`:''}</td>
+        ?`<span class="co${t.direction==='보냄'?' out':''}" style="margin-left:5px">${
+          esc(t.direction)}</span>`:''}</td>
      <td><div class="t-nm">${t.body?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div></td>
     </tr>${t.body?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
      <div class="tkbd">${esc(t.body)}</div></td></tr>`:''}`).join('')}
