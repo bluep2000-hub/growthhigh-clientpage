@@ -75,6 +75,21 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .tgl{width:28px;height:28px;border-radius:var(--r);display:grid;place-items:center;
   color:var(--tx-2);font-size:14px}
 .tgl:hover{background:var(--hover);color:var(--tx)}
+/* 리포트 버튼 + 드롭다운 */
+.rpt{position:relative;display:inline-flex}
+.rpb{font-size:11.5px;color:var(--tx-2);padding:4px 10px;border-radius:var(--r);
+  border:1px solid var(--line-2);white-space:nowrap}
+.rpb:hover{background:var(--hover);color:var(--tx)}
+.rpm{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:132px;
+  background:var(--panel);border:1px solid var(--line-2);border-radius:8px;
+  padding:4px;display:flex;flex-direction:column;
+  box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.rpm[hidden]{display:none}
+.rpm button{font-size:12px;color:var(--tx-2);text-align:left;padding:7px 9px;
+  border-radius:5px;white-space:nowrap}
+.rpm button:hover{background:var(--hover);color:var(--tx)}
+
+#printdoc{display:none}
 .scroll{flex:1;overflow-y:auto}
 .view{padding:28px 32px 90px;max-width:1240px;margin:0 auto}
 .vh{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}
@@ -309,9 +324,59 @@ body.locked #gate{display:grid}
 ::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px}
 @media(max-width:820px){body{overflow:auto}aside{display:none}main{height:auto}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ══ 인쇄 ══════════════════════════════════════════════════════════
+   라이브러리 없이 브라우저 인쇄를 쓴다. 글자가 이미지로 뭉개지지 않아야
+   PDF 에서 선택·검색이 되고 한글도 깨지지 않는다.
+   화면 DOM 은 건드리지 않고 #printdoc 을 따로 채워 그것만 인쇄한다. */
+@media print{
+  @page{margin:14mm 12mm}
+  html,body{height:auto;overflow:visible;display:block;background:#fff}
+  aside,main,#gate{display:none!important}
+  #printdoc{display:block!important;max-width:none;padding:0}
+  /* 뱃지·표 헤더 배경이 빠지면 읽기 어렵다 */
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  /* 표지 */
+  .pcover{display:flex;flex-direction:column;justify-content:center;
+    min-height:88vh;text-align:center;page-break-after:always}
+  .pcv-marks{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:26px}
+  .pcv-marks img{height:46px;width:auto;object-fit:contain}
+  .pcv-sep{width:1px;height:30px;background:var(--line-2)}
+  .pcover h1{font-size:26px;font-weight:600;letter-spacing:-.03em}
+  .pcv-d{font-size:13px;color:var(--tx-2);margin-top:10px}
+  .pcv-m{font-size:12.5px;color:var(--tx-3);margin-top:22px}
+
+  /* 섹션마다 새 장에서 시작한다 */
+  .psec{page-break-before:always;padding:0}
+  .psec:first-child{page-break-before:auto}
+  .psec>h2{font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:12px;
+    padding-bottom:7px;border-bottom:1px solid var(--line-2)}
+  .psec .vh{display:none}                       /* 섹션 제목이 대신한다 */
+
+  /* 행이 페이지 경계에서 잘리지 않게 */
+  tr{page-break-inside:avoid}
+  .card,.notice,.k1,.evl .e{page-break-inside:avoid}
+  .card{box-shadow:none}
+
+  /* 화면 전용 장치는 뺀다 */
+  .chips,.more,.emore,.tw,.rpt,.tgl,.top{display:none!important}
+  /* 일정은 달력을 빼고 목록만 — 종이에서 달력은 자리만 차지한다 */
+  .cal-w{display:block}
+  .cal{display:none}
+  .evl{border-left:none;padding-left:0}
+  /* 소통 내역 본문은 전부 펼친 채로 */
+  tr.tkb{display:table-row!important}
+  .kpi{grid-template-columns:repeat(4,1fr)}
+  .view{padding:0;max-width:none}
+}
 </style>
 </head>
 <body class="locked">
+
+<!-- 인쇄 전용 문서. 화면에는 나오지 않고 인쇄 직전에 채운다.
+     여기 두는 이유는 빌드가 main 닫는 태그 바로 뒤를 슬러그 주입 지점으로 쓰기 때문이다 -->
+<div id="printdoc" aria-hidden="true"></div>
 
 <div id="gate">
   <div class="gt">
@@ -336,6 +401,12 @@ body.locked #gate{display:grid}
 <main>
   <div class="top"><span class="crumb" id="crumb"></span>
     <span class="rt"><span class="pill" id="asof" style="display:none"></span>
+      <span class="rpt"><button class="rpb" id="rptbtn" aria-haspopup="true"
+        aria-expanded="false">리포트</button>
+        <span class="rpm" id="rptmenu" hidden>
+          <button data-rp="cur">현재 화면</button>
+          <button data-rp="all">전체 리포트</button>
+        </span></span>
       <button class="tgl" id="tgl" aria-label="밝기 전환">◐</button></span></div>
   <div class="scroll" id="scroll"></div>
 </main>
@@ -709,28 +780,31 @@ function init(D){
     (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9)
     || String(a.date||'').localeCompare(String(b.date||'')));
 
-  function schedule(){
+  function eventItem(e){
+    const k = KIND[e.kind] || KIND.deadline;
+    /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
+    const left = e.past ? (e.kind==='project'?'종료':'마감') : (e.dday || '');
+    /* 7일 이내만 강조. D-DAY 도 임박으로 본다 */
+    const n = /^D-(\d+)$/.exec(e.dday || '');
+    const soon = !e.past && (e.dday === 'D-DAY' || (n && +n[1] <= 7));
+    /* D-day 는 왼쪽 열에 이미 있다. 여기서는 날짜와 단계만 */
+    const sub = [String(e.date||'').slice(5).replace('-','/'), e.meta]
+      .filter(Boolean).map(esc).join(' · ');
+    return `<div class="e${e.past?' gone':''}">
+      <span class="dd${soon?' soon':''}">${esc(left)}</span>
+      <span class="ei">
+      <span class="t"><span class="nm">${esc(e.title)}</span><span class="kd">${k.label}</span></span>
+      <span class="m">${sub}</span>
+      </span></div>`;
+  }
+
+  function schedule(limit){
     const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
     const ny=m===12?y+1:y, nm=m===12?1:m+1;
-    const shown = eventsRanked.slice(0, EVENT_SHOWN_MAX);
+    const cap = limit == null ? EVENT_SHOWN_MAX : limit;   /* 인쇄는 전부 낸다 */
+    const shown = cap === Infinity ? eventsRanked : eventsRanked.slice(0, cap);
     const rest = eventsRanked.length - shown.length;
-    const list = events.length ? shown.map(e=>{
-      const k = KIND[e.kind] || KIND.deadline;
-      /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
-      const left = e.past ? (e.kind==='project'?'종료':'마감') : (e.dday || '');
-      /* 7일 이내만 강조. D-DAY 도 임박으로 본다 */
-      const n = /^D-(\d+)$/.exec(e.dday || '');
-      const soon = !e.past && (e.dday === 'D-DAY' || (n && +n[1] <= 7));
-      /* D-day 는 왼쪽 열에 이미 있다. 여기서는 날짜와 단계만 */
-      const sub = [String(e.date||'').slice(5).replace('-','/'), e.meta]
-        .filter(Boolean).map(esc).join(' · ');
-      return `<div class="e${e.past?' gone':''}">
-        <span class="dd${soon?' soon':''}">${esc(left)}</span>
-        <span class="ei">
-        <span class="t"><span class="nm">${esc(e.title)}</span><span class="kd">${k.label}</span></span>
-        <span class="m">${sub}</span>
-        </span></div>`;
-    }).join('') + (rest > 0
+    const list = events.length ? shown.map(eventItem).join('') + (rest > 0
       ? `<a class="e emore" href="#" data-go="open">외 ${rest}건 →</a>` : '')
       : '<p class="empty">등록된 일정이 없습니다.</p>';
     return `<div class="card"><div class="ch"><h2>일정</h2></div><div class="cb">
@@ -743,7 +817,8 @@ function init(D){
   /* KPI 「다음 일정」 타일은 아직 안 지난 것 중 가장 가까운 건을 쓴다 */
   const nextEv = events.find(e => !e.past) || null;
 
-  V.info=()=>`
+  /* forPrint 면 공지는 요약 대신 전문, 일정은 5건 제한 없이 전부 */
+  V.info=(forPrint)=>`
    <div class="hero"><span class="${markCls}">${logoMark(52)}</span><div>
      <h2>${esc(CO.name || CLIENT)}</h2>
      ${CO.biz?`<div class="biz">${esc(CO.biz)}</div>`:''}
@@ -762,8 +837,8 @@ function init(D){
       <div class="s">${nextEv?esc(nextEv.title):'예정된 일정이 없습니다'}</div></div>
    </div>
 
-   ${noticeSummary()}
-   ${schedule()}
+   ${forPrint ? noticeFeed() : noticeSummary()}
+   ${schedule(forPrint ? Infinity : undefined)}
 
    <div class="card" style="margin-top:24px">
     <div class="ch"><h2>진행 중인 프로젝트</h2><a class="more" href="#" data-go="fund">전체 보기 →</a></div>
@@ -799,10 +874,11 @@ function init(D){
   const talkCount = k => k==='all' ? talks.length : talks.filter(t=>t.channel===k).length;
   let talkTab = 'all';
 
-  function talkList(){
+  /* everyChannel: 인쇄용. 탭을 무시하고 전체를 날짜순 그대로 낸다 */
+  function talkList(everyChannel){
     const list = talks
       .map((t,i)=>({t,i}))                       /* 아코디언 짝을 위해 원래 번호를 유지 */
-      .filter(({t})=> talkTab==='all' || t.channel===talkTab);
+      .filter(({t})=> everyChannel || talkTab==='all' || t.channel===talkTab);
     if(!list.length) return emptyBox('등록된 내용이 없습니다.');
     return `<div class="card"><table class="tktbl"><thead><tr>
       <th style="width:90px">일자</th><th style="width:110px">채널</th>
@@ -850,6 +926,83 @@ function init(D){
           ?`<div class="t-sub">${[o.org?esc(o.org):'', o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td class="num">${o.amount?esc(o.amount):'—'}</td></tr>`).join('')}
    </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
+
+  /* ── 인쇄 리포트 ───────────────────────────────────────────────
+     화면 DOM 은 손대지 않고 #printdoc 을 따로 채워 그것만 인쇄한다.
+     아코디언을 열었다 되돌릴 필요가 없어 인쇄가 끝나도 화면이 그대로다. */
+  const PRINT_SECTIONS = [
+    {id:'info', nm:'기업 정보 · 공지사항'},
+    {id:'fund', nm:CATNM.fund},
+    {id:'cert', nm:CATNM.cert},
+    {id:'proj', nm:CATNM.proj},
+    {id:'open', nm:'추천 지원사업'},
+    {id:'talk', nm:'소통 내역'},
+  ];
+
+  function printCover(){
+    const p = (D.generated_at||'').slice(0,10).split('-');
+    const when = p.length===3 ? `${+p[0]}년 ${+p[1]}월 ${+p[2]}일 기준` : '';
+    return `<section class="pcover">
+      <div class="pcv-marks">
+        <img class="pcv-gh" src="${encodeURI(BRAND_LOGO)}" alt="그로스하이">
+        ${CO.logo?`<span class="pcv-sep"></span>
+          <img class="pcv-co" src="${encodeURI(BASE+CO.logo)}" alt="">`:''}
+      </div>
+      <h1>${esc(CO.name||CLIENT)} 진행 리포트</h1>
+      <p class="pcv-d">${esc(when)}</p>
+      ${CO.manager?`<p class="pcv-m">담당 컨설턴트 ${esc(CO.manager)}</p>`:''}
+    </section>`;
+  }
+
+  /* 인쇄용 섹션 본문. 화면과 다른 곳만 갈아 끼운다 */
+  function printBody(id){
+    if(id === 'info') return V.info(true);          /* 공지 전문 · 일정 전부 */
+    if(id === 'talk')                                /* 탭 없이 전체 */
+      return talks.length ? talkList(true) : emptyBox('등록된 내용이 없습니다.');
+    return V[id] ? V[id]() : '';
+  }
+
+  function buildPrintDoc(scope){
+    const cur = document.querySelector('.nv.on');
+    const only = cur && cur.dataset ? cur.dataset.id : 'info';
+    const list = scope === 'cur'
+      ? PRINT_SECTIONS.filter(s => s.id === only)
+      : PRINT_SECTIONS;
+    const body = list.map(s =>
+      `<section class="psec"><h2>${esc(s.nm)}</h2>${printBody(s.id)}</section>`).join('');
+    document.getElementById('printdoc').innerHTML =
+      (scope === 'cur' ? '' : printCover()) + body;
+  }
+
+  let printScope = 'all', themeBeforePrint = null;
+  window.addEventListener('beforeprint', ()=>{
+    buildPrintDoc(printScope);
+    /* 다크로 보고 있어도 종이는 흰 배경이어야 한다 */
+    themeBeforePrint = document.documentElement.dataset.theme;
+    document.documentElement.dataset.theme = 'light';
+  });
+  window.addEventListener('afterprint', ()=>{
+    if(themeBeforePrint) document.documentElement.dataset.theme = themeBeforePrint;
+    themeBeforePrint = null;
+    document.getElementById('printdoc').innerHTML = '';
+    printScope = 'all';            /* 다음 Ctrl+P 는 다시 전체 리포트 */
+  });
+
+  const rptBtn = document.getElementById('rptbtn');
+  const rptMenu = document.getElementById('rptmenu');
+  const closeRpt = ()=>{ rptMenu.hidden = true; rptBtn.setAttribute('aria-expanded','false'); };
+  rptBtn.onclick = e => {
+    e.stopPropagation();
+    rptMenu.hidden = !rptMenu.hidden;
+    rptBtn.setAttribute('aria-expanded', String(!rptMenu.hidden));
+  };
+  document.addEventListener('click', closeRpt);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') closeRpt(); });
+  rptMenu.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => {
+    printScope = b.dataset.rp;
+    closeRpt();
+    window.print();
+  });
 
   const CR={info:'기업 정보',fund:CATNM.fund,cert:CATNM.cert,
     proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
