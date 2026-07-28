@@ -57,6 +57,9 @@ PROJECT_DB_ID = "e1d03e45-f7f9-42c1-88f8-7f4595efe2a1"  # 프로젝트 DB
 # 이모지에 ZWJ 가 들어 있어 리터럴로 박으면 눈에 안 보인다. 명시적으로 조립한다.
 CLIENT_PAGE_TYPE = "\U0001F468‍\U0001F4BC" + "클라이언트페이지"
 
+# 좌측 「자료」 그룹의 가이드북. 클라이언트 공통이라 노션이 아니라 여기 둔다.
+GUIDEBOOK_URL = "https://yuncommon.notion.site/f12815d712b982d3af19812af6f50cbe"
+
 PLAYLIST_URL = ("https://firestore.googleapis.com/v1/projects/growthhigh-playlist"
                 "/databases/(default)/documents/playlists/{name}")
 POLICY_DATA_URL = "https://bluep2000-hub.github.io/growthhigh-policy/data-full.json"
@@ -335,6 +338,8 @@ def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
             "company_page_id": company_ids[0],
             "manager": p_people(props, "담당자"),
             "notice_db_url": p_url(props, "공지 DB"),
+            "drive_url": p_url(props, "드라이브 URL"),
+            "bizplan_url": p_url(props, "사업계획서 URL"),
             "password": p_text(props, "비밀번호_해시"),   # 이름과 달리 평문이다
             "tags": p_multi(props, "업종"),
             "icon": row.get("icon"),
@@ -1932,6 +1937,11 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
             "founded": company.get("founded"),
             "industry": company.get("industry") or [],
             "certs": company.get("certs") or [],
+            # 좌측 「자료」 그룹 링크. 가이드북은 클라이언트 공통이라 상수다.
+            # 공개되는 index.html 이 아니라 암호화되는 payload 에 넣는다.
+            "drive_url": client.get("drive_url"),
+            "bizplan_url": client.get("bizplan_url"),
+            "guidebook_url": GUIDEBOOK_URL,
         },
         "notice": notice,
         "progress": progress,
