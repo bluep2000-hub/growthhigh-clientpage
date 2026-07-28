@@ -47,6 +47,11 @@ nav{flex:1;overflow-y:auto;padding:9px 8px}
 .nv:hover{background:var(--hover);color:var(--tx)}
 .nv.on{background:var(--panel-2);color:var(--tx);font-weight:500}
 [data-theme="light"] .nv.on{background:var(--hover)}
+/* 내용이 없는 항목. 메뉴에서 빼지 않고 흐리게만 둔다 —
+   어제 있던 항목이 오늘 사라지면 클라이언트는 오류로 읽는다 */
+.nv.dim{color:var(--tx-3)}
+.nv.dim .g{opacity:.45}
+.nv.dim:hover,.nv.dim.on{color:var(--tx)}
 .nv .g{width:13px;flex:none;opacity:.7;font-size:12px;text-align:center}
 .nv .ct{margin-left:auto;font-size:11px;color:var(--tx-3);font-variant-numeric:tabular-nums}
 .nv .ex{margin-left:auto;font-size:10px;color:var(--tx-3)}
@@ -477,30 +482,33 @@ function init(D){
      몇 월인지는 공지 화면 제목(notice.title)에만 남긴다. */
   const noticeLabel = '공지사항';
 
-  /* 좌측 메뉴 — 공지가 없으면 항목 자체를 만들지 않는다 */
+  /* 좌측 메뉴 — 항목 구성은 데이터와 무관하게 늘 같다.
+     비어 있으면 항목을 빼는 대신 건수 배지를 감추고 라벨만 흐리게 둔다.
+     눌러 들어가면 각 화면이 「등록된 내용이 없습니다」를 보여준다. */
+  const hasNotice = !!(notice && (notice.sections || []).some(s => (s.items || []).length));
   const NAV = [
     { g:'기업', items:[
       {id:'info',ic:'info',nm:'기업 정보'},
-      ...(notice ? [{id:'notice',ic:'notice',nm:noticeLabel}] : [])]},
+      {id:'notice',ic:'notice',nm:noticeLabel,dim:!hasNotice}]},
     { g:'진행 현황', items:[
       {id:'fund',ic:'fund',nm:CATNM.fund,ct:cnt('fund')},
       {id:'cert',ic:'cert',nm:CATNM.cert,ct:cnt('cert')},
       {id:'proj',ic:'proj',nm:CATNM.proj,ct:cnt('proj')},
-      /* 주고받은 메일이 없으면 항목 자체를 만들지 않는다 */
-      ...(talks.length ? [{id:'talk',ic:'talk',nm:'소통 내역',ct:talks.length}] : [])]},
-    /* 추천할 사업이 없으면 「제안」 그룹째 감춘다 */
-    ...(recommend.length
-      ? [{ g:'제안', items:[{id:'open',ic:'open',nm:'추천 지원사업',ct:recommend.length}]}] : []),
+      {id:'talk',ic:'talk',nm:'소통 내역',ct:talks.length}]},
+    { g:'제안', items:[
+      {id:'open',ic:'open',nm:'추천 지원사업',ct:recommend.length}]},
     { g:'자료', items:[
       {id:'x1',nm:'기업자료 드라이브',ext:1},
       {id:'x2',nm:'사업계획서',ext:1},
       {id:'x3',nm:'그로스하이 가이드북',ext:1}]},
   ];
+  /* 외부 링크는 흐려지지 않는다. 건수가 있는 항목은 0 일 때가 곧 빈 항목이다 */
+  const navDim = i => i.ext ? false : (i.dim !== undefined ? i.dim : i.ct === 0);
   document.getElementById('nav').innerHTML = NAV.map(g=>`
    <div class="grp"><h3>${g.g}</h3>
-   ${g.items.map(i=>`<button class="nv" data-id="${i.id}" ${i.ext?'data-ext="1"':''}>
+   ${g.items.map(i=>`<button class="nv${navDim(i)?' dim':''}" data-id="${i.id}" ${i.ext?'data-ext="1"':''}>
      <span class="g">${i.ic?GL[i.ic]:'↗'}</span><span>${esc(i.nm)}</span>
-     ${i.ext?'<span class="ex">↗</span>':(i.ct!=null?`<span class="ct">${i.ct}</span>`:'')}
+     ${i.ext?'<span class="ex">↗</span>':(i.ct?`<span class="ct">${i.ct}</span>`:'')}
    </button>`).join('')}</div>`).join('');
 
   /* 공통 조각 */
@@ -553,8 +561,12 @@ function init(D){
 
   /* 공지 요약 — 첫 화면에서는 첫 섹션의 1단 항목만, 최대 5개까지 보여준다 */
   const SUMMARY_MAX = 5;
+  /* 공지가 없어도 카드는 남긴다. 첫 화면의 구성이 클라이언트마다 달라지면
+     비어 있는 것이 아니라 무언가 빠진 것처럼 보인다. */
   function noticeSummary(){
-    if(!notice) return '';
+    if(!notice) return `<div class="card" style="margin-top:24px">
+      <div class="ch"><h2>${esc(noticeLabel)}</h2></div>
+      <div class="cb"><p class="empty">등록된 내용이 없습니다.</p></div></div>`;
     const first = (notice.sections || [])[0];
     const items = (first && first.items) || [];
     const shown = items.slice(0, SUMMARY_MAX);
@@ -702,10 +714,9 @@ function init(D){
 
   const CR={info:'기업 정보',fund:CATNM.fund,cert:CATNM.cert,
     proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
-  if(notice) CR.notice = noticeLabel;
+  CR.notice = noticeLabel;                     /* 공지가 없어도 화면은 있다 */
   function go(id){
     if(!V[id])return;
-    if(id === 'notice' && !notice) return;      /* 공지가 없으면 이 화면은 없다 */
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        기준일은 상단 우측 pill 에만 표시한다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
