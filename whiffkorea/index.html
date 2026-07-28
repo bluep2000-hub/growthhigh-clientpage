@@ -338,8 +338,10 @@ body.locked #gate{display:grid}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
   /* 표지 */
+  /* 표지에 break-after 를 걸고 다음 섹션에 break-before 를 걸면 강제 개행이
+     두 번 겹쳐 빈 장이 생긴다. 개행은 섹션 쪽 한 곳에서만 낸다. */
   .pcover{display:flex;flex-direction:column;justify-content:center;
-    min-height:88vh;text-align:center;page-break-after:always}
+    min-height:88vh;text-align:center}
   .pcv-marks{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:26px}
   .pcv-marks img{height:46px;width:auto;object-fit:contain}
   .pcv-sep{width:1px;height:30px;background:var(--line-2)}
@@ -347,17 +349,23 @@ body.locked #gate{display:grid}
   .pcv-d{font-size:13px;color:var(--tx-2);margin-top:10px}
   .pcv-m{font-size:12.5px;color:var(--tx-3);margin-top:22px}
 
-  /* 섹션마다 새 장에서 시작한다 */
-  .psec{page-break-before:always;padding:0}
-  .psec:first-child{page-break-before:auto}
+  /* 섹션마다 새 장에서 시작한다. 맨 앞(표지 없는 「현재 화면」)은 예외다 */
+  .psec{break-before:page;padding:0}
+  .psec:first-child{break-before:auto}
   .psec>h2{font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:12px;
-    padding-bottom:7px;border-bottom:1px solid var(--line-2)}
+    padding-bottom:7px;border-bottom:1px solid var(--line-2);
+    break-after:avoid}                          /* 제목만 남기고 넘기지 않는다 */
+  .psec>h2+*{break-before:avoid}                /* 제목 바로 다음 것도 붙여 둔다 */
   .psec .vh{display:none}                       /* 섹션 제목이 대신한다 */
 
-  /* 행이 페이지 경계에서 잘리지 않게 */
-  tr{page-break-inside:avoid}
-  .card,.notice,.k1,.evl .e{page-break-inside:avoid}
-  .card{box-shadow:none}
+  /* 표는 길면 페이지를 넘어가며 이어지는 게 맞다. 통짜로 밀어내지 않는다.
+     .card 에 break-inside: avoid 를 걸면 표를 품은 카드째 다음 장으로 넘어가
+     제목만 남은 빈 장이 생긴다. */
+  table{break-inside:auto}
+  thead{display:table-header-group}             /* 장이 넘어가면 헤더 반복 */
+  tr{break-inside:avoid}                        /* 행 하나가 잘리지 않게 */
+  .notice,.k1,.evl .e{break-inside:avoid}
+  .card{box-shadow:none;break-inside:auto}
 
   /* 화면 전용 장치는 뺀다 */
   .chips,.more,.emore,.tw,.rpt,.tgl,.top{display:none!important}
@@ -365,8 +373,7 @@ body.locked #gate{display:grid}
   .cal-w{display:block}
   .cal{display:none}
   .evl{border-left:none;padding-left:0}
-  /* 소통 내역 본문은 전부 펼친 채로 */
-  tr.tkb{display:table-row!important}
+  /* 소통 내역은 목록만 낸다 — 본문은 인쇄 문서에 아예 싣지 않는다 */
   .kpi{grid-template-columns:repeat(4,1fr)}
   .view{padding:0;max-width:none}
 }
@@ -874,26 +881,31 @@ function init(D){
   const talkCount = k => k==='all' ? talks.length : talks.filter(t=>t.channel===k).length;
   let talkTab = 'all';
 
-  /* everyChannel: 인쇄용. 탭을 무시하고 전체를 날짜순 그대로 낸다 */
-  function talkList(everyChannel){
+  /* opts.every  — 탭을 무시하고 전체를 낸다 (인쇄)
+     opts.noBody — 본문을 아예 싣지 않는다. 메일 본문·회의록 전문은
+                   종이에서 볼 내용이 아니라 리포트만 길어진다 (인쇄) */
+  function talkList(opts){
+    const o = opts || {};
     const list = talks
       .map((t,i)=>({t,i}))                       /* 아코디언 짝을 위해 원래 번호를 유지 */
-      .filter(({t})=> everyChannel || talkTab==='all' || t.channel===talkTab);
+      .filter(({t})=> o.every || talkTab==='all' || t.channel===talkTab);
     if(!list.length) return emptyBox('등록된 내용이 없습니다.');
     return `<div class="card"><table class="tktbl"><thead><tr>
       <th style="width:90px">일자</th><th style="width:110px">채널</th>
       <th>제목</th></tr></thead>
-     <tbody>${list.map(({t,i})=>`<tr class="tk${t.hasBody?' has':''}" data-tk="${i}">
+     <tbody>${list.map(({t,i})=>{
+       const open = t.hasBody && !o.noBody;
+       return `<tr class="tk${open?' has':''}" data-tk="${i}">
        <td class="dtc">${fmt(t.date)}</td>
        <td><span class="ch-b ${TALK_BADGE[t.channel]||'ch-mail'}">${esc(t.channel||'—')}</span>${
          t.direction?`<span class="co${t.direction==='보냄'?' out':''}">${esc(t.direction)}</span>`:''}</td>
-       <td class="lead"><div class="t-nm">${t.hasBody?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div>
-         ${t.channel!=='메일'&&t.preview?`<div class="tkpv">${esc(t.preview)}</div>`:''}</td>
-      </tr>${t.hasBody?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
+       <td class="lead"><div class="t-nm">${open?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div>
+         ${!o.noBody&&t.channel!=='메일'&&t.preview?`<div class="tkpv">${esc(t.preview)}</div>`:''}</td>
+      </tr>${open?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
        ${t.body_html
          /* body_html 은 build_client.py 가 이스케이프해 조립한 HTML 이다 */
          ?`<div class="tkbd doc">${t.body_html}</div>`
-         :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`).join('')}
+         :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`;}).join('')}
      </tbody></table></div>`;
   }
 
@@ -957,8 +969,9 @@ function init(D){
   /* 인쇄용 섹션 본문. 화면과 다른 곳만 갈아 끼운다 */
   function printBody(id){
     if(id === 'info') return V.info(true);          /* 공지 전문 · 일정 전부 */
-    if(id === 'talk')                                /* 탭 없이 전체 */
-      return talks.length ? talkList(true) : emptyBox('등록된 내용이 없습니다.');
+    if(id === 'talk')                                /* 탭 없이 전체, 본문은 빼고 */
+      return talks.length ? talkList({every:true, noBody:true})
+                          : emptyBox('등록된 내용이 없습니다.');
     return V[id] ? V[id]() : '';
   }
 
@@ -970,8 +983,11 @@ function init(D){
       : PRINT_SECTIONS;
     const body = list.map(s =>
       `<section class="psec"><h2>${esc(s.nm)}</h2>${printBody(s.id)}</section>`).join('');
-    document.getElementById('printdoc').innerHTML =
-      (scope === 'cur' ? '' : printCover()) + body;
+    const pd = document.getElementById('printdoc');
+    pd.innerHTML = (scope === 'cur' ? '' : printCover()) + body;
+    /* 화면용 제목줄은 지운다. 숨기기만 하면 h2+* 의 break-before:avoid 가
+       보이지 않는 .vh 에 걸려 정작 표를 제목에 붙이지 못한다 */
+    pd.querySelectorAll('.vh').forEach(n => n.remove());
   }
 
   let printScope = 'all', themeBeforePrint = null;
