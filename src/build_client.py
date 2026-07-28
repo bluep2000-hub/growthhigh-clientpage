@@ -443,6 +443,10 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
             "end": end,
             "log_date": log_date,
             "log_text": log_text,
+            # 「확보금액」은 number 가 아니라 rich_text 다. 금액만이 아니라
+            # 「하이서울기업 인증서」 같은 산출물도 들어 있어 원문을 그대로 넘긴다.
+            "amount": p_text(props, "확보금액").strip() or None,
+            "drive_url": p_url(props, "구글드라이브"),
         })
 
     # 시작일 내림차순 — 노션 화면 순서와 같게 최근 건이 위로 온다
