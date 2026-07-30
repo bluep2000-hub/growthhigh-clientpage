@@ -132,7 +132,12 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:9px;margin-bottom:16px}
 .k1{border:1px solid var(--line-2);border-radius:10px;padding:13px 15px;background:var(--panel)}
 .k1 .k{font-size:11.5px;color:var(--tx-2)}
-.k1 .v{font-size:26px;font-weight:600;letter-spacing:-.03em;margin-top:4px;font-variant-numeric:tabular-nums}
+/* 네 칸의 baseline 과 그 아래 설명 줄 높이를 맞춘다. 「다음 일정」만 뒤에 붙는
+   단위가 없는데, 자리를 채우려고 빈 <small> 을 넣지 않고 min-height 로 잡는다.
+   min-height 는 1.6em — 제 글자 크기(26px) 기준이라 line-height 와 어긋나지 않는다 */
+.k1 .v{font-size:26px;font-weight:600;letter-spacing:-.03em;margin-top:4px;
+  font-variant-numeric:tabular-nums;line-height:1.6;
+  display:flex;align-items:baseline;min-height:1.6em}
 .k1 .v small{font-size:12px;font-weight:400;color:var(--tx-2);margin-left:2px}
 .k1 .s{font-size:11px;color:var(--tx-3);margin-top:2px}
 
@@ -902,7 +907,7 @@ function init(D){
     <div class="k1"><div class="k">취득 인증</div><div class="v">${kpi.certs ?? 0}<small>건</small></div>
       <div class="s">기업인증·지식재산권 완료 건</div></div>
     <div class="k1"><div class="k">다음 일정</div>
-      <div class="v" style="font-size:19px">${nextEv?esc(String(nextEv.date).slice(5).replace('-','/')):'—'}</div>
+      <div class="v">${nextEv?esc(String(nextEv.date).slice(5).replace('-','/')):'—'}</div>
       <div class="s">${nextEv?esc(nextEv.title):'예정된 일정이 없습니다'}</div></div>
    </div>
 
