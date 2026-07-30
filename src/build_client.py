@@ -300,6 +300,44 @@ def nn(v):
 # §3 클라이언트 목록
 # ══════════════════════════════════════════════════════════════════════════
 
+# 「추가 링크」 속성. 클라이언트마다 다른 외부 링크를 노션에서 관리한다.
+# 한 줄에 하나. 「|」가 없는 줄은 그룹 제목, 「라벨|URL」은 링크다.
+EXTRA_LINK_FALLBACK_GROUP = "자료"
+
+
+def parse_extra_links(raw: str) -> list[dict]:
+    """「추가 링크」 원문을 그룹 목록으로 가른다.
+
+    첫 줄부터 링크가 나오면 그룹 제목이 없는 것이라 「자료」에 붙인다.
+    한 항목이 잘못돼도 그 줄만 버린다 — 사이드바 전체가 사라지면 안 된다.
+    """
+    groups: list[dict] = []
+    for line in (raw or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        if "|" not in line:
+            groups.append({"group": line, "items": []})
+            continue
+
+        label, url = (x.strip() for x in line.split("|", 1))
+        if not label:
+            warn(f"추가 링크 — 라벨이 비어 건너뜁니다: {line!r}")
+            continue
+        # 스킴을 좁게 본다. javascript: 같은 것이 href 로 들어가면 안 된다.
+        if not url.lower().startswith(("http://", "https://")):
+            warn(f"추가 링크 — http(s) 가 아니라 건너뜁니다: {label} | {url!r}")
+            continue
+
+        if not groups:
+            groups.append({"group": EXTRA_LINK_FALLBACK_GROUP, "items": []})
+        groups[-1]["items"].append({"label": label, "url": url})
+
+    # 제목만 있고 링크가 하나도 안 붙은 그룹은 빈 헤더로 남으므로 버린다
+    return [g for g in groups if g["items"]]
+
+
 def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
     """빌드 대상과 함께 「우리 클라이언트 이름」 전부를 돌려준다.
 
@@ -341,6 +379,7 @@ def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
             "drive_url": p_url(props, "드라이브 URL"),
             "bizplan_url": p_url(props, "사업계획서 URL"),
             "password": p_text(props, "비밀번호_해시"),   # 이름과 달리 평문이다
+            "extra_links": parse_extra_links(p_text(props, "추가 링크")),
             "tags": p_multi(props, "업종"),
             "icon": row.get("icon"),
         })
@@ -1998,6 +2037,8 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
             "drive_url": client.get("drive_url"),
             "bizplan_url": client.get("bizplan_url"),
             "guidebook_url": GUIDEBOOK_URL,
+            # 클라이언트별 추가 링크. 없으면 빈 목록이고 화면에 아무것도 안 나온다.
+            "extra_links": client.get("extra_links") or [],
         },
         "notice": notice,
         "progress": progress,

@@ -703,10 +703,19 @@ function init(D){
       {id:'x2',nm:'사업계획서',ext:1,url:CO.bizplan_url},
       {id:'x3',nm:'그로스하이 가이드북',ext:1,url:CO.guidebook_url}]},
   ];
+  /* 클라이언트별 추가 링크 — 노션 「추가 링크」에서 온다. 빌드가 이미
+     라벨·http(s) 를 걸러 두므로 여기서는 그대로 붙인다.
+     없으면 그룹이 하나도 안 생긴다. 사이드바 고정 원칙은 위 10개에만 적용된다 */
+  (CO.extra_links || []).forEach((g, gi) => {
+    const items = (g && g.items || []).filter(it => it && it.label && it.url);
+    if (!items.length) return;
+    NAV.push({ g: g.group || '자료',
+      items: items.map((it, n) => ({id:`xl${gi}-${n}`, nm:it.label, ext:1, url:it.url})) });
+  });
   /* 외부 링크는 주소가 없을 때만 흐려진다. 건수가 있는 항목은 0 일 때가 곧 빈 항목이다 */
   const navDim = i => i.ext ? !i.url : (i.dim !== undefined ? i.dim : i.ct === 0);
   document.getElementById('nav').innerHTML = NAV.map(g=>`
-   <div class="grp"><h3>${g.g}</h3>
+   <div class="grp"><h3>${esc(g.g)}</h3>
    ${g.items.map(i=>{
      const dim = navDim(i);
      const inner = `<span class="g">${i.ic?GL[i.ic]:'↗'}</span><span>${esc(i.nm)}</span>
