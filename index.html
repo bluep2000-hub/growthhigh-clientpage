@@ -686,10 +686,13 @@ function init(D){
      const inner = `<span class="g">${i.ic?GL[i.ic]:'↗'}</span><span>${esc(i.nm)}</span>
        ${i.ext?(dim?'':'<span class="ex">↗</span>'):(i.ct?`<span class="ct">${i.ct}</span>`:'')}`;
      /* 주소가 있는 자료는 진짜 링크로 낸다. 없으면 눌리지 않는 자리표시자다 */
+     /* 비활성은 외부 링크뿐이다 — 주소가 없으면 갈 데가 없다.
+        0 건인 화면은 흐리기만 하고 눌러 들어갈 수 있게 둔다.
+        신규 클라이언트는 진행 현황이 전부 0 건이라 다 잠기면 페이지가 죽어 보인다 */
      return (i.ext && !dim)
        ? `<a class="nv" data-ext="1" href="${encodeURI(i.url)}"
             target="_blank" rel="noopener">${inner}</a>`
-       : `<button class="nv${dim?' dim':''}"${dim?' disabled':''} data-id="${i.id}"
+       : `<button class="nv${dim?' dim':''}"${dim&&i.ext?' disabled':''} data-id="${i.id}"
             ${i.ext?'data-ext="1"':''}>${inner}</button>`;
    }).join('')}</div>`).join('');
 
