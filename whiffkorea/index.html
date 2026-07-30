@@ -125,9 +125,11 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
   display:grid;place-items:center}
 .hero h2{font-size:21px;font-weight:600;letter-spacing:-.03em;line-height:1.25}
 .hero .biz{font-size:13px;color:var(--tx-2);margin-top:5px;line-height:1.55;max-width:52ch}
-.hero .tags{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
-.mini{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--panel-2);color:var(--tx-2)}
-[data-theme="light"] .mini{background:var(--hover)}
+/* 해시태그. 배경·테두리 없이 글자만 두고 # 기호만 한 톤 흐리게 둔다.
+   두 테마 모두 변수를 그대로 쓰므로 테마별 규칙이 따로 필요 없다 */
+.hero .tags{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+.hero .tags .htag{font-size:12px;color:var(--tx-2)}
+.hero .tags .htag i{font-style:normal;color:var(--tx-3)}
 
 .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:9px;margin-bottom:16px}
 .k1{border:1px solid var(--line-2);border-radius:10px;padding:13px 15px;background:var(--panel)}
@@ -900,12 +902,41 @@ function init(D){
   /* KPI 「다음 일정」 타일은 아직 안 지난 것 중 가장 가까운 건을 쓴다 */
   const nextEv = events.find(e => !e.past) || null;
 
+  /* 설립연월 표기가 제각각으로 들어온다 — 2024.09 / 2024-09 / 2024-09-15 /
+     2024/09 / 2024년 9월 / 2024.9 를 모두 「2024.09」로 맞춘다.
+     못 알아보면 원문을 그대로 쓴다. 빈칸으로 만들지 않는다 */
+  const foundedTag = raw => {
+    const s = String(raw ?? '').trim();
+    if (!s) return '';
+    const m = s.match(/^(\d{4})\s*[.\-/년]\s*(\d{1,2})(?!\d)/);
+    if (m && +m[2] >= 1 && +m[2] <= 12)
+      return `${m[1]}.${String(+m[2]).padStart(2,'0')} 설립`;
+    /* 못 알아본 값은 원문 그대로 낸다. 「설립」을 덧붙이면
+       「설립일 미상 설립」처럼 겹쳐 읽힌다 */
+    return s;
+  };
+
+  /* 노션 사업내용에 **볼드** 가 섞여 온다. 그것만 <b> 로 바꾸고 나머지
+     마크다운은 건드리지 않는다. 짝이 안 맞아 남은 별표는 지운다.
+     esc 를 먼저 걸어 태그가 그대로 들어가지 않게 한다 */
+  const bizHtml = raw => esc(String(raw ?? ''))
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/\*/g, '');
+
+  /* 업종 → 소재지 → 설립. 값이 없는 것은 건너뛰고, 전부 없으면 줄을 안 낸다.
+     업종은 기업 DB 「업종분류」가 먼저고, 공유페이지 「업종」도 있으면 뒤에 붙인다 */
+  const heroTags = [...new Set([
+    ...(CO.industry || []), ...(CO.tags || []),
+    CO.address || '', foundedTag(CO.founded),
+  ].map(t => String(t ?? '').trim()).filter(Boolean))];
+
   /* forPrint 면 공지는 요약 대신 전문, 일정은 5건 제한 없이 전부 */
   V.info=(forPrint)=>`
    <div class="hero"><span class="${markCls}">${logoMark(52)}</span><div>
      <h2>${esc(CO.name || CLIENT)}</h2>
-     ${CO.biz?`<div class="biz">${esc(CO.biz)}</div>`:''}
-     ${(CO.tags||[]).length?`<div class="tags">${CO.tags.map(t=>`<span class="mini">${esc(t)}</span>`).join('')}</div>`:''}
+     ${CO.biz?`<div class="biz">${bizHtml(CO.biz)}</div>`:''}
+     ${heroTags.length?`<div class="tags">${heroTags.map(t=>
+        `<span class="htag"><i>#</i>${esc(t)}</span>`).join('')}</div>`:''}
    </div></div>
 
    <div class="kpi">
