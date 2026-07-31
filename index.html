@@ -206,6 +206,11 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
   border-radius:6px;padding:8px 10px;margin:7px 0;overflow-x:auto;font-size:11.5px}
 .ck img.nim{max-width:100%;height:auto;border-radius:6px;display:block}
 .ck blockquote{border-left:2px solid var(--line-2);padding-left:9px;color:var(--tx-2)}
+/* 첨부 파일명과 하위 페이지 제목. 둘 다 누를 수 없다 — 파일은 레포에 두지 않고,
+   하위 페이지는 클라이언트에게 노션 권한이 없어 열리지 않는다 */
+.ck span.att,.ck span.cpg{display:inline-flex;align-items:flex-start;gap:6px;
+  font-size:12.5px;color:var(--tx-2);padding:3px 0;line-height:1.5;cursor:default}
+.ck .ic{font-size:12px;flex:none;opacity:.85;line-height:1.5}
 /* 표가 좁은 화면에서 넘칠 때 가로 스크롤로 흘린다 */
 .ck li>table{overflow-x:auto}
 /* 읽기 전용 화면이라 입력 컨트롤처럼 보이는 체크박스를 두지 않는다.
@@ -850,14 +855,18 @@ function init(D){
      item.html 은 build_client.py 가 이스케이프해서 만든 HTML 이므로 그대로 넣는다. */
   /* 공지 속 그림은 빌드가 레포에 저장한 상대경로다. /{슬러그}/ 에서는 한 단계
      위가 기준이라 로고와 같이 BASE 를 붙인다 */
-  const noticeHtml = h => String(h || '').replace(/(\bsrc=")assets\//g, `$1${BASE}assets/`);
-  /* 표·그림·코드·구분선은 글줄이 아니라 내용 자체다. 깊이 제한은 체크리스트를
+  const noticeHtml = h => String(h || '').replace(/\bsrc="assets\//g, `src="${BASE}assets/`);
+  /* 표·그림·코드·구분선·첨부는 글줄이 아니라 내용 자체다. 깊이 제한은 체크리스트를
      읽기 좋게 접으려는 것이므로 이런 블록은 제한과 무관하게 끝까지 그린다 */
-  const isBlockItem = it => /^<(table|figure|pre|hr|img)\b/.test(String(it.html || '').trim());
+  const isBlockItem = it => /^(<(table|figure|pre|hr|img)\b|<span class="(att|cpg)")/
+    .test(String(it.html || '').trim());
+  /* 블록이 깊이 5 에 놓이기도 한다. 중간 조상이 평범한 글줄이면 2단에서 잘려
+     그 아래 표·첨부까지 통째로 사라진다. 블록을 품은 가지는 끝까지 남긴다 */
+  const hasBlock = it => isBlockItem(it) || (it.children || []).some(hasBlock);
   function noticeItem(it, depth){
     const c = it.checked;
     const cls = c === true ? 'chk on' : c === false ? 'chk' : 'plain';
-    const kids = (it.children || []).filter(k => depth < 2 || isBlockItem(k));  /* 글은 2단까지 */
+    const kids = (it.children || []).filter(k => depth < 2 || hasBlock(k));  /* 글은 2단까지 */
     const sub = kids.length
       ? `<ul>${kids.map(k=>noticeItem(k, depth+1)).join('')}</ul>` : '';
     return `<li class="${cls}">${noticeHtml(it.html)}${sub}</li>`;

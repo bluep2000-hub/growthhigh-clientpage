@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import collections
 import hashlib
 import imaplib
 import json
@@ -123,7 +124,7 @@ STAGE_LABELS = {
 NOTICE_ITEM_TYPES = {"to_do", "bulleted_list_item", "numbered_list_item", "paragraph",
                      "toggle", "quote"}
 # 항목이 아니라 통째로 HTML 한 덩어리가 되는 블록. 회의록과 같은 렌더러를 쓴다.
-NOTICE_BLOCK_TYPES = {"table", "divider", "code", "image"}
+NOTICE_BLOCK_TYPES = {"table", "divider", "code", "image", "file", "child_page"}
 NOTICE_HEADING_TYPES = {"heading_1", "heading_2", "heading_3"}
 NOTICE_PASSTHRU_TYPES = {"column_list", "column", "synced_block"}
 
@@ -582,6 +583,26 @@ def save_remote_asset(url: str) -> str | None:
         return None
 
 
+# 공지 본문에서 노션이 내용을 주지 않는 블록. 건너뛰되 몇 개였는지는 남긴다.
+_SKIPPED: collections.Counter = collections.Counter()
+
+
+def attachment_name(block_body: dict) -> str:
+    """첨부 파일명만 뽑는다. 파일 자체는 받지 않는다.
+
+    담당자가 어떤 파일을 붙일지 알 수 없다. 받아서 레포에 두면 비밀번호 밖의
+    정적 파일이 되어 누구나 내려받고, 실제로 다른 클라이언트의 사업계획서가
+    섞여 들어온 적이 있다. 이름만 보여 주고 파일은 노션에서 받게 한다.
+    """
+    name = (block_body.get("name") or "").strip()
+    if not name:
+        inner = block_body.get(block_body.get("type")) or {}
+        path = urllib.parse.urlsplit(inner.get("url") or "").path
+        # 노션 URL 은 퍼센트 인코딩이라 그대로 쓰면 %EC%9C%84… 가 보인다
+        name = urllib.parse.unquote(Path(path).name)
+    return name.strip()
+
+
 def custom_emoji_url(run: dict) -> str | None:
     """rich_text 항목이 커스텀 이모지 멘션이면 그 이미지 URL 을 준다."""
     if run.get("type") != "mention":
@@ -667,6 +688,16 @@ def block_to_html(nt: Notion, b: dict) -> str:
         cap = runs_to_html(body.get("caption") or [])
         img = f'<img class="nim" src="{esc(rel)}" alt="{esc(cap and "" or "")}">'
         return f"<figure>{img}<figcaption>{cap}</figcaption></figure>" if cap else img
+    if t == "file":
+        # 이름만 낸다. 파일도 URL 도 JSON 에 넣지 않는다 — 위 attachment_name 참고.
+        fname = attachment_name(b.get("file") or {})
+        return (f'<span class="att"><span class="ic">📎</span>{esc(fname)}</span>'
+                if fname else "")
+    if t == "child_page":
+        # 따라가지 않는다. 안에 든 문서를 펼치면 공지가 아니라 문서가 된다.
+        # 클라이언트는 노션 권한이 없어 링크를 걸어도 열리지 않는다 — 제목만 남긴다.
+        title = ((b.get("child_page") or {}).get("title") or "").strip()
+        return f'<span class="cpg"><span class="ic">📄</span>{esc(title)}</span>' if title else ""
     return ""
 
 
@@ -701,6 +732,7 @@ def notice_items(nt: Notion, blocks: list[dict]) -> list[dict]:
             continue
 
         if t not in NOTICE_ITEM_TYPES:
+            _SKIPPED[t] += 1
             continue   # 화이트리스트 밖 — 자식도 조회하지 않는다
 
         children = notice_items(nt, nt.children(b["id"])) if b.get("has_children") else []
@@ -783,13 +815,19 @@ def fetch_notice(nt: Notion, url: str | None) -> dict | None:
                 if h:
                     flush_into([{"checked": None, "html": h, "children": []}])
                 continue
-            # 그 밖(embed·child_database 등)은 조용히 건너뛴다
+            # 그 밖(embed·child_database·unsupported 등)은 건너뛴다.
+            # 노션이 내용을 주지 않는 것도 있어 몇 개였는지만 남긴다.
+            _SKIPPED[t] += 1
 
     try:
         walk(blocks)
     except ClientFailure as e:
         warn(f"공지 파싱 실패 — notice 생략: {e}")
         return None
+
+    if _SKIPPED:
+        detail = " · ".join(f"{t} {n}" for t, n in sorted(_SKIPPED.items()))
+        log(f"  공지에서 건너뛴 블록 {sum(_SKIPPED.values())}개 — {detail}")
 
     if not sections:
         warn("공지 본문에서 읽을 내용이 없습니다 — notice 생략")
@@ -2104,6 +2142,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     # JSON 에 넣지 않기 위해서다. 클라이언트마다 갈아끼운다.
     _ASSET_CTX["slug"], _ASSET_CTX["dry_run"] = slug, dry_run
     _asset_cache.clear()
+    _SKIPPED.clear()
 
     company = fetch_company(nt, client["company_page_id"])
     name = company.get("name") or client["page_name"]
