@@ -240,8 +240,12 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ck li.plain::before{content:'';position:absolute;left:4px;top:11px;width:4px;height:4px;
   border-radius:50%;background:var(--tx-3)}
 .ck ul{list-style:none;margin:2px 0 4px}
-.ck ul li{padding:2px 0 2px 16px;position:relative;font-size:12.5px;
+/* 후손 선택자라 2단 이하가 모두 같은 크기·색이다 — 깊어져도 더 죽이지 않는다 */
+.ck ul li{padding:2px 0 2px 14px;position:relative;font-size:12.5px;
   color:var(--tx-2);line-height:1.65}
+/* 들여쓰기는 4단까지만 늘린다. 더 들어가면 본문이 오른쪽으로 밀려 읽기 나쁘다.
+   ul 이 4개 겹치는 지점(5단)부터 부모가 준 들여쓰기를 되돌린다 */
+.ck ul ul ul ul{margin-left:-14px}
 .ck ul li.chk::before{left:1px;top:9px;width:4px;height:4px;border-width:1.5px}
 .ck ul li.chk.on::before{left:2px;top:6.5px;width:5px;height:8px;border-width:0 2px 2px 0}
 /* 하위 불릿은 상위와 위계가 갈리도록 한 단계 더 죽인다 */
@@ -882,15 +886,11 @@ function init(D){
   const noticeHtml = h => String(h || '').replace(/\bsrc="assets\//g, `src="${BASE}assets/`);
   /* 표·그림·코드·구분선·첨부는 글줄이 아니라 내용 자체다. 깊이 제한은 체크리스트를
      읽기 좋게 접으려는 것이므로 이런 블록은 제한과 무관하게 끝까지 그린다 */
-  const isBlockItem = it => /^(<(table|figure|pre|hr|img)\b|<span class="(att|cpg)")/
-    .test(String(it.html || '').trim());
-  /* 블록이 깊이 5 에 놓이기도 한다. 중간 조상이 평범한 글줄이면 2단에서 잘려
-     그 아래 표·첨부까지 통째로 사라진다. 블록을 품은 가지는 끝까지 남긴다 */
-  const hasBlock = it => isBlockItem(it) || (it.children || []).some(hasBlock);
   function noticeItem(it, depth){
     const c = it.checked;
     const cls = c === true ? 'chk on' : c === false ? 'chk' : 'plain';
-    const kids = (it.children || []).filter(k => depth < 2 || hasBlock(k));  /* 글은 2단까지 */
+    /* 노션에 쓴 만큼 다 낸다. depth 상한은 순환 참조를 막는 안전장치일 뿐이다 */
+    const kids = depth < 10 ? (it.children || []) : [];
     const sub = kids.length
       ? `<ul>${kids.map(k=>noticeItem(k, depth+1)).join('')}</ul>` : '';
     /* 노션에서 접어 둔 항목은 접힌 채로 시작한다 — 접어 둔 의도를 따른다 */
