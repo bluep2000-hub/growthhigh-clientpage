@@ -187,6 +187,27 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ck{list-style:none}
 .ck>li{padding:3px 0 3px 22px;position:relative;font-size:13px;line-height:1.65}
 .ck>li>b{font-weight:600}
+/* 커스텀 이모지 — 글자 흐름에 얹히는 작은 그림이다 */
+.cem{height:1em;width:auto;vertical-align:-.15em;margin:0 2px;display:inline-block}
+/* 표·그림·코드·구분선은 항목 안에 통째로 들어온다. 앞의 점을 지우고 폭을 채운다 */
+.ck li:has(>table),.ck li:has(>figure),.ck li:has(>pre),.ck li:has(>hr){padding-left:0}
+.ck li:has(>table)::before,.ck li:has(>figure)::before,
+.ck li:has(>pre)::before,.ck li:has(>hr)::before{content:none}
+.ck li>table{width:100%;border-collapse:collapse;margin:7px 0;font-size:12px;
+  display:table;table-layout:auto}
+.ck li>table th,.ck li>table td{border:1px solid var(--line);padding:5px 8px;
+  text-align:left;vertical-align:top;line-height:1.5}
+.ck li>table thead th{background:var(--panel-2);font-weight:600;color:var(--tx)}
+.ck li>table td{color:var(--tx-2)}
+.ck li>hr{border:none;border-top:1px solid var(--line);margin:9px 0}
+.ck li>figure{margin:7px 0}
+.ck li>figure figcaption{font-size:11px;color:var(--tx-3);margin-top:4px}
+.ck li>pre,.ck li>figure>pre{background:var(--panel-2);border:1px solid var(--line);
+  border-radius:6px;padding:8px 10px;margin:7px 0;overflow-x:auto;font-size:11.5px}
+.ck img.nim{max-width:100%;height:auto;border-radius:6px;display:block}
+.ck blockquote{border-left:2px solid var(--line-2);padding-left:9px;color:var(--tx-2)}
+/* 표가 좁은 화면에서 넘칠 때 가로 스크롤로 흘린다 */
+.ck li>table{overflow-x:auto}
 /* 읽기 전용 화면이라 입력 컨트롤처럼 보이는 체크박스를 두지 않는다.
    끝난 일은 체크 표시만, 남은 일은 빈 원만 둔다. */
 .ck li.chk{color:var(--tx)}                    /* 지금 해야 할 일 */
@@ -827,12 +848,19 @@ function init(D){
 
   /* 공지 — notice 가 null 이면 빈 상태로 레이아웃 유지.
      item.html 은 build_client.py 가 이스케이프해서 만든 HTML 이므로 그대로 넣는다. */
+  /* 공지 속 그림은 빌드가 레포에 저장한 상대경로다. /{슬러그}/ 에서는 한 단계
+     위가 기준이라 로고와 같이 BASE 를 붙인다 */
+  const noticeHtml = h => String(h || '').replace(/(\bsrc=")assets\//g, `$1${BASE}assets/`);
+  /* 표·그림·코드·구분선은 글줄이 아니라 내용 자체다. 깊이 제한은 체크리스트를
+     읽기 좋게 접으려는 것이므로 이런 블록은 제한과 무관하게 끝까지 그린다 */
+  const isBlockItem = it => /^<(table|figure|pre|hr|img)\b/.test(String(it.html || '').trim());
   function noticeItem(it, depth){
     const c = it.checked;
     const cls = c === true ? 'chk on' : c === false ? 'chk' : 'plain';
-    const kids = (depth < 2 && (it.children||[]).length)      /* 화면은 2단까지 */
-      ? `<ul>${it.children.map(k=>noticeItem(k, depth+1)).join('')}</ul>` : '';
-    return `<li class="${cls}">${it.html || ''}${kids}</li>`;
+    const kids = (it.children || []).filter(k => depth < 2 || isBlockItem(k));  /* 글은 2단까지 */
+    const sub = kids.length
+      ? `<ul>${kids.map(k=>noticeItem(k, depth+1)).join('')}</ul>` : '';
+    return `<li class="${cls}">${noticeHtml(it.html)}${sub}</li>`;
   }
   function noticeFeed(){
     const sections = (notice && Array.isArray(notice.sections)) ? notice.sections : [];
@@ -841,7 +869,8 @@ function init(D){
         <p class="empty">등록된 내용이 없습니다.</p></div></div>`;
     }
     return sections.map(s=>`
-      <div class="notice">${s.heading?`<h3>${esc(s.heading)}</h3>`:''}<div class="bd">
+      <div class="notice">${(s.heading_html || s.heading)
+        ? `<h3>${s.heading_html ? noticeHtml(s.heading_html) : esc(s.heading)}</h3>` : ''}<div class="bd">
        ${(s.items||[]).length
          ? `<ul class="ck">${s.items.map(i=>noticeItem(i,1)).join('')}</ul>`
          : `<p class="empty">등록된 내용이 없습니다.</p>`}

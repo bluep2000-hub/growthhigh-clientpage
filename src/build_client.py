@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import imaplib
 import json
 import os
@@ -117,8 +118,12 @@ STAGE_LABELS = {
     "proj": ["착수", "분석", "작성", "검토", "완료"],
 }
 
-# 공지 파서 — 이 밖의 블록(table·image·embed·child_database)은 조용히 건너뛴다.
-NOTICE_ITEM_TYPES = {"to_do", "bulleted_list_item", "numbered_list_item", "paragraph", "toggle"}
+# 공지 파서 — 텍스트를 담는 항목 블록. 이 밖은 아래 NOTICE_BLOCK_TYPES 를 보고,
+# 거기에도 없으면(embed·child_database 등) 조용히 건너뛴다.
+NOTICE_ITEM_TYPES = {"to_do", "bulleted_list_item", "numbered_list_item", "paragraph",
+                     "toggle", "quote"}
+# 항목이 아니라 통째로 HTML 한 덩어리가 되는 블록. 회의록과 같은 렌더러를 쓴다.
+NOTICE_BLOCK_TYPES = {"table", "divider", "code", "image"}
 NOTICE_HEADING_TYPES = {"heading_1", "heading_2", "heading_3"}
 NOTICE_PASSTHRU_TYPES = {"column_list", "column", "synced_block"}
 
@@ -538,10 +543,69 @@ def trim_runs(runs: list[dict]) -> list[dict]:
     return out
 
 
+# 노션 이미지 URL 은 1시간 만료 서명 주소다. JSON 에 그대로 넣으면 깨지므로
+# 로고와 같이 내려받아 레포에 둔다. slug 를 모든 함수에 흘리는 대신 클라이언트
+# 하나를 빌드하는 동안만 여기에 담아 둔다 (빌드는 한 번에 한 곳씩 순차 처리한다).
+_ASSET_CTX: dict = {"slug": None, "dry_run": False}
+_asset_cache: dict[str, str | None] = {}
+
+NOTICE_ASSET_DIR = "assets/notice"
+
+
+def save_remote_asset(url: str) -> str | None:
+    """노션 S3 이미지를 내려받아 상대경로를 준다. 실패하면 None — 호출부가 버린다."""
+    slug = _ASSET_CTX.get("slug")
+    if not url or not slug:
+        return None
+
+    # 서명 파라미터는 매번 바뀐다. 경로만으로 같은 파일인지 판단한다.
+    key = urllib.parse.urlsplit(url).path
+    if key in _asset_cache:
+        return _asset_cache[key]
+
+    try:
+        r = requests.get(url, timeout=60)       # 노션 세션과 분리한다
+        r.raise_for_status()
+        ct = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        ext = CT_EXT.get(ct) or (Path(key).suffix.lower() if Path(key).suffix else "")
+        if ext not in CT_EXT.values():
+            ext = ".png"
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+        rel = f"{NOTICE_ASSET_DIR}/{slug}-{digest}{ext}"
+        if not _ASSET_CTX.get("dry_run"):
+            atomic_write_bytes(ROOT / rel, r.content)
+        _asset_cache[key] = rel
+        return rel
+    except Exception as e:                      # noqa: BLE001 — 그림 하나로 빌드를 죽이지 않는다
+        warn(f"이미지 내려받기 실패 — 항목을 버립니다: {type(e).__name__}")
+        _asset_cache[key] = None
+        return None
+
+
+def custom_emoji_url(run: dict) -> str | None:
+    """rich_text 항목이 커스텀 이모지 멘션이면 그 이미지 URL 을 준다."""
+    if run.get("type") != "mention":
+        return None
+    m = run.get("mention") or {}
+    if m.get("type") != "custom_emoji":
+        return None
+    return (m.get("custom_emoji") or {}).get("url") or None
+
+
 def runs_to_html(runs: list[dict]) -> str:
     """rich_text 를 서식 태그가 붙은 HTML 로. 노션 텍스트는 반드시 이스케이프한다."""
     parts = []
     for r in runs:
+        # 커스텀 이모지는 plain_text 가 「:이름:」이라 그대로 두면 그게 화면에 뜬다.
+        # 이미지로 바꾸고, 못 받아오면 항목째 버린다 — 「:이름:」을 남기지 않는다.
+        cem = custom_emoji_url(r)
+        if cem:
+            rel = save_remote_asset(cem)
+            if rel:
+                alt = esc((r.get("plain_text") or "").strip(":"))
+                parts.append(f'<img class="cem" src="{esc(rel)}" alt="{alt}">')
+            continue
+
         t = r.get("plain_text", "")
         if not t:
             continue
@@ -571,11 +635,39 @@ def block_runs(block: dict) -> list[dict]:
 def make_item(b: dict, children: list[dict]) -> dict | None:
     """빈 항목은 버린다. 단 하위 항목이 있으면 부모는 살린다."""
     html = runs_to_html(trim_runs(block_runs(b)))
+    if b.get("type") == "quote" and html:
+        html = f"<blockquote>{html}</blockquote>"
     if not html and not children:
         return None
     t = b.get("type")
     checked = (b.get(t) or {}).get("checked") if t == "to_do" else None
     return {"checked": checked, "html": html, "children": children}
+
+
+def block_to_html(nt: Notion, b: dict) -> str:
+    """항목이 아닌 블록 하나를 HTML 로. 회의록·공지가 같이 쓴다.
+
+    여기서 다루지 않는 타입은 빈 문자열이라 호출부가 알아서 버린다.
+    """
+    t = b.get("type")
+    if t == "table":
+        return table_html(nt, b)
+    if t == "divider":
+        return "<hr>"
+    if t == "code":
+        body = b.get("code") or {}
+        text = "".join(r.get("plain_text", "") for r in (body.get("rich_text") or []))
+        return f"<pre><code>{esc(text)}</code></pre>" if text.strip() else ""
+    if t == "image":
+        body = b.get("image") or {}
+        url = ((body.get(body.get("type")) or {}).get("url")) if body.get("type") else None
+        rel = save_remote_asset(url) if url else None
+        if not rel:
+            return ""                            # 실패하면 그 항목만 버린다
+        cap = runs_to_html(body.get("caption") or [])
+        img = f'<img class="nim" src="{esc(rel)}" alt="{esc(cap and "" or "")}">'
+        return f"<figure>{img}<figcaption>{cap}</figcaption></figure>" if cap else img
+    return ""
 
 
 def notice_items(nt: Notion, blocks: list[dict]) -> list[dict]:
@@ -598,6 +690,14 @@ def notice_items(nt: Notion, blocks: list[dict]) -> list[dict]:
                 it = make_item(b, notice_items(nt, kids))
                 if it:
                     items.append(it)
+            continue
+
+        if t in NOTICE_BLOCK_TYPES:
+            # 표·구분선·이미지·코드는 항목 트리에 HTML 한 덩어리로 끼워 넣는다.
+            # 체크박스가 아니므로 checked 는 None 이고 하위도 두지 않는다.
+            h = block_to_html(nt, b)
+            if h:
+                items.append({"checked": None, "html": h, "children": []})
             continue
 
         if t not in NOTICE_ITEM_TYPES:
@@ -665,14 +765,25 @@ def fetch_notice(nt: Notion, url: str | None) -> dict | None:
                     flush_into([it])
                 continue
             if t in NOTICE_HEADING_TYPES:
-                heading = "".join(r.get("plain_text", "") for r in block_runs(b)).strip()
-                cur = {"heading": heading, "items": []}   # 📌 는 그대로 둔다
+                runs = block_runs(b)
+                # 커스텀 이모지를 뺀 평문. 안 빼면 「:파일:」이 제목에 그대로 뜬다.
+                # 그림으로 보여줄 몫은 heading_html 이 맡는다. 📌 같은 글리프는 남는다.
+                heading = "".join(r.get("plain_text", "") for r in runs
+                                  if not custom_emoji_url(r)).strip()
+                cur = {"heading": heading,
+                       "heading_html": runs_to_html(runs),
+                       "items": []}
                 sections.append(cur)
                 continue
             if t in NOTICE_ITEM_TYPES:
                 flush_into(notice_items(nt, [b]))
                 continue
-            # 그 밖(table·image·embed·child_database)은 조용히 건너뛴다
+            if t in NOTICE_BLOCK_TYPES:
+                h = block_to_html(nt, b)
+                if h:
+                    flush_into([{"checked": None, "html": h, "children": []}])
+                continue
+            # 그 밖(embed·child_database 등)은 조용히 건너뛴다
 
     try:
         walk(blocks)
@@ -1756,7 +1867,7 @@ TALK_HEADING_TAG = {"heading_1": "h2", "heading_2": "h3", "heading_3": "h4"}
 TALK_LIST_TAG = {"bulleted_list_item": "ul", "numbered_list_item": "ol"}
 
 
-def talk_table_html(nt: Notion, block: dict) -> str:
+def table_html(nt: Notion, block: dict) -> str:
     """회의록의 Action Items 표. table 의 자식은 table_row 뿐이다."""
     meta = block.get("table") or {}
     try:
@@ -1834,7 +1945,7 @@ def talk_body_html(nt: Notion, blocks: list[dict], depth: int = 0) -> str:
             parts.append("<hr>")
 
         elif t == "table":
-            parts.append(talk_table_html(nt, b))
+            parts.append(table_html(nt, b))
 
         elif t == "callout":
             h = runs_to_html(block_runs(b))
@@ -1989,6 +2100,10 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
               allow_plaintext: bool = False) -> dict:
     slug = client["slug"]
     log(f"\n▶ {slug}")
+    # 공지·회의록 안의 노션 이미지를 어디에 저장할지 알려 준다. 만료되는 S3 주소를
+    # JSON 에 넣지 않기 위해서다. 클라이언트마다 갈아끼운다.
+    _ASSET_CTX["slug"], _ASSET_CTX["dry_run"] = slug, dry_run
+    _asset_cache.clear()
 
     company = fetch_company(nt, client["company_page_id"])
     name = company.get("name") or client["page_name"]
