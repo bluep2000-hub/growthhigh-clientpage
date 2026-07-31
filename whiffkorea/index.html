@@ -31,10 +31,15 @@
 <meta name="description" content="그로스하이 클라이언트 전용 페이지입니다.">
 <meta name="robots" content="noindex, nofollow">
 
-<!-- 파비콘. 여기 적힌 경로는 루트 기준이라 /{슬러그}/ 에서는 어긋난다.
-     아래 스크립트가 BASE 를 붙여 다시 잡는다 (id 로 찾는다) -->
-<link rel="icon" type="image/png" sizes="32x32" id="fav32" href="assets/favicon-32.png">
-<link rel="apple-touch-icon" sizes="180x180" id="fav180" href="assets/favicon-180.png">
+<!-- 파비콘. 절대 주소로 둔다 — 상대경로면 /{슬러그}/ 에서 한 단계 아래를 찾아
+     404 가 난다. 스크립트로 고칠 수는 있지만 링크 미리보기 크롤러는 JS 를
+     실행하지 않고 원본 HTML 만 읽으므로 그때 깨진다.
+     /favicon.ico 는 <link> 를 무시하고 도메인 루트부터 찾는 크롤러용이다 -->
+<link rel="icon" href="https://client.growthhigh.co.kr/favicon.ico" sizes="32x32 16x16">
+<link rel="icon" type="image/png" sizes="32x32"
+      href="https://client.growthhigh.co.kr/assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180"
+      href="https://client.growthhigh.co.kr/assets/favicon-180.png">
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
@@ -551,14 +556,8 @@ const GL = { info:'▣', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:
    잠금 화면(루트·404 안내 포함)은 그로스하이 로고만 쓴다. */
 const BRAND_LOGO = `${BASE}assets/growthhigh-logo.png`;
 
-/* 파비콘 경로 보정. <head> 는 루트 기준으로 적혀 있어 /{슬러그}/ 에서는
-   한 단계 위를 봐야 한다. BASE 가 빈 루트에서는 아무것도 바꾸지 않는다 */
-if (BASE) {
-  for (const [id, f] of [['fav32','favicon-32.png'], ['fav180','favicon-180.png']]) {
-    const el = document.getElementById(id);
-    if (el) el.href = `${BASE}assets/${f}`;
-  }
-}
+/* 파비콘은 <head> 에 절대 주소로 박아 둔다 — 여기서 손대지 않는다.
+   경로를 스크립트로 고치면 JS 를 실행하지 않는 미리보기 크롤러에서 깨진다 */
 
 /* 노션 텍스트가 그대로 들어오므로 <, & 등을 이스케이프한다 */
 const esc = v => String(v ?? '').replace(/[&<>"']/g,
