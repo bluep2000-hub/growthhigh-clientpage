@@ -662,7 +662,11 @@ def make_item(b: dict, children: list[dict]) -> dict | None:
         return None
     t = b.get("type")
     checked = (b.get(t) or {}).get("checked") if t == "to_do" else None
-    return {"checked": checked, "html": html, "children": children}
+    out = {"checked": checked, "html": html, "children": children}
+    # 노션에서 접어 둔 항목이다. 화면도 접힌 채로 시작하게 표시만 남긴다.
+    if t == "toggle" and children:
+        out["toggle"] = True
+    return out
 
 
 def block_to_html(nt: Notion, b: dict) -> str:
