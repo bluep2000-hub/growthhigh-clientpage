@@ -1985,7 +1985,8 @@ def write_client_page(slug: str, dry_run: bool) -> None:
 # ══════════════════════════════════════════════════════════════════════════
 
 def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
-              skip_imap: bool, known_names: set[str]) -> dict:
+              skip_imap: bool, known_names: set[str],
+              allow_plaintext: bool = False) -> dict:
     slug = client["slug"]
     log(f"\n▶ {slug}")
 
@@ -2049,8 +2050,21 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     }
 
     password = client.get("password") or ""
+
+    # 비밀번호가 없으면 봉투가 평문이 된다. 레포 루트는 통째로 웹에 서빙되므로
+    # 실수로 나가지 않게 기본은 막고, 명시적으로 허용할 때만 쓴다.
+    if not password and not allow_plaintext:
+        warn(f"{slug} — 비밀번호 없음. 평문이 되므로 파일을 쓰지 않았습니다.")
+        log("     노션 공유페이지 DB 의 「비밀번호_해시」가 비어 있습니다.")
+        log("     의도한 것이면 --allow-plaintext 를 붙여 다시 실행하세요.")
+        return {"slug": slug, "encrypted": False, "blocked": True, "payload": payload}
+
     envelope = encrypt(payload, password)
     blob = json.dumps(envelope, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+    if not password:
+        warn(f"{slug} — 비밀번호 없음. 평문으로 저장됩니다.")
+        log("     공개 레포이므로 누구나 내용을 읽을 수 있습니다.")
 
     if dry_run:
         log(f"  (dry-run) c/{slug}.enc {len(blob):,}B · enc={envelope.get('enc')}")
@@ -2059,11 +2073,12 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
         write_client_page(slug, dry_run)
         log(f"  c/{slug}.enc {len(blob):,}B · {slug}/index.html")
 
-    return {"slug": slug, "encrypted": bool(password), "payload": payload}
+    return {"slug": slug, "encrypted": bool(password), "blocked": False,
+            "payload": payload}
 
 
 def build(only: str | None, include_expired: bool, dry_run: bool,
-          skip_imap: bool) -> int:
+          skip_imap: bool, allow_plaintext: bool = False) -> int:
     token = os.environ.get("NOTION_TOKEN", "").strip()
     if not token:
         log("NOTION_TOKEN 이 없습니다. .env 를 확인하세요 (.env.example 참고).")
@@ -2076,11 +2091,14 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
         return 2
     log(f"빌드 대상 {len(clients)}건: {', '.join(c['slug'] for c in clients)}")
 
-    failed, plaintext = [], []
+    failed, plaintext, blocked = [], [], []
     for c in clients:
         try:
-            res = build_one(nt, c, include_expired, dry_run, skip_imap, known_names)
-            if not res["encrypted"]:
+            res = build_one(nt, c, include_expired, dry_run, skip_imap, known_names,
+                            allow_plaintext)
+            if res.get("blocked"):
+                blocked.append(res["slug"])
+            elif not res["encrypted"]:
                 plaintext.append(res["slug"])
         except ClientFailure as e:
             warn(f"[{c['slug']}] 실패 — 건너뜁니다: {e}")
@@ -2092,12 +2110,22 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
     log("")
     if WARNINGS:
         log(f"경고 {len(WARNINGS)}건")
-    if plaintext:
-        log("⚠ 배포하지 마세요 — 아래 클라이언트는 암호화되지 않은 평문입니다.")
-        for s in plaintext:
+    if blocked:
+        log(f"■ 평문이 될 {len(blocked)}건은 쓰지 않았습니다 — 비밀번호가 비어 있습니다.")
+        for s in blocked:
             log(f"    · {s}")
+        log("  노션 「비밀번호_해시」를 채우거나, 평문이 의도한 것이면")
+        log("  --allow-plaintext 를 붙여 다시 실행하세요.")
+    if plaintext:
+        log(f"⚠ 평문으로 저장된 {len(plaintext)}건 — 비밀번호 없이 열립니다.")
+        for s in plaintext:
+            log(f"    · c/{s}.enc")
+        log("  공개 레포이므로 push 하면 누구나 내용을 읽을 수 있습니다.")
+        log("  의도한 것이 맞는지 push 전에 다시 확인하세요.")
     if failed:
         log(f"실패 {len(failed)}건: {', '.join(failed)}")
+        return 1
+    if blocked:
         return 1
     log("완료")
     return 0
@@ -2112,11 +2140,15 @@ def main() -> int:
                     help="마감이 지난 추천 사업·일정을 제외한다")
     ap.add_argument("--skip-imap", action="store_true",
                     help="메일 수집을 건너뛰고 노션 소통 DB 만 읽는다")
+    ap.add_argument("--allow-plaintext", action="store_true",
+                    help="비밀번호가 없는 클라이언트를 평문으로 저장한다 "
+                         "(공개 레포이므로 누구나 읽을 수 있다)")
     args = ap.parse_args()
 
     load_dotenv(ROOT / ".env")
     include_expired = INCLUDE_EXPIRED and not args.no_include_expired
-    return build(args.client, include_expired, args.dry_run, args.skip_imap)
+    return build(args.client, include_expired, args.dry_run, args.skip_imap,
+                 args.allow_plaintext)
 
 
 if __name__ == "__main__":
