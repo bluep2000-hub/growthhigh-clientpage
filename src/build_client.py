@@ -510,8 +510,11 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
 HEX32_RE = re.compile(r"[0-9a-fA-F]{32}")
 
 
-def notice_db_id(url: str | None) -> str | None:
-    """공지 DB URL 에서 32자 hex 를 뽑아 UUID 로 만든다. `?v=` 는 잘라내고 경로만 본다."""
+def notice_source_id(url: str | None) -> str | None:
+    """공지 URL 에서 32자 hex 를 뽑아 UUID 로 만든다. `?v=` 는 잘라내고 경로만 본다.
+
+    DB 인지 페이지인지는 여기서 가리지 않는다 — 주소 모양으로는 알 수 없다.
+    """
     if not url:
         return None
     path = urllib.parse.urlsplit(url).path
@@ -746,25 +749,58 @@ def notice_items(nt: Notion, blocks: list[dict]) -> list[dict]:
     return items
 
 
+def notice_source(nt: Notion, source_id: str) -> dict | None:
+    """공지 원천이 DB 인지 일반 페이지인지 노션에 직접 물어본다.
+
+    URL 모양으로 추측하지 않는다 — 응답의 `object` 값만 믿는다. 둘 중 아닌
+    쪽은 404 로 떨어지므로 차례로 물어보고 먼저 열리는 것을 쓴다.
+    """
+    for path in (f"/databases/{source_id}", f"/pages/{source_id}"):
+        try:
+            res = nt.get(path)
+        except ClientFailure:
+            continue
+        if res.get("object") in ("database", "page"):
+            return res
+    return None
+
+
 def fetch_notice(nt: Notion, url: str | None) -> dict | None:
-    db_id = notice_db_id(url)
-    if not db_id:
+    source_id = notice_source_id(url)
+    if not source_id:
         warn("공지 DB URL 이 없거나 ID 를 뽑지 못했습니다 — notice 생략")
         return None
 
-    try:
-        rows = nt.query_all(db_id, {"sorts": [{"property": "일자", "direction": "descending"}]})
-    except ClientFailure as e:
-        warn(f"공지 DB 조회 실패 — notice 생략: {e}")
-        return None
-    if not rows:
-        warn("공지 DB 가 비어 있습니다 — notice 생략")
+    src = notice_source(nt, source_id)
+    if src is None:
+        warn(f"공지 원천을 열지 못했습니다 — notice 생략: {source_id}")
+        log("     인테그레이션이 그 DB·페이지에 연결돼 있는지 확인하세요.")
         return None
 
-    page = rows[0]
-    props = page.get("properties", {})
+    if src.get("object") == "database":
+        # DB 면 지금까지처럼 최신 1건이 공지다.
+        try:
+            rows = nt.query_all(source_id,
+                                {"sorts": [{"property": "일자", "direction": "descending"}]})
+        except ClientFailure as e:
+            warn(f"공지 DB 조회 실패 — notice 생략: {e}")
+            return None
+        if not rows:
+            warn("공지 DB 가 비어 있습니다 — notice 생략")
+            return None
+        page = rows[0]
+        props = page.get("properties", {})
+        when = (p_date(props, "일자").get("start") or "")[:10]
+    else:
+        # 일반 페이지면 그 페이지가 곧 공지다. 「일자」 속성이 없으니
+        # 마지막 수정 시각을 날짜로 쓴다.
+        page = src
+        props = page.get("properties", {})
+        when = (p_date(props, "일자").get("start") or "")[:10] \
+            or (page.get("last_edited_time") or "")[:10]
+        log("  공지 원천이 일반 페이지입니다 — 그 페이지를 그대로 읽습니다")
+
     title = first_title_prop(props)
-    when = (p_date(props, "일자").get("start") or "")[:10]
 
     try:
         blocks = nt.children(page["id"])
@@ -1216,9 +1252,11 @@ TALK_CHANNELS_WITH_MINUTES = {"미팅", "유선"}
 
 # 사람이 손으로 분류해둔 고객사 폴더를 그대로 쓴다. 발신 도메인 추측보다 정확하다.
 TALKS_FOLDER_PREFIX = "Inbox.고객사."
-TALKS_DAYS = 90
-TALKS_FETCH_MAX = 30            # 폴더에서 읽어올 최근 메일 수
-TALKS_OUTPUT_MAX = 60           # JSON 에 담을 수. 90일치 받음+보냄이 다 들어가는 값
+TALKS_DAYS = 90                 # 기본 수집 기간. --talks-days 로 바꾼다 (0 = 제한 없음)
+TALKS_FETCH_MAX = 150           # 폴더에서 읽어올 최근 메일 수
+# JSON 에 담을 수. 노션 page_size 상한이 100 이고 페이지네이션을 하지 않으므로
+# 이 값을 더 올릴 수 없다. 넘치면 「일자」 내림차순의 앞 100건 — 최신이 남는다.
+TALKS_OUTPUT_MAX = 100
 OWN_MAIL_DOMAIN = "growthhigh.co.kr"
 
 # 메일함 뒤쪽에서 이만큼만 훑는다. 도착순이라 최근 건은 항상 이 구간에 있다.
@@ -1413,6 +1451,30 @@ def bs_disposition(node) -> tuple[str | None, dict]:
     return None, {}
 
 
+# 서명·본문에 박힌 그림이 쓰는 이름들. 사람이 붙인 첨부가 아니다.
+INLINE_NAME_RE = re.compile(r"^(image\d+|picture|clipboard(image)?|oledata|"
+                            r"unnamed|noname|blob|logo)", re.I)
+IMAGE_EXT_RE = re.compile(r"\.(png|jpe?g|gif|bmp|webp|tiff?|svg)$", re.I)
+
+
+def is_inline_image(disp: str | None, content_id, filename: str | None,
+                    kind: str) -> bool:
+    """서명 이미지인가. 첨부로 세지 않을 것을 가린다.
+
+    inline 이거나 Content-ID 가 붙은 파트는 본문 안에서 참조되는 그림이다.
+    둘 다 없어도 image00N·picture 같은 이름의 이미지면 메일 클라이언트가
+    붙인 것이라 사람이 보낸 서류로 보지 않는다.
+    """
+    if kind != "image":
+        return False
+    if disp == "inline":
+        return True
+    if isinstance(content_id, str) and content_id.strip():
+        return True
+    name = filename or ""
+    return bool(IMAGE_EXT_RE.search(name) and INLINE_NAME_RE.match(name))
+
+
 # ── 본문 정리 ────────────────────────────────────────────────────────────
 
 def decode_part(raw: bytes, encoding: str | None, charset: str | None) -> str:
@@ -1487,6 +1549,18 @@ def clean_body(text: str, is_html: bool) -> str:
     return tidy(rest)
 
 
+def u16_len(s: str) -> int:
+    """노션이 세는 길이. 파이썬은 이모지를 1자로 세지만 노션은 UTF-16 이라 2로 센다."""
+    return len(s.encode("utf-16-le")) // 2
+
+
+def fit_u16(s: str, limit: int) -> str:
+    """노션 기준 limit 자에 맞춘다. 서러게이트 쌍을 가르지 않게 한 자씩 줄인다."""
+    while s and u16_len(s) > limit:
+        s = s[:-max(1, (u16_len(s) - limit) // 2)]
+    return s
+
+
 def compose_body(text: str, attachments: list[str]) -> str:
     """정리한 본문 + 첨부 파일명 한 줄. 노션 rich_text 한계에 맞춰 자른다."""
     # 너무 짧으면 제목이 곧 내용인 메일이다. 본문은 비운다.
@@ -1494,19 +1568,30 @@ def compose_body(text: str, attachments: list[str]) -> str:
         text = ""
 
     tail = f"첨부: {', '.join(attachments)}" if attachments else ""
-    room = BODY_MAX_CHARS - (len(tail) + 1 if tail else 0)
+    room = BODY_MAX_CHARS - (u16_len(tail) + 1 if tail else 0)
 
-    if len(text) > room:
-        text = text[:max(0, room - len(BODY_TRUNC_MARK))].rstrip() + BODY_TRUNC_MARK
+    if u16_len(text) > room:
+        text = fit_u16(text, max(0, room - len(BODY_TRUNC_MARK))).rstrip() + BODY_TRUNC_MARK
 
     parts = [p for p in (text, tail) if p]
-    return "\n".join(parts)[:BODY_MAX_CHARS]
+    return fit_u16("\n".join(parts), BODY_MAX_CHARS)
 
 
 # ── IMAP: 헤더 + 본문 수집 ───────────────────────────────────────────────
 
-def scan_folder(M: imaplib.IMAP4_SSL, folder: str) -> tuple[list[dict], int]:
-    """폴더 뒤쪽을 훑어 최근 TALKS_DAYS 일치 헤더를 돌려준다. 본문은 읽지 않는다.
+def talks_window(days: int) -> str:
+    """헤더를 거를 컷오프 날짜. 0 이면 빈 문자열 — 어떤 날짜든 통과한다."""
+    return "" if days <= 0 else (today_kst() - timedelta(days=days)).isoformat()
+
+
+def talks_span(days: int) -> str:
+    """로그에 쓰는 기간 표기."""
+    return "기간 제한 없음" if days <= 0 else f"최근 {days}일"
+
+
+def scan_folder(M: imaplib.IMAP4_SSL, folder: str,
+                talks_days: int = TALKS_DAYS) -> tuple[list[dict], int]:
+    """폴더 뒤쪽을 훑어 최근 talks_days 일치 헤더를 돌려준다. 본문은 읽지 않는다.
 
     서버 SEARCH 를 쓰지 않는다. 다우오피스는 날짜 조건에 대해 매칭 개수만큼
     1번부터 세어서 돌려주고(SEARCH ALL 은 0건), 그대로 믿으면 가장 오래된
@@ -1524,12 +1609,15 @@ def scan_folder(M: imaplib.IMAP4_SSL, folder: str) -> tuple[list[dict], int]:
         return [], 0
 
     start = max(1, exists - TALKS_SCAN_MAX + 1)
+    if start > 1:
+        # 기간을 풀어도 이 창 밖은 애초에 보이지 않는다. 조용히 지나가지 않는다.
+        warn(f"폴더 {exists}통 중 뒤쪽 {TALKS_SCAN_MAX}통만 훑습니다: {folder}")
     typ, data = M.fetch(f"{start}:{exists}", HEADER_SPEC)
     if typ != "OK":
         warn(f"메일 헤더를 읽지 못했습니다: {folder}")
         return [], exists
 
-    cutoff = (today_kst() - timedelta(days=TALKS_DAYS)).isoformat()
+    cutoff = talks_window(talks_days)
     mails, undated = [], 0
     for item in data:
         if not isinstance(item, tuple):
@@ -1544,7 +1632,7 @@ def scan_folder(M: imaplib.IMAP4_SSL, folder: str) -> tuple[list[dict], int]:
         if not mail["date"]:
             undated += 1
             continue
-        if mail["date"] >= cutoff:
+        if not cutoff or mail["date"] >= cutoff:
             mails.append(mail)
     if undated:
         warn(f"날짜를 읽을 수 없는 메일 {undated}건 — 제외했습니다")
@@ -1681,7 +1769,8 @@ def sent_belongs(mail: dict, company_key: str, known: set[str],
 
 
 def fetch_sent(M: imaplib.IMAP4_SSL, list_data, received: list[dict],
-               company_name: str, known_names: set[str]) -> list[dict]:
+               company_name: str, known_names: set[str],
+               talks_days: int = TALKS_DAYS) -> list[dict]:
     """보낸메일함에서 이 클라이언트와 오간 것만 골라 온다."""
     domains, addresses = client_match_keys(received)
     if not (domains or addresses):
@@ -1697,7 +1786,7 @@ def fetch_sent(M: imaplib.IMAP4_SSL, list_data, received: list[dict],
     company_key = name_key(company_name)
     known = known_names | {company_key}
     seen = {m["message_id"] for m in received if m.get("message_id")}
-    cand, _ = scan_folder(M, folder)
+    cand, _ = scan_folder(M, folder, talks_days)
 
     out, by_title = [], 0
     for m in cand:
@@ -1711,15 +1800,20 @@ def fetch_sent(M: imaplib.IMAP4_SSL, list_data, received: list[dict],
         by_title += why[0].startswith("제목")
         out.append(m)
 
+    if len(out) > TALKS_FETCH_MAX:
+        warn(f"보낸메일 {len(out)}건 중 최근 {TALKS_FETCH_MAX}건만 씁니다"
+             f" — 나머지 {len(out) - TALKS_FETCH_MAX}건은 버립니다")
+        by_title = sum(1 for m in out[:TALKS_FETCH_MAX] if m["matched"][0].startswith("제목"))
     out = out[:TALKS_FETCH_MAX]
-    log(f"  보낸메일 {len(out)}건 (보낸메일함 최근 {TALKS_DAYS}일 {len(cand)}건 중"
+    log(f"  보낸메일 {len(out)}건 (보낸메일함 {talks_span(talks_days)} {len(cand)}건 중"
         f" · 제목 {by_title}건 / 수신자 {len(out) - by_title}건)")
     read_bodies(M, out)
     return out
 
 
-def fetch_mails(company_name: str, known_names: set[str]) -> list[dict]:
-    """고객사 폴더 + 보낸메일함에서 최근 90일치 메일을 읽는다.
+def fetch_mails(company_name: str, known_names: set[str],
+                talks_days: int = TALKS_DAYS) -> list[dict]:
+    """고객사 폴더 + 보낸메일함에서 talks_days 일치 메일을 읽는다 (0 = 전부).
 
     폴더명이 정확히 일치하는 것만 쓴다. 없으면 빈 목록 + 경고 — 추측하지 않는다.
     보낸 것은 폴더로 갈릴 수 없어 받은 메일에서 뽑은 주소로 수신자를 맞춘다.
@@ -1751,16 +1845,20 @@ def fetch_mails(company_name: str, known_names: set[str]) -> list[dict]:
             warn(f"메일 폴더 없음 — 메일 수집 생략: {TALKS_FOLDER_PREFIX}{company_name}")
             return []
 
-        received, exists = scan_folder(M, folder)
+        received, exists = scan_folder(M, folder, talks_days)
+        if len(received) > TALKS_FETCH_MAX:
+            warn(f"받은메일 {len(received)}건 중 최근 {TALKS_FETCH_MAX}건만 씁니다"
+                 f" — 나머지 {len(received) - TALKS_FETCH_MAX}건은 버립니다")
         received = received[:TALKS_FETCH_MAX]
         if not received:
             # 받은 메일이 없으면 보낸 것을 맞출 기준도 없다.
             log("  메일 0건")
             return []
-        log(f"  메일 {len(received)}건 (전체 {exists}통 중 최근 {TALKS_DAYS}일)")
+        log(f"  메일 {len(received)}건 (전체 {exists}통 중 {talks_span(talks_days)})")
         read_bodies(M, received)
 
-        mails = received + fetch_sent(M, list_data, received, company_name, known_names)
+        mails = received + fetch_sent(M, list_data, received, company_name,
+                                      known_names, talks_days)
         mails.sort(key=lambda m: m["date"], reverse=True)
         return mails
     except Exception as e:                       # noqa: BLE001
@@ -1821,8 +1919,12 @@ def read_body(M: imaplib.IMAP4_SSL, seq: str) -> tuple[str, list[str]]:
         params = bs_pairs(node[2]) if len(node) > 2 else {}
         disp, dparams = bs_disposition(node[3:] if len(node) > 3 else [])
         filename = dparams.get("filename") or params.get("name")
+        # BODYSTRUCTURE 는 (타입 서브타입 파라미터 Content-ID …) 순이다.
+        content_id = node[3] if len(node) > 3 and isinstance(node[3], str) else None
 
         if disp == "attachment" or (filename and kind != "text"):
+            if is_inline_image(disp, content_id, filename, kind):
+                continue                         # 서명·본문에 박힌 그림
             attachments.append(decode_mime(filename) if filename else f"(이름없음).{sub}")
             continue
         # text/plain 우선, 없으면 text/html
@@ -2063,11 +2165,12 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
 
 
 def build_talks(nt: Notion, client: dict, company_name: str,
-                skip_imap: bool, dry_run: bool, known_names: set[str]) -> list[dict]:
+                skip_imap: bool, dry_run: bool, known_names: set[str],
+                talks_days: int = TALKS_DAYS) -> list[dict]:
     if skip_imap:
         log("  메일 수집 건너뜀 (--skip-imap)")
     else:
-        mails = fetch_mails(company_name, known_names)
+        mails = fetch_mails(company_name, known_names, talks_days)
         if mails and dry_run:
             # dry-run 은 아무것도 바꾸지 않는다. 파일도, 노션도.
             log(f"  (dry-run) 노션 쓰기 건너뜀 — 대상 {len(mails)}건")
@@ -2139,7 +2242,8 @@ def write_client_page(slug: str, dry_run: bool) -> None:
 
 def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
               skip_imap: bool, known_names: set[str],
-              allow_plaintext: bool = False) -> dict:
+              allow_plaintext: bool = False,
+              talks_days: int = TALKS_DAYS) -> dict:
     slug = client["slug"]
     log(f"\n▶ {slug}")
     # 공지·회의록 안의 노션 이미지를 어디에 저장할지 알려 준다. 만료되는 S3 주소를
@@ -2164,7 +2268,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     recommend = fetch_recommend(name, include_expired)
     log(f"  추천 지원사업 {len(recommend)}건")
 
-    talks = build_talks(nt, client, name, skip_imap, dry_run, known_names)
+    talks = build_talks(nt, client, name, skip_imap, dry_run, known_names, talks_days)
     log(f"  소통 내역 {len(talks)}건 (보류 제외)")
 
     events = build_events(progress, name, include_expired)
@@ -2236,7 +2340,8 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
 
 
 def build(only: str | None, include_expired: bool, dry_run: bool,
-          skip_imap: bool, allow_plaintext: bool = False) -> int:
+          skip_imap: bool, allow_plaintext: bool = False,
+          talks_days: int = TALKS_DAYS) -> int:
     token = os.environ.get("NOTION_TOKEN", "").strip()
     if not token:
         log("NOTION_TOKEN 이 없습니다. .env 를 확인하세요 (.env.example 참고).")
@@ -2253,7 +2358,7 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
     for c in clients:
         try:
             res = build_one(nt, c, include_expired, dry_run, skip_imap, known_names,
-                            allow_plaintext)
+                            allow_plaintext, talks_days)
             if res.get("blocked"):
                 blocked.append(res["slug"])
             elif not res["encrypted"]:
@@ -2298,15 +2403,20 @@ def main() -> int:
                     help="마감이 지난 추천 사업·일정을 제외한다")
     ap.add_argument("--skip-imap", action="store_true",
                     help="메일 수집을 건너뛰고 노션 소통 DB 만 읽는다")
+    ap.add_argument("--talks-days", metavar="일수", type=int, default=TALKS_DAYS,
+                    help=f"메일을 며칠치까지 읽을지 (기본 {TALKS_DAYS}, 0 = 기간 제한 없음)")
     ap.add_argument("--allow-plaintext", action="store_true",
                     help="비밀번호가 없는 클라이언트를 평문으로 저장한다 "
                          "(공개 레포이므로 누구나 읽을 수 있다)")
     args = ap.parse_args()
 
+    if args.talks_days < 0:
+        ap.error("--talks-days 는 0 이상이어야 합니다 (0 = 기간 제한 없음)")
+
     load_dotenv(ROOT / ".env")
     include_expired = INCLUDE_EXPIRED and not args.no_include_expired
     return build(args.client, include_expired, args.dry_run, args.skip_imap,
-                 args.allow_plaintext)
+                 args.allow_plaintext, args.talks_days)
 
 
 if __name__ == "__main__":
