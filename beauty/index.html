@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>클라이언트 페이지 · 그로스하이</title>
+
+<!-- 링크 미리보기. 비밀번호 없이 읽히는 공개 정보다.
+     모든 클라이언트가 이 고정 문구를 그대로 쓴다 — 슬러그별로 제목·이미지를
+     다르게 두면 크롤러가 클라이언트 목록을 수집할 수 있다.
+     og:url 에도 슬러그를 넣지 않는다. 루트로 고정한다. -->
+<meta property="og:title" content="그로스하이 클라이언트 페이지">
+<meta property="og:description" content="담당 컨설턴트에게 받은 링크로 접속해 주세요.">
+<meta property="og:image" content="https://client.growthhigh.co.kr/assets/og-image.png">
+<!-- 크기를 명시한다. 이것이 없으면 이미지를 내려받기 전에는 자리를 잡지 못해
+     아예 건너뛰는 크롤러가 있다. 실제 파일과 같은 값이어야 한다 -->
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="그로스하이 클라이언트 페이지">
+<meta property="og:url" content="https://client.growthhigh.co.kr/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="GROWTH'HIGH">
+<meta property="og:locale" content="ko_KR">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="그로스하이 클라이언트 페이지">
+<meta name="twitter:description" content="담당 컨설턴트에게 받은 링크로 접속해 주세요.">
+<meta name="twitter:image" content="https://client.growthhigh.co.kr/assets/og-image.png">
+
+<meta name="description" content="그로스하이 클라이언트 전용 페이지입니다.">
+<meta name="robots" content="noindex, nofollow">
+
+<!-- 파비콘. 절대 주소로 둔다 — 상대경로면 /{슬러그}/ 에서 한 단계 아래를 찾아
+     404 가 난다. 스크립트로 고칠 수는 있지만 링크 미리보기 크롤러는 JS 를
+     실행하지 않고 원본 HTML 만 읽으므로 그때 깨진다.
+     /favicon.ico 는 <link> 를 무시하고 도메인 루트부터 찾는 크롤러용이다 -->
+<link rel="icon" href="https://client.growthhigh.co.kr/favicon.ico" sizes="32x32 16x16">
+<link rel="icon" type="image/png" sizes="32x32"
+      href="https://client.growthhigh.co.kr/assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180"
+      href="https://client.growthhigh.co.kr/assets/favicon-180.png">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{--sans:'Pretendard',-apple-system,system-ui,sans-serif;--r:6px;--accent:#5E6AD2;
+  --run:#D9A441;--run-bg:rgba(217,164,65,.14);--ok:#4CAF7D;--ok-bg:rgba(76,175,125,.14);
+  --no:#C0645F;--no-bg:rgba(192,100,95,.14);--accent-bg:rgba(94,106,210,.18)}
+[data-theme="dark"]{--bg:#1A1A1E;--panel:#212127;--panel-2:#26262D;--hover:#2C2C34;
+  --line:rgba(255,255,255,.07);--line-2:rgba(255,255,255,.13);
+  --tx:#E4E4E8;--tx-2:#9A9AA6;--tx-3:#6E6E7C}
+/* 라이트는 다크의 반전이 아니라 별도 팔레트다. 패널을 흰색으로 두고 테두리로 구분한다 */
+[data-theme="light"]{--bg:#FFFFFF;--panel:#FFFFFF;--panel-2:#F4F5F7;--hover:#F0F1F4;
+  --line:#E3E5EA;--line-2:#C9CDD5;--tx:#16181D;--tx-2:#4A4F5A;--tx-3:#8A909C;
+  --accent:#3D4BA8;
+  --run:#8F5F0D;--run-bg:#FDF3E0;--ok:#1F7A52;--ok-bg:#E6F4EC;
+  --no:#A34B45;--no-bg:#FBEAE8;--accent-bg:#E9EBF6}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:13px;
+  line-height:1.6;-webkit-font-smoothing:antialiased;display:flex;overflow:hidden}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+:focus-visible{outline:1.5px solid var(--accent);outline-offset:1px;border-radius:3px}
+
+aside{width:238px;flex:none;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;height:100vh}
+/* 우측 .top 과 같은 48px. 높이가 다르면 좌우 경계선이 어긋나 보인다 */
+.ws{height:48px;flex:none;padding:0 12px;border-bottom:1px solid var(--line);
+  display:flex;gap:9px;align-items:center}
+.ws .mk{width:28px;height:28px;border-radius:7px;flex:none;background:#123027;
+  display:grid;place-items:center;overflow:hidden}
+/* 로고 — 이미지는 투명 배경이 많아 마크 배경을 중립으로 바꾼다 */
+.ws .mk.img,.hero .mk.img{background:var(--panel-2);border:1px solid var(--line)}
+.mk .lg{width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block}
+.mk .lg-e{line-height:1}
+.mk .lg-t{line-height:1;color:#5DCAA5;font-weight:700;letter-spacing:-.02em}
+.ws .nm{font-size:13px;font-weight:600;letter-spacing:-.015em;line-height:1.25;display:block}
+.ws .sb{font-size:10.5px;color:var(--tx-3)}
+nav{flex:1;overflow-y:auto;padding:9px 8px}
+/* 사이드바 하단 제공자 표시. 위 .ws 와 같은 48px 로 좌측 기둥의 위아래를 맞춘다.
+   nav 가 flex:1 이라 이 블록은 늘 바닥에 붙는다. 누를 수 없다 */
+.by{flex:none;height:48px;padding:0 12px;border-top:1px solid var(--line);
+  display:flex;gap:9px;align-items:center}
+.by-mk{width:18px;height:18px;border-radius:4px;flex:none;overflow:hidden;display:block;
+  border:1px solid var(--line-2)}
+.by-mk img{width:100%;height:100%;object-fit:contain;display:block;border-radius:inherit}
+.by-nm{display:block;font-size:11.5px;font-weight:500;color:var(--tx-2);line-height:1.25}
+.by-sb{display:block;font-size:10px;color:var(--tx-3);line-height:1.3}
+.grp{margin-bottom:13px}
+.grp h3{font-size:10px;font-weight:500;color:var(--tx-3);letter-spacing:.06em;
+  padding:0 8px;margin-bottom:4px;text-transform:uppercase}
+.nv{display:flex;align-items:center;gap:9px;width:100%;padding:6px 8px;border-radius:var(--r);
+  font-size:13px;color:var(--tx-2);text-align:left;line-height:1.4}
+.nv:hover{background:var(--hover);color:var(--tx)}
+.nv.on{background:var(--panel-2);color:var(--tx);font-weight:500}
+[data-theme="light"] .nv.on{background:var(--hover)}
+/* 내용이 없는 항목. 메뉴에서 빼지 않고 흐리게만 둔다 —
+   어제 있던 항목이 오늘 사라지면 클라이언트는 오류로 읽는다 */
+.nv.dim{color:var(--tx-3)}
+.nv.dim .g{opacity:.45}
+.nv.dim:hover,.nv.dim.on{color:var(--tx)}
+/* 주소가 없는 자료 항목. 자리는 지키되 누를 수 없다는 것이 보여야 한다 */
+.nv:disabled{cursor:default;color:var(--tx-3)}
+.nv:disabled:hover{background:none;color:var(--tx-3)}
+.nv .g{width:13px;flex:none;opacity:.7;font-size:12px;text-align:center}
+.nv .ct{margin-left:auto;font-size:11px;color:var(--tx-3);font-variant-numeric:tabular-nums}
+.nv .ex{margin-left:auto;font-size:10px;color:var(--tx-3)}
+
+main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
+.top{height:48px;flex:none;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;gap:10px;padding:0 16px}
+.crumb{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.crumb i{font-style:normal;color:var(--tx-3);font-weight:400;margin:0 7px}
+/* 기업명은 한 단계 물리고 현재 페이지를 앞세운다 */
+.crumb .c0{color:var(--tx-2)}
+.crumb .c1{color:var(--tx)}
+/* 상단 바 제공자 마크. 링크가 아니다 — 누르면 클라이언트가 페이지를 떠난다.
+   로고 바탕이 검정이라 다크에서 패널에 묻힌다. 두 테마 모두 테두리를 준다 */
+.top .gh{width:20px;height:20px;border-radius:4px;flex:none;overflow:hidden;display:block;
+  border:1px solid var(--line-2)}
+.top .gh img{width:100%;height:100%;object-fit:contain;display:block;border-radius:inherit}
+.gh-sep{width:1px;height:14px;flex:none;background:var(--line-2);margin:0 -2px}
+.top .rt{margin-left:auto;display:flex;align-items:center;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--tx-2);
+  padding:3px 10px;border-radius:99px;background:var(--panel-2);
+  border:1px solid var(--line);white-space:nowrap}
+.pill b{font-weight:500;color:var(--tx)}
+.tgl{width:28px;height:28px;border-radius:var(--r);display:grid;place-items:center;
+  color:var(--tx-2);font-size:14px}
+.tgl:hover{background:var(--hover);color:var(--tx)}
+/* 리포트 버튼 + 드롭다운 */
+.rpt{position:relative;display:inline-flex}
+.rpb{font-size:11.5px;color:var(--tx-2);padding:4px 10px;border-radius:var(--r);
+  border:1px solid var(--line-2);white-space:nowrap}
+.rpb:hover{background:var(--hover);color:var(--tx)}
+.rpm{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:132px;
+  background:var(--panel);border:1px solid var(--line-2);border-radius:8px;
+  padding:4px;display:flex;flex-direction:column;
+  box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.rpm[hidden]{display:none}
+.rpm button{font-size:12px;color:var(--tx-2);text-align:left;padding:7px 9px;
+  border-radius:5px;white-space:nowrap}
+.rpm button:hover{background:var(--hover);color:var(--tx)}
+
+#printdoc{display:none}
+.scroll{flex:1;overflow-y:auto}
+.view{padding:28px 32px 90px;max-width:1240px;margin:0 auto}
+.vh{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}
+.vh h1{font-size:19px;font-weight:600;letter-spacing:-.025em}
+.vh .n{font-size:12px;color:var(--tx-3);font-variant-numeric:tabular-nums}
+
+.hero{border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  padding:20px 22px;margin-bottom:16px;display:flex;gap:16px;align-items:flex-start}
+.hero .mk{width:52px;height:52px;border-radius:12px;flex:none;background:#123027;
+  display:grid;place-items:center}
+.hero h2{font-size:21px;font-weight:600;letter-spacing:-.03em;line-height:1.25}
+.hero .biz{font-size:13px;color:var(--tx-2);margin-top:5px;line-height:1.55;max-width:52ch}
+/* 해시태그. 배경·테두리 없이 글자만 두고 # 기호만 한 톤 흐리게 둔다.
+   두 테마 모두 변수를 그대로 쓰므로 테마별 규칙이 따로 필요 없다 */
+.hero .tags{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+.hero .tags .htag{font-size:12px;color:var(--tx-2)}
+.hero .tags .htag i{font-style:normal;color:var(--tx-3)}
+
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:9px;margin-bottom:16px}
+.k1{border:1px solid var(--line-2);border-radius:10px;padding:13px 15px;background:var(--panel)}
+.k1 .k{font-size:11.5px;color:var(--tx-2)}
+/* 네 칸의 baseline 과 그 아래 설명 줄 높이를 맞춘다. 「다음 일정」만 뒤에 붙는
+   단위가 없는데, 자리를 채우려고 빈 <small> 을 넣지 않고 min-height 로 잡는다.
+   min-height 는 1.6em — 제 글자 크기(26px) 기준이라 line-height 와 어긋나지 않는다 */
+.k1 .v{font-size:26px;font-weight:600;letter-spacing:-.03em;margin-top:4px;
+  font-variant-numeric:tabular-nums;line-height:1.6;
+  display:flex;align-items:baseline;min-height:1.6em}
+.k1 .v small{font-size:12px;font-weight:400;color:var(--tx-2);margin-left:2px}
+.k1 .s{font-size:11px;color:var(--tx-3);margin-top:2px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:16px}
+.card>.ch{padding:11px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
+.card>.ch h2{font-size:12.5px;font-weight:600;letter-spacing:-.01em}
+.card>.ch .d{font-size:11.5px;color:var(--tx-3);font-variant-numeric:tabular-nums}
+.card>.ch .more{margin-left:auto;font-size:11.5px;color:var(--tx-3)}
+.card>.cb{padding:15px}
+
+.notice{border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-bottom:16px}
+/* 섹션 접기 — 소통 내역 아코디언과 같은 방식이다(.tw 가 90도 돈다) */
+.notice>h3{font-size:13px;font-weight:600;padding:12px 15px 10px;letter-spacing:-.01em;
+  display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.notice>h3:hover{color:var(--tx)}
+.notice:not(.open)>h3{padding-bottom:12px}
+.notice.open>h3 .tw{transform:rotate(90deg)}
+.notice:not(.open)>.bd{display:none}
+.notice>.bd{padding:0 15px 13px}
+/* 노션에서 접어 둔 toggle 항목. 기본은 접힘 */
+.ck li.tg>.tgh{cursor:pointer;user-select:none;display:inline-flex;align-items:baseline;gap:6px}
+.ck li.tg>.tgh:hover{color:var(--tx)}
+.ck li.tg.open>.tgh .tw{transform:rotate(90deg)}
+.ck li.tg:not(.open)>ul{display:none}
+/* 토글 항목은 앞의 점 대신 화살표를 쓴다 */
+.ck li.tg::before{content:none!important}
+.ck li.tg{padding-left:0}
+.ck{list-style:none}
+.ck>li{padding:3px 0 3px 22px;position:relative;font-size:13px;line-height:1.65}
+.ck>li>b{font-weight:600}
+/* 커스텀 이모지 — 글자 흐름에 얹히는 작은 그림이다 */
+.cem{height:1em;width:auto;vertical-align:-.15em;margin:0 2px;display:inline-block}
+/* 표·그림·코드·구분선은 항목 안에 통째로 들어온다. 앞의 점을 지우고 폭을 채운다 */
+.ck li:has(>table),.ck li:has(>figure),.ck li:has(>pre),.ck li:has(>hr){padding-left:0}
+.ck li:has(>table)::before,.ck li:has(>figure)::before,
+.ck li:has(>pre)::before,.ck li:has(>hr)::before{content:none}
+.ck li>table{width:100%;border-collapse:collapse;margin:7px 0;font-size:12px;
+  display:table;table-layout:auto}
+.ck li>table th,.ck li>table td{border:1px solid var(--line);padding:5px 8px;
+  text-align:left;vertical-align:top;line-height:1.5}
+.ck li>table thead th{background:var(--panel-2);font-weight:600;color:var(--tx)}
+.ck li>table td{color:var(--tx-2)}
+.ck li>hr{border:none;border-top:1px solid var(--line);margin:9px 0}
+.ck li>figure{margin:7px 0}
+.ck li>figure figcaption{font-size:11px;color:var(--tx-3);margin-top:4px}
+.ck li>pre,.ck li>figure>pre{background:var(--panel-2);border:1px solid var(--line);
+  border-radius:6px;padding:8px 10px;margin:7px 0;overflow-x:auto;font-size:11.5px}
+.ck img.nim{max-width:100%;height:auto;border-radius:6px;display:block}
+.ck blockquote{border-left:2px solid var(--line-2);padding-left:9px;color:var(--tx-2)}
+/* 첨부 파일명과 하위 페이지 제목. 둘 다 누를 수 없다 — 파일은 레포에 두지 않고,
+   하위 페이지는 클라이언트에게 노션 권한이 없어 열리지 않는다 */
+.ck span.att,.ck span.cpg{display:inline-flex;align-items:flex-start;gap:6px;
+  font-size:12.5px;color:var(--tx-2);padding:3px 0;line-height:1.5;cursor:default}
+.ck .ic{font-size:12px;flex:none;opacity:.85;line-height:1.5}
+/* 표가 좁은 화면에서 넘칠 때 가로 스크롤로 흘린다 */
+.ck li>table{overflow-x:auto}
+/* 읽기 전용 화면이라 입력 컨트롤처럼 보이는 체크박스를 두지 않는다.
+   끝난 일은 체크 표시만, 남은 일은 빈 원만 둔다. */
+.ck li.chk{color:var(--tx)}                    /* 지금 해야 할 일 */
+/* 빈 원은 1.5px 링이라 --line-2 로는 두 테마 모두 1.5:1 대비로 묻힌다 */
+.ck li.chk::before{content:'';position:absolute;left:2px;top:11px;
+  width:5px;height:5px;border-radius:50%;border:1.5px solid var(--tx-3)}
+.ck li.chk.on{color:var(--tx-2)}               /* 끝난 일은 한 단계 죽인다 */
+.ck li.chk.on::before{                         /* 박스 없이 체크 모양만 */
+  left:3px;top:8.5px;width:6px;height:10px;border-radius:1px;
+  border:solid var(--ok);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ck li.plain::before{content:'';position:absolute;left:4px;top:11px;width:4px;height:4px;
+  border-radius:50%;background:var(--tx-3)}
+.ck ul{list-style:none;margin:2px 0 4px}
+/* 후손 선택자라 2단 이하가 모두 같은 크기·색이다 — 깊어져도 더 죽이지 않는다 */
+.ck ul li{padding:2px 0 2px 14px;position:relative;font-size:12.5px;
+  color:var(--tx-2);line-height:1.65}
+/* 들여쓰기는 4단까지만 늘린다. 더 들어가면 본문이 오른쪽으로 밀려 읽기 나쁘다.
+   ul 이 4개 겹치는 지점(5단)부터 부모가 준 들여쓰기를 되돌린다 */
+.ck ul ul ul ul{margin-left:-14px}
+.ck ul li.chk::before{left:1px;top:9px;width:4px;height:4px;border-width:1.5px}
+.ck ul li.chk.on::before{left:2px;top:6.5px;width:5px;height:8px;border-width:0 2px 2px 0}
+/* 하위 불릿은 상위와 위계가 갈리도록 한 단계 더 죽인다 */
+.ck ul li.plain::before{left:4px;top:9px;width:3px;height:3px;background:var(--line-2)}
+.ck s{opacity:.72}
+/* 노션에서는 코드지만 여기서는 그냥 강조어다. 네모를 빼고 밑줄만 둔다 */
+.ck code{font-size:inherit;font-family:inherit;font-weight:600;color:var(--tx);
+  box-shadow:inset 0 -1px 0 var(--line-2)}
+.empty{font-size:12.5px;color:var(--tx-3);padding:2px 0}
+
+.cal-w{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px}
+.cal h4{font-size:11.5px;font-weight:600;margin-bottom:7px}
+/* 6주로 밀리는 달이 있어 높이를 미리 잡아둔다 — 두 달력의 아래가 어긋나지 않게.
+   align-items:start 가 없으면 5주짜리 달의 칸이 늘어나 높이만 맞고 칸이 어긋난다 */
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;
+  align-items:start;min-height:191px}
+.cal-g span{height:28px;display:grid;place-items:center;font-size:11.5px;color:var(--tx-2);
+  position:relative;border-radius:5px;font-variant-numeric:tabular-nums}
+.cal-g span.wk{height:17px;font-size:9.5px;color:var(--tx-3)}
+.cal-g span.dim{opacity:.22}
+.cal-g span.ev{color:var(--tx);font-weight:600;background:var(--panel-2)}
+[data-theme="light"] .cal-g span.ev{background:var(--hover)}
+/* 점 색은 일정 종류에 따라 --dot 으로 들어온다 (진행 파랑 / 마감 노랑) */
+.cal-g span.ev::after{content:'';position:absolute;bottom:3px;width:3px;height:3px;
+  border-radius:50%;background:var(--dot,var(--run))}
+.cal-g span.tdy{background:var(--accent);color:#fff;font-weight:600}
+.cal-g span.tdy::after{background:#fff}
+.evl{border-left:1px solid var(--line);padding-left:20px}
+.evl .e{display:flex;gap:11px;padding:0 0 14px}
+.evl .e:last-child{padding-bottom:0}
+.evl .e.gone{opacity:.5}
+/* 임박한 건만 색을 준다. 전부 빨가면 무엇이 급한지 알 수 없다 */
+.evl .e .dd{width:48px;flex:none;font-size:11.5px;color:var(--tx-3);font-weight:500;
+  font-variant-numeric:tabular-nums;padding-top:1px}
+.evl .e .dd.soon{color:var(--run)}
+.evl .e .ei{min-width:0;display:flex;flex-direction:column;gap:2px}
+/* min-width:0 이 없으면 flex 안에서 말줄임이 걸리지 않는다 */
+.evl .e .t{display:flex;align-items:center;gap:6px;min-width:0;
+  font-size:12.5px;font-weight:500;line-height:1.45}
+.evl .e .t .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.evl .e .t .kd{flex:none;font-size:10px;font-weight:500;border:1px solid var(--line-2);
+  border-radius:3px;padding:0 5px;color:var(--tx-3);white-space:nowrap}
+.evl .e .m{font-size:11.5px;color:var(--tx-2);font-variant-numeric:tabular-nums}
+/* 잘려 나간 나머지. 목록 항목과 같은 들여쓰기에 맞춘다 */
+.evl .emore{display:block;padding-left:59px;font-size:11.5px;color:var(--tx-3);padding-bottom:0}
+.evl .emore:hover{color:var(--tx)}
+@media(max-width:900px){.cal-w{grid-template-columns:1fr}
+  .evl{border-left:none;padding-left:0;border-top:1px solid var(--line);padding-top:14px}}
+
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--panel-2)}          /* 헤더를 본문과 분리 */
+th{font-size:11.5px;font-weight:600;color:var(--tx-2);text-align:left;padding:9px 13px;
+  border-bottom:1px solid var(--line-2);white-space:nowrap}
+th:first-child{border-top-left-radius:9px}
+th:last-child{border-top-right-radius:9px}
+td{padding:13px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13px}
+td.lead{vertical-align:top}                  /* 제목+최신로그 2줄짜리 셀만 위 정렬 */
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--hover)}
+.t-nm{font-weight:500;letter-spacing:-.012em;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.t-sub{font-size:11.5px;color:var(--tx-2);margin-top:3px;line-height:1.55}
+.dtc{color:var(--tx-2);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:12.5px}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 지원내용 — 금액과 산출물 문구가 함께 온다. 긴 문구는 줄바꿈을 허용한다 */
+.sup{font-size:12.5px;color:var(--tx-2);white-space:normal;word-break:keep-all}
+/* 최신로그 날짜 — 「최근」 열이 없어져 설명 줄 앞으로 옮겼다 */
+.t-sub .lgd{color:var(--tx-3);font-variant-numeric:tabular-nums;margin-right:6px}
+.tag{display:inline-flex;align-items:center;font-size:11.5px;padding:3px 9px;
+  border-radius:4px;white-space:nowrap;font-weight:600}
+.g-run{background:var(--run-bg);color:var(--run)}
+.g-ok{background:var(--ok-bg);color:var(--ok)}
+.g-no{background:var(--no-bg);color:var(--no)}
+.g-wait{background:var(--panel-2);color:var(--tx-3)}
+[data-theme="light"] .g-wait{background:var(--hover);color:var(--tx-2)}
+tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
+
+/* 소통 내역 — 열 폭을 고정해 제목 열이 나머지를 갖는다 */
+.tktbl{table-layout:fixed}
+/* 회의록 안쪽 표까지 걸리지 않도록 바깥 표의 직계만 잡는다 */
+.tktbl>tbody>tr>td{padding:9px 13px}          /* preview 가 빠져 행을 줄인다 */
+.tktbl .tkpv{font-size:11.5px;color:var(--tx-3);line-height:1.5;margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 채널도 방향과 같은 배지로 통일한다 */
+.ch-b{display:inline-block;font-size:10.5px;font-weight:600;border-radius:4px;
+  padding:2px 7px;white-space:nowrap;line-height:1.5}
+.ch-mail{background:var(--panel-2);color:var(--tx-2)}
+[data-theme="light"] .ch-mail{background:var(--hover)}
+.ch-call{background:var(--ok-bg);color:var(--ok)}
+.ch-meet{background:var(--accent-bg);color:var(--accent)}
+
+/* 소통 내역 아코디언 — 본문이 있는 행만 펼쳐진다 */
+tr.tk.has{cursor:pointer}
+.tw{display:inline-block;width:11px;font-style:normal;color:var(--tx-3);
+  transition:transform .12s;flex:none}
+tr.tk.open .tw{transform:rotate(90deg)}
+tr.tkb{display:none}
+tr.tkb.open{display:table-row}
+tr.tkb:hover{background:transparent}
+tr.tkb>td{padding:0 13px 13px;border-bottom:1px solid var(--line)}
+.tkbd{font-size:11.5px;color:var(--tx-2);line-height:1.75;white-space:pre-wrap;
+  word-break:break-word;border-left:2px solid var(--line-2);padding-left:11px}
+/* 회의록 본문 — 노션 페이지 블록을 옮긴 HTML 이라 pre-wrap 을 끈다 */
+.tkbd.doc{white-space:normal;font-size:12.5px;padding-top:2px}
+.tkbd.doc>*:first-child{margin-top:0}
+.tkbd.doc h2{font-size:14px;font-weight:600;color:var(--tx);margin:16px 0 6px;letter-spacing:-.015em}
+.tkbd.doc h3{font-size:13px;font-weight:600;color:var(--tx);margin:14px 0 5px}
+.tkbd.doc h4{font-size:12.5px;font-weight:600;color:var(--tx);margin:12px 0 4px}
+.tkbd.doc p{margin:5px 0}
+.tkbd.doc hr{border:none;border-top:1px solid var(--line);margin:14px 0}
+.tkbd.doc ul,.tkbd.doc ol{margin:5px 0 5px 17px}
+.tkbd.doc li{margin:2px 0}
+.tkbd.doc li>ul,.tkbd.doc li>ol{margin:2px 0 2px 15px}   /* 중첩 들여쓰기 */
+.tkbd.doc code{background:var(--panel-2);border-radius:3px;padding:1px 5px;font-size:11.5px;color:var(--tx)}
+[data-theme="light"] .tkbd.doc code{background:var(--hover)}
+.tkbd.doc .cl{background:var(--panel-2);border-radius:6px;padding:9px 12px;margin:9px 0}
+[data-theme="light"] .tkbd.doc .cl{background:var(--hover)}
+/* 표는 본문 표 스타일을 그대로 쓰되 폭만 100% 로 맞춘다 */
+.tkbd.doc table{width:100%;margin:9px 0;border:1px solid var(--line);border-radius:8px;
+  border-collapse:separate;border-spacing:0;overflow:hidden}
+.tkbd.doc th,.tkbd.doc td{padding:8px 10px;font-size:12px;text-align:left;vertical-align:top;
+  border-bottom:1px solid var(--line);white-space:normal}
+.tkbd.doc thead th{background:var(--panel-2);color:var(--tx-2);font-weight:600;
+  border-bottom:1px solid var(--line-2)}
+.tkbd.doc tbody tr:last-child th,.tkbd.doc tbody tr:last-child td{border-bottom:none}
+.tkbd.doc tbody tr:hover{background:transparent}
+/* 본문 안의 표는 화면 목록과 달리 독립된 표다. 아래를 닫아 두지 않으면 열려
+   보인다. 위의 「마지막 행은 테두리 없음」 규칙을 여기서만 되돌린다.
+   화면 목록 표(.tb 등)는 선택자에 안 걸리므로 그대로다 */
+.tkbd.doc table tbody tr:last-child th,
+.tkbd.doc table tbody tr:last-child td,
+.ck li>table tbody tr:last-child th,
+.ck li>table tbody tr:last-child td{border-bottom:1px solid var(--line)}
+.tkpv{color:var(--tx-3)}
+.co{font-size:10.5px;border:1px solid var(--line-2);border-radius:3px;padding:0 6px;color:var(--tx-3)}
+/* 우리가 보낸 메일. 받은 것과 한눈에 갈리도록 강조색만 얹는다 */
+.co.out{color:var(--accent);border-color:var(--accent);font-weight:600}
+.rv{font-size:10.5px;border:1px solid var(--line-2);border-radius:3px;padding:1px 6px;color:var(--tx-2)}
+.rv:hover{background:var(--hover);color:var(--tx);border-color:var(--accent)}
+.steps{display:flex;gap:3px;margin-top:2px;max-width:150px}
+.steps i{flex:1;height:4px;border-radius:2px;background:var(--line-2)}
+.steps i.f{background:var(--ok)}.steps i.c{background:var(--run)}
+.stepnm{font-size:11px;color:var(--tx-2);margin-top:5px}
+.stepnm b{color:var(--run);font-weight:600}
+.chips{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.chip{font-size:12px;padding:4px 11px;border-radius:var(--r);color:var(--tx-2);background:var(--panel-2)}
+[data-theme="light"] .chip{background:var(--panel-2)}
+.chip:hover{background:var(--hover);color:var(--tx)}
+.chip.on{background:var(--accent);color:#fff}
+.chip.zero{color:var(--tx-3)}                 /* 0건이어도 눌러볼 수 있게 남긴다 */
+.chip.zero.on{color:#fff}
+.chip span{opacity:.6;margin-left:4px;font-variant-numeric:tabular-nums}
+
+/* ── 비밀번호 게이트 ── */
+body.locked>aside,body.locked>main{display:none}
+#gate{position:fixed;inset:0;display:none;place-items:center;padding:24px;
+  background:var(--bg);z-index:60}
+body.locked #gate{display:grid}
+.gt{width:100%;max-width:340px;text-align:center}
+/* 잠금 화면은 그로스하이 로고를 쓴다. 클라이언트 로고를 여기 두면
+   비밀번호를 넣기 전에 어느 회사 페이지인지 알 수 있다.
+   로고 PNG 는 배경이 검정이라 다크 테마에서 타일 경계가 사라진다 → 테두리를 준다 */
+.gt .mk{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:12px;
+  background:#000;border:1px solid var(--line-2);overflow:hidden;margin-bottom:15px}
+.gt .mk img{width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block}
+[data-theme="dark"] .gt .mk{border-color:rgba(255,255,255,.28)}
+.gt h1{font-size:16px;font-weight:600;letter-spacing:-.02em}
+.gt .sub{font-size:12.5px;color:var(--tx-3);margin-top:6px;line-height:1.65}
+.gt form{margin-top:19px;display:flex;flex-direction:column;gap:8px}
+.gt input{width:100%;height:42px;padding:0 13px;border-radius:var(--r);
+  border:1px solid var(--line-2);background:var(--panel);color:var(--tx);
+  font-family:inherit;font-size:16px}  /* 16px 미만이면 iOS 에서 포커스 시 확대된다 */
+.gt input:focus{outline:none;border-color:var(--accent)}
+.gt button{height:42px;border-radius:var(--r);background:var(--accent);color:#fff;
+  font-size:13.5px;font-weight:500}
+.gt button[disabled]{opacity:.55;cursor:default}
+.gt .msg{font-size:12px;min-height:18px;color:var(--no);line-height:1.5}
+.gt .msg.busy{color:var(--tx-3)}
+
+.err{max-width:560px;margin:64px auto;padding:0 20px;text-align:left}
+.err h1{font-size:17px;font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
+.err p{font-size:13px;color:var(--tx-2);line-height:1.7}
+.err .box{margin-top:14px;border:1px solid var(--line);border-radius:8px;
+  background:var(--panel);padding:14px 16px;font-size:12.5px;color:var(--tx-2);line-height:1.75}
+.err code{background:var(--panel-2);border-radius:3px;padding:2px 6px;font-size:12px;color:var(--tx)}
+.err .why{margin-top:10px;font-size:11.5px;color:var(--tx-3);word-break:break-all}
+
+::-webkit-scrollbar{width:9px}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px}
+@media(max-width:820px){body{overflow:auto}aside{display:none}main{height:auto}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ══ 인쇄 ══════════════════════════════════════════════════════════
+   라이브러리 없이 브라우저 인쇄를 쓴다. 글자가 이미지로 뭉개지지 않아야
+   PDF 에서 선택·검색이 되고 한글도 깨지지 않는다.
+   화면 DOM 은 건드리지 않고 #printdoc 을 따로 채워 그것만 인쇄한다. */
+@media print{
+  @page{margin:14mm 12mm}
+  html,body{height:auto;overflow:visible;display:block;background:#fff}
+  aside,main,#gate{display:none!important}
+  #printdoc{display:block!important;max-width:none;padding:0}
+  /* 뱃지·표 헤더 배경이 빠지면 읽기 어렵다 */
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  /* 표지 */
+  /* 표지에 break-after 를 걸고 다음 섹션에 break-before 를 걸면 강제 개행이
+     두 번 겹쳐 빈 장이 생긴다. 개행은 섹션 쪽 한 곳에서만 낸다. */
+  .pcover{display:flex;flex-direction:column;justify-content:center;
+    min-height:88vh;text-align:center}
+  .pcv-marks{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:26px}
+  .pcv-marks img{height:46px;width:auto;object-fit:contain}
+  .pcv-sep{width:1px;height:30px;background:var(--line-2)}
+  .pcover h1{font-size:26px;font-weight:600;letter-spacing:-.03em}
+  .pcv-d{font-size:13px;color:var(--tx-2);margin-top:10px}
+  .pcv-m{font-size:12.5px;color:var(--tx-3);margin-top:22px}
+
+  /* 섹션마다 새 장에서 시작한다. 맨 앞(표지 없는 「현재 화면」)은 예외다 */
+  .psec{break-before:page;padding:0}
+  .psec:first-child{break-before:auto}
+  .psec>h2{font-size:16px;font-weight:600;letter-spacing:-.02em;margin-bottom:12px;
+    padding-bottom:7px;border-bottom:1px solid var(--line-2);
+    break-after:avoid}                          /* 제목만 남기고 넘기지 않는다 */
+  .psec>h2+*{break-before:avoid}                /* 제목 바로 다음 것도 붙여 둔다 */
+  .psec .vh{display:none}                       /* 섹션 제목이 대신한다 */
+
+  /* 표는 길면 페이지를 넘어가며 이어지는 게 맞다. 통짜로 밀어내지 않는다.
+     .card 에 break-inside: avoid 를 걸면 표를 품은 카드째 다음 장으로 넘어가
+     제목만 남은 빈 장이 생긴다. */
+  table{break-inside:auto}
+  thead{display:table-header-group}             /* 장이 넘어가면 헤더 반복 */
+  tr{break-inside:avoid}                        /* 행 하나가 잘리지 않게 */
+  .notice,.k1,.evl .e{break-inside:avoid}
+  .card{box-shadow:none;break-inside:auto}
+
+  /* ── 요약 리포트 — A4 한두 장에 들어가도록 전체를 한 단계 줄인다.
+        섹션 사이에 개행을 넣지 않고 이어서 흐르게 둔다 ── */
+  .psum{font-size:10px;line-height:1.5}
+  .psum .sh{display:flex;align-items:center;gap:12px;
+    padding-bottom:9px;margin-bottom:12px;border-bottom:1.5px solid var(--line-2)}
+  .psum .sh-m{display:flex;align-items:center;gap:8px;flex:none}
+  .psum .sh-m img{height:26px;width:auto;object-fit:contain}
+  .psum .sh-t{display:flex;flex-direction:column;gap:1px}
+  .psum .sh-t b{font-size:14px;font-weight:600;letter-spacing:-.02em}
+  .psum .sh-t span{font-size:9.5px;color:var(--tx-2)}
+  .psum .ssec{margin-bottom:11px;break-inside:auto}
+  .psum .ssec>h2{font-size:12px;font-weight:600;letter-spacing:-.015em;
+    margin-bottom:5px;break-after:avoid}
+  .psum .skpi{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .psum .skpi>div{border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;
+    display:flex;flex-direction:column;gap:1px}
+  .psum .skpi .k{font-size:9px;color:var(--tx-2)}
+  .psum .skpi .v{font-size:14px;font-weight:600;letter-spacing:-.02em}
+  .psum .skpi .s{font-size:8.5px;color:var(--tx-3)}
+  .psum table{width:100%;border-collapse:collapse}
+  .psum th{font-size:9px;padding:5px 6px;background:var(--panel-2);
+    border-bottom:1px solid var(--line-2)}
+  .psum td{font-size:10px;padding:6px;border-bottom:1px solid var(--line);
+    vertical-align:middle}
+  .psum tbody tr:last-child td{border-bottom:none}
+  .psum .snote{font-size:9.5px;color:var(--tx-3);margin-top:5px}
+  .psum .ck>li{font-size:10px;line-height:1.5;padding:2px 0 2px 18px}
+  .psum .ck li.chk::before{top:8px}
+  .psum .ck li.chk.on::before{top:5.5px}
+  .psum .empty{font-size:9.5px}
+
+  /* 화면 전용 장치는 뺀다 */
+  .chips,.more,.emore,.tw,.rpt,.tgl,.top{display:none!important}
+  /* 접기는 화면에서만이다. 종이에는 전부 펼쳐 나가야 한다 */
+  .notice>.bd,.ck li.tg>ul{display:block!important}
+  .notice>h3{cursor:auto}
+  /* 일정은 달력을 빼고 목록만 — 종이에서 달력은 자리만 차지한다 */
+  .cal-w{display:block}
+  .cal{display:none}
+  .evl{border-left:none;padding-left:0}
+  /* 소통 내역은 목록만 낸다 — 본문은 인쇄 문서에 아예 싣지 않는다 */
+  .kpi{grid-template-columns:repeat(4,1fr)}
+  .view{padding:0;max-width:none}
+}
+</style>
+</head>
+<body class="locked">
+
+<!-- 인쇄 전용 문서. 화면에는 나오지 않고 인쇄 직전에 채운다.
+     여기 두는 이유는 빌드가 main 닫는 태그 바로 뒤를 슬러그 주입 지점으로 쓰기 때문이다 -->
+<div id="printdoc" aria-hidden="true"></div>
+
+<div id="gate">
+  <div class="gt">
+    <span class="mk" id="mk-g"></span>
+    <h1>클라이언트 페이지</h1>
+    <p class="sub">담당 컨설턴트에게 받은<br>비밀번호를 입력해 주세요.</p>
+    <form id="gform">
+      <input id="pw" type="password" autocomplete="current-password"
+             placeholder="비밀번호" aria-label="비밀번호" required>
+      <button type="submit" id="gbtn">확인</button>
+      <p class="msg" id="gmsg" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+</div>
+
+<aside>
+  <div class="ws"><span class="mk" id="mk-s"></span>
+    <span><span class="nm" id="ws-nm">불러오는 중…</span><span class="sb" id="ws-sb"></span></span></div>
+  <nav id="nav"></nav>
+  <!-- 제공자 표시. 누를 수 없다 — 회사 홈페이지로 보내면 클라이언트가 이탈한다 -->
+  <div class="by"><span class="by-mk" id="gh-side" aria-hidden="true"></span>
+    <span><span class="by-nm">GROWTH'HIGH</span><span class="by-sb">Scale-up Studio</span></span></div>
+</aside>
+
+<main>
+  <div class="top"><span class="gh" id="gh-top" aria-hidden="true"></span><span class="gh-sep"></span>
+    <span class="crumb" id="crumb"></span>
+    <span class="rt"><span class="pill" id="asof" style="display:none"></span>
+      <span class="rpt"><button class="rpb" id="rptbtn" aria-haspopup="true"
+        aria-expanded="false">리포트</button>
+        <span class="rpm" id="rptmenu" hidden>
+          <button data-rp="sum">요약 리포트</button>
+          <button data-rp="all">전체 리포트</button>
+          <button data-rp="cur">현재 화면</button>
+        </span></span>
+      <button class="tgl" id="tgl" aria-label="밝기 전환">◐</button></span></div>
+  <div class="scroll" id="scroll"></div>
+</main>
+
+<script>window.__SLUG__="sample";window.__BASE__="../";</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   데이터는 전부 build_client.py 가 만든 c/{슬러그}.enc 에서 온다.
+   하드코딩된 값은 없다. 화면에 쓰이는 표현(단계 라벨·구분명)만 여기 남는다.
+
+   file:// 로 열면 CORS 때문에 fetch 가 막힌다. 레포 루트에서
+     python -m http.server 8000 --bind 127.0.0.1
+   으로 띄운 뒤 http://localhost:8000/{슬러그}/ 로 열 것.
+   --bind 를 빼면 0.0.0.0 이라 이 디렉터리가 같은 네트워크에 통째로 열린다.
+
+   슬러그는 두 경로로 들어온다.
+     경로형  /{슬러그}/  → 빌드가 만든 사본에 window.__SLUG__ 가 주입돼 있다
+     쿼리형  /?c={슬러그} → 하위호환
+   둘 다 없으면 특정 클라이언트로 기본값을 두지 않는다. 루트를 연 사람에게
+   거래처 이름이 새면 안 되기 때문이다.
+   ══════════════════════════════════════════════════════════════════ */
+
+const Q = new URLSearchParams(location.search);
+const BASE = (typeof window.__BASE__ === 'string') ? window.__BASE__ : '';
+/* 슬러그는 파일 경로에 들어가므로 허용 문자만 남긴다 */
+const clean = s => String(s || '').replace(/[^A-Za-z0-9_-]/g, '');
+const CLIENT = clean(window.__SLUG__) || clean(Q.get('c') || Q.get('client')) || null;
+/* sample 은 가짜 데이터로 만든 공개 데모라 암호화하지 않는다. 확장자만 갈린다.
+   봉투가 enc:false 라 아래 boot() 에서 비밀번호 게이트를 그냥 지나간다.
+   그 밖의 슬러그는 지금까지처럼 .enc + 게이트다. */
+const SAMPLE = CLIENT === 'sample';
+const SRC  = CLIENT ? `${BASE}c/${CLIENT}${SAMPLE ? '.json' : '.enc'}` : null;
+const SKEY = CLIENT ? `gh:client:${CLIENT}` : null;
+
+/* ── 표현 계층 상수 (JSON 의 stage 인덱스로 참조) ── */
+const LABELS = {
+  fund:['검토','서류','작성','평가','결과'],
+  cert:['진단','서류','접수','심사','취득'],
+  proj:['착수','분석','작성','검토','완료'],
+};
+/* fund 에는 (런웨이)정책자금도 들어온다. 사이드바·본문 제목·breadcrumb 이 모두 이 값을 쓴다 */
+const CATNM = { fund:'정부지원사업·정책자금', cert:'기업인증·지식재산권', proj:'경영자문 프로젝트' };
+const BADGE = { run:'진행', ok:'종료', no:'보류', wait:'예정' };
+const GL = { info:'▣', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
+
+/* 사이드바·헤더 마크는 복호화한 뒤에야 기업 로고로 채운다 (init 참고).
+   잠금 화면(루트·404 안내 포함)은 그로스하이 로고만 쓴다. */
+const BRAND_LOGO = `${BASE}assets/growthhigh-logo.png`;
+
+/* 파비콘은 <head> 에 절대 주소로 박아 둔다 — 여기서 손대지 않는다.
+   경로를 스크립트로 고치면 JS 를 실행하지 않는 미리보기 크롤러에서 깨진다 */
+
+/* 노션 텍스트가 그대로 들어오므로 <, & 등을 이스케이프한다 */
+const esc = v => String(v ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const pad2 = n => String(n).padStart(2,'0');
+const TODAY = (d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`)(new Date());
+
+/* 날짜 표기: 빈 값은 —, 9999-12-31/상시는 상시 */
+const fmt = d => {
+  if(!d) return '—';
+  if(d === '상시' || d === '9999-12-31') return '상시';
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.slice(2).replace(/-/g,'.') : esc(d);
+};
+
+/* ── 부팅 · 비밀번호 게이트 ──
+   .enc 는 AES-GCM 봉투다. 비밀번호를 URL·로그·localStorage 어디에도 남기지 않는다.
+   복호화된 JSON 은 sessionStorage 에만 둔다 — 탭을 닫으면 사라진다. */
+const $ = id => document.getElementById(id);
+$('mk-g').innerHTML = `<img src="${encodeURI(BRAND_LOGO)}" alt="그로스하이">`;
+/* 상단 바·사이드바 하단 제공자 마크. 잠금 화면에서도 그대로 보인다.
+   alt 를 비워 둔다 — 바로 옆에 GROWTH'HIGH 글자가 있어 읽으면 두 번 읽힌다 */
+for (const id of ['gh-top', 'gh-side']) {
+  const el = $(id);
+  if (el) el.innerHTML = `<img src="${encodeURI(BRAND_LOGO)}" alt="">`;
+}
+
+const b64bytes = b64 => Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
+
+async function decryptEnvelope(env, password){
+  const key = await crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt:b64bytes(env.salt),
+      iterations:env.iterations || 200000, hash:'SHA-256' },
+    await crypto.subtle.importKey('raw', new TextEncoder().encode(password),
+      'PBKDF2', false, ['deriveKey']),
+    { name:'AES-GCM', length:256 }, false, ['decrypt']);
+  /* 비밀번호가 틀리면 GCM 인증 태그 검증에서 예외가 난다 */
+  const plain = await crypto.subtle.decrypt(
+    { name:'AES-GCM', iv:b64bytes(env.iv) }, key, b64bytes(env.data));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* 폼을 감추고 안내 문구만 남긴다. 제목도 함께 바꿀 수 있다 */
+function fatal(html, heading){
+  $('gform').style.display = 'none';
+  $('gmsg').style.display = 'none';
+  if(heading) document.querySelector('.gt h1').textContent = heading;
+  document.querySelector('.gt .sub').innerHTML = html;
+}
+function setBusy(on, msg){
+  $('gbtn').disabled = on;
+  $('pw').disabled = on;
+  $('gmsg').textContent = msg;
+  $('gmsg').classList.toggle('busy', on);
+}
+function unlock(data){
+  document.body.classList.remove('locked');
+  init(data);
+}
+
+let ENV = null;
+
+(async function boot(){
+  /* 슬러그가 없으면 어떤 클라이언트도 지목하지 않는다.
+     여기서 기본값을 두면 루트를 연 사람에게 거래처 이름이 새어 나간다 */
+  if(!CLIENT){
+    return fatal('담당 컨설턴트에게 전달받은<br>링크로 접속해 주세요.',
+                 '클라이언트 전용 페이지입니다');
+  }
+
+  if(!(window.crypto && crypto.subtle)){
+    return fatal('이 브라우저에서는 열 수 없습니다.<br>' +
+      (location.protocol === 'http:' && location.hostname !== 'localhost'
+        ? 'https 주소로 접속해 주세요.' : '최신 브라우저로 다시 시도해 주세요.'));
+  }
+
+  let res;
+  try { res = await fetch(SRC, {cache:'no-store'}); }
+  catch(e){
+    return fatal(location.protocol === 'file:'
+      ? '파일을 직접 열면 데이터를 읽을 수 없습니다.<br>' +
+        '<code>python -m http.server 8000</code> 로 띄운 뒤 접속해 주세요.'
+      : '데이터를 불러오지 못했습니다.');
+  }
+  /* 있는지 없는지를 알려주지 않는 중립 문구 */
+  if(!res.ok) return fatal('주소를 다시 확인해 주세요.', '페이지를 찾을 수 없습니다');
+
+  try { ENV = await res.json(); }
+  catch(e){ return fatal('데이터 형식이 올바르지 않습니다.'); }
+
+  if(ENV.enc === false) return unlock(ENV.data);   /* 비밀번호 미설정 — 개발용 평문 */
+
+  const cached = sessionStorage.getItem(SKEY);
+  if(cached){
+    try { return unlock(JSON.parse(cached)); }
+    catch(e){ sessionStorage.removeItem(SKEY); }
+  }
+  $('pw').focus();
+})();
+
+$('gform').addEventListener('submit', async e => {
+  e.preventDefault();                        /* 비밀번호가 쿼리스트링으로 새지 않게 한다 */
+  const pw = $('pw').value;
+  if(!pw || !ENV) return;
+
+  setBusy(true, '확인 중…');                  /* PBKDF2 20만회는 기기에 따라 1~2초 */
+  await new Promise(r => setTimeout(r, 30));  /* 로딩 표시가 그려질 틈을 준다 */
+  try {
+    const data = await decryptEnvelope(ENV, pw);
+    try { sessionStorage.setItem(SKEY, JSON.stringify(data)); } catch(_){}
+    setBusy(false, '');
+    $('pw').value = '';
+    unlock(data);
+  } catch(err){
+    setBusy(false, '비밀번호가 올바르지 않습니다.');
+    $('pw').select();
+  }
+});
+
+/* ── 렌더 ── */
+function init(D){
+  const CO = D.company || {};
+  const rows = Array.isArray(D.progress) ? D.progress : [];
+  const events = Array.isArray(D.events) ? D.events : [];
+  const recommend = Array.isArray(D.recommend) ? D.recommend : [];
+  /* 공백뿐인 본문은 없는 것으로 본다 — 아래 검사가 모두 이 값을 쓴다.
+     body 는 평문(메일), body_html 은 회의록 HTML(미팅·유선)이다. */
+  const talks = (Array.isArray(D.talks) ? D.talks : [])
+    .map(t => ({ ...t,
+      body: (t.body || '').trim() || null,
+      body_html: (t.body_html || '').trim() || null,
+      preview: (t.preview || '').trim() || null }))
+    .map(t => ({ ...t, hasBody: !!(t.body || t.body_html) }));
+  const kpi = D.kpi || {};
+  const notice = D.notice;
+
+  const cnt = c => rows.filter(r => r.cat === c).length;
+  const running = rows.filter(r => r.badge === 'run');
+
+  /* 기업 로고 — 이미지 > 이모지 > 기업명 이니셜 순으로 대체한다 */
+  const markCls = CO.logo ? 'mk img' : 'mk';
+  function logoMark(size){
+    /* 경로형 URL(/{슬러그}/)에서는 한 단계 위가 기준이라 BASE 를 붙인다 */
+    if(CO.logo) return `<img class="lg" src="${encodeURI(BASE + CO.logo)}" alt="">`;
+    if(CO.logo_emoji)
+      return `<span class="lg-e" style="font-size:${Math.round(size*0.56)}px">${esc(CO.logo_emoji)}</span>`;
+    const initials = String(CO.name || CLIENT).replace(/\s/g,'').slice(0,2);
+    return `<span class="lg-t" style="font-size:${Math.round(size*0.34)}px">${esc(initials)}</span>`;
+  }
+
+  /* 상단·사이드 */
+  document.title = `${CO.name || CLIENT} · 그로스하이`;
+  document.getElementById('ws-nm').textContent = CO.name || CLIENT;
+  const mkS = document.getElementById('mk-s');
+  mkS.className = markCls;
+  mkS.innerHTML = logoMark(28);
+  const sb = document.getElementById('ws-sb');
+  if(CO.name_en) sb.textContent = CO.name_en; else sb.style.display = 'none';
+
+  /* company.manager 는 JSON 에 그대로 있지만 화면에는 쓰지 않는다 */
+  if(D.generated_at){
+    const p = document.getElementById('asof');
+    p.innerHTML = `${esc(D.generated_at.slice(0,10).replace(/-/g,'.'))} <b>기준</b>`;
+    p.style.display = '';
+  }
+
+  /* 메뉴·breadcrumb·요약 카드는 '공지사항' 으로 고정한다.
+     몇 월인지는 공지 화면 제목(notice.title)에만 남긴다. */
+  const noticeLabel = '공지사항';
+
+  /* 좌측 메뉴 — 항목 구성은 데이터와 무관하게 늘 같다.
+     비어 있으면 항목을 빼는 대신 건수 배지를 감추고 라벨만 흐리게 둔다.
+     눌러 들어가면 각 화면이 「등록된 내용이 없습니다」를 보여준다. */
+  const hasNotice = !!(notice && (notice.sections || []).some(s => (s.items || []).length));
+  const NAV = [
+    { g:'기업', items:[
+      {id:'info',ic:'info',nm:'기업 정보'},
+      {id:'notice',ic:'notice',nm:noticeLabel,dim:!hasNotice}]},
+    { g:'진행 현황', items:[
+      {id:'fund',ic:'fund',nm:CATNM.fund,ct:cnt('fund')},
+      {id:'cert',ic:'cert',nm:CATNM.cert,ct:cnt('cert')},
+      {id:'proj',ic:'proj',nm:CATNM.proj,ct:cnt('proj')},
+      {id:'talk',ic:'talk',nm:'소통 내역',ct:talks.length}]},
+    { g:'제안', items:[
+      {id:'open',ic:'open',nm:'추천 지원사업',ct:recommend.length}]},
+    /* 주소가 없는 자료는 항목을 없애지 않고 흐리게만 둔다 —
+       어제 있던 항목이 오늘 사라지면 클라이언트는 오류로 읽는다 */
+    { g:'자료', items:[
+      {id:'x1',nm:'기업자료 드라이브',ext:1,url:CO.drive_url},
+      {id:'x2',nm:'사업계획서',ext:1,url:CO.bizplan_url},
+      {id:'x3',nm:'그로스하이 가이드북',ext:1,url:CO.guidebook_url}]},
+  ];
+  /* 클라이언트별 추가 링크 — 노션 「추가 링크」에서 온다. 빌드가 이미
+     라벨·http(s) 를 걸러 두므로 여기서는 그대로 붙인다.
+     없으면 그룹이 하나도 안 생긴다. 사이드바 고정 원칙은 위 10개에만 적용된다 */
+  (CO.extra_links || []).forEach((g, gi) => {
+    const items = (g && g.items || []).filter(it => it && it.label && it.url);
+    if (!items.length) return;
+    NAV.push({ g: g.group || '자료',
+      items: items.map((it, n) => ({id:`xl${gi}-${n}`, nm:it.label, ext:1, url:it.url})) });
+  });
+  /* 외부 링크는 주소가 없을 때만 흐려진다. 건수가 있는 항목은 0 일 때가 곧 빈 항목이다 */
+  const navDim = i => i.ext ? !i.url : (i.dim !== undefined ? i.dim : i.ct === 0);
+  document.getElementById('nav').innerHTML = NAV.map(g=>`
+   <div class="grp"><h3>${esc(g.g)}</h3>
+   ${g.items.map(i=>{
+     const dim = navDim(i);
+     const inner = `<span class="g">${i.ic?GL[i.ic]:'↗'}</span><span>${esc(i.nm)}</span>
+       ${i.ext?(dim?'':'<span class="ex">↗</span>'):(i.ct?`<span class="ct">${i.ct}</span>`:'')}`;
+     /* 주소가 있는 자료는 진짜 링크로 낸다. 없으면 눌리지 않는 자리표시자다 */
+     /* 비활성은 외부 링크뿐이다 — 주소가 없으면 갈 데가 없다.
+        0 건인 화면은 흐리기만 하고 눌러 들어갈 수 있게 둔다.
+        신규 클라이언트는 진행 현황이 전부 0 건이라 다 잠기면 페이지가 죽어 보인다 */
+     return (i.ext && !dim)
+       ? `<a class="nv" data-ext="1" href="${encodeURI(i.url)}"
+            target="_blank" rel="noopener">${inner}</a>`
+       : `<button class="nv${dim?' dim':''}"${dim&&i.ext?' disabled':''} data-id="${i.id}"
+            ${i.ext?'data-ext="1"':''}>${inner}</button>`;
+   }).join('')}</div>`).join('');
+
+  /* 공통 조각 */
+  const steps = r => r.stage < 0 ? '<div class="stepnm">보류</div>' :
+    `<div class="steps">${(LABELS[r.cat]||LABELS.proj).map((s,i)=>
+      `<i class="${i<r.stage?'f':i===r.stage?'c':''}"></i>`).join('')}</div>
+     <div class="stepnm">${r.stage<5?`<b>${esc(r.stage_label)}</b> 단계`:'종료'}</div>`;
+  const tag = r => `<span class="tag g-${r.badge}">${BADGE[r.badge]||r.badge}</span>`;
+  const emptyBox = msg => `<div class="card"><div class="cb">
+    <p class="empty">${esc(msg)}</p></div></div>`;
+
+  /* 지원내용 — 확보금액이 있으면 그것을, 없으면 자료 링크를, 둘 다 없으면 빈칸.
+     확보금액은 노션에서 rich_text 라 「100,000,000원」 같은 금액과
+     「하이서울기업 인증서」 같은 산출물이 함께 들어온다. 원문을 그대로 쓰고,
+     숫자만 들어온 경우에만 세 자리로 끊는다. */
+  /* 최신로그 — 「최근」 열을 지원내용으로 바꾸면서 날짜가 갈 곳이 없어졌다.
+     설명 줄 앞에 붙여 날짜를 잃지 않는다. */
+  const logLine = r => {
+    if(!r.log_text && !r.log_date) return '';
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(r.log_date||'') ? r.log_date.slice(5).replace('-','/') : '';
+    return `<div class="t-sub">${d?`<span class="lgd">${d}</span>`:''}${esc(r.log_text||'')}</div>`;
+  };
+
+  /* 지원내용 — 확보금액이 있으면 그 값, 없으면 빈칸.
+     확보금액은 노션에서 rich_text 라 「100,000,000원」 같은 금액과
+     「하이서울기업 인증서」 같은 산출물이 함께 들어온다. 원문을 그대로 쓰고,
+     숫자만 들어온 경우에만 세 자리로 끊는다. */
+  const support = r => {
+    const a = (r.amount == null ? '' : String(r.amount)).trim();
+    if(!a) return '';
+    return /^\d+$/.test(a) ? esc(Number(a).toLocaleString('ko-KR')) : esc(a);
+  };
+
+  function table(cat){
+    const list = rows.filter(r=>r.cat===cat);
+    if(!list.length) return emptyBox('등록된 내용이 없습니다.');
+    return `<div class="card"><table><thead><tr>
+      <th style="width:38%">${cat==='cert'?'인증·권리':'사업명'}</th>
+      <th style="width:18%">단계</th><th style="width:10%">상태</th>
+      <th style="width:13%">기간</th>
+      <th class="num" style="width:21%">지원내용</th></tr></thead>
+    <tbody>${list.map(r=>`<tr>
+      <td class="lead"><div class="t-nm">${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</div>
+          ${logLine(r)}</td>
+      <td>${steps(r)}</td><td>${tag(r)}</td>
+      <td class="dtc">${fmt(r.start)} – ${fmt(r.end)}</td>
+      <td class="num sup">${support(r)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  }
+
+  /* 공지 — notice 가 null 이면 빈 상태로 레이아웃 유지.
+     item.html 은 build_client.py 가 이스케이프해서 만든 HTML 이므로 그대로 넣는다. */
+  /* 공지 속 그림은 빌드가 레포에 저장한 상대경로다. /{슬러그}/ 에서는 한 단계
+     위가 기준이라 로고와 같이 BASE 를 붙인다 */
+  const noticeHtml = h => String(h || '').replace(/\bsrc="assets\//g, `src="${BASE}assets/`);
+  /* 표·그림·코드·구분선·첨부는 글줄이 아니라 내용 자체다. 깊이 제한은 체크리스트를
+     읽기 좋게 접으려는 것이므로 이런 블록은 제한과 무관하게 끝까지 그린다 */
+  function noticeItem(it, depth){
+    const c = it.checked;
+    const cls = c === true ? 'chk on' : c === false ? 'chk' : 'plain';
+    /* 노션에 쓴 만큼 다 낸다. depth 상한은 순환 참조를 막는 안전장치일 뿐이다 */
+    const kids = depth < 10 ? (it.children || []) : [];
+    const sub = kids.length
+      ? `<ul>${kids.map(k=>noticeItem(k, depth+1)).join('')}</ul>` : '';
+    /* 노션에서 접어 둔 항목은 접힌 채로 시작한다 — 접어 둔 의도를 따른다 */
+    if(it.toggle && sub){
+      return `<li class="tg"><span class="tgh"><i class="tw">▸</i>
+        <span>${noticeHtml(it.html)}</span></span>${sub}</li>`;
+    }
+    return `<li class="${cls}">${noticeHtml(it.html)}${sub}</li>`;
+  }
+  function noticeFeed(){
+    const sections = (notice && Array.isArray(notice.sections)) ? notice.sections : [];
+    if(!sections.length){
+      return `<div class="notice"><div class="bd" style="padding-top:13px">
+        <p class="empty">등록된 내용이 없습니다.</p></div></div>`;
+    }
+    /* 기본은 첫 섹션만 열어 둔다. 분량이 많아 다 펼치면 한눈에 안 들어온다 */
+    return sections.map((s,si)=>`
+      <div class="notice${si===0?' open':''}">${(s.heading_html || s.heading)
+        ? `<h3><i class="tw">▸</i><span>${s.heading_html
+            ? noticeHtml(s.heading_html) : esc(s.heading)}</span></h3>` : ''}<div class="bd">
+       ${(s.items||[]).length
+         ? `<ul class="ck">${s.items.map(i=>noticeItem(i,1)).join('')}</ul>`
+         : `<p class="empty">등록된 내용이 없습니다.</p>`}
+      </div></div>`).join('');
+  }
+
+  /* 공지 요약 — 첫 화면에서는 섹션 제목만 차례처럼 늘어놓는다. 최대 5개.
+     안쪽 항목을 꺼내면 클라이언트마다 깊이가 달라 뒤죽박죽이 된다 */
+  const SUMMARY_MAX = 5;
+  /* 공지가 없어도 카드는 남긴다. 첫 화면의 구성이 클라이언트마다 달라지면
+     비어 있는 것이 아니라 무언가 빠진 것처럼 보인다. */
+  function noticeSummary(){
+    if(!notice) return `<div class="card" style="margin-top:24px">
+      <div class="ch"><h2>${esc(noticeLabel)}</h2></div>
+      <div class="cb"><p class="empty">등록된 내용이 없습니다.</p></div></div>`;
+    const secs = notice.sections || [];
+    const shown = secs.slice(0, SUMMARY_MAX);
+    const rest = secs.length - shown.length;
+    return `<div class="card" style="margin-top:24px">
+      <div class="ch"><h2>${esc(noticeLabel)}</h2>
+        ${notice.date?`<span class="d">${esc(notice.date)}</span>`:''}
+        <a class="more" href="#" data-go="notice">전체 보기 →</a></div>
+      <div class="cb">
+       ${shown.length
+         ? `<ul class="ck">${shown.map(s=>noticeItem(
+              {checked:null, html:s.heading_html || esc(s.heading || ''), children:[]}, 1)
+            ).join('')}</ul>
+            ${rest > 0 ? `<p class="empty" style="margin-top:6px">외 ${rest}건</p>` : ''}`
+         : `<p class="empty">등록된 내용이 없습니다.</p>`}
+      </div></div>`;
+  }
+
+  /* 일정 — 구글 캘린더의 미팅, progress 의 종료 예정일, recommend 의 마감일.
+     이벤트가 없어도 달력은 그대로 둔다. */
+  const KIND = { meeting:{label:'미팅', dot:'var(--ok)'},
+                 project:{label:'진행', dot:'var(--accent)'} };
+  const kindOf = e => KIND[e.kind] || KIND.project;
+
+  function calMonth(y,m){
+    const first=new Date(y,m-1,1), last=new Date(y,m,0).getDate(), lead=first.getDay();
+    /* 날짜별 점 색. 같은 날 여러 건이면 먼저 오는 건의 종류를 쓴다 */
+    const dot=new Map();
+    events.filter(e=>String(e.date||'').startsWith(`${y}-${pad2(m)}`))
+      .forEach(e=>{ const d=+String(e.date).slice(8);
+        if(!dot.has(d)) dot.set(d, kindOf(e).dot); });
+    let c=''; ['일','월','화','수','목','금','토'].forEach(w=>c+=`<span class="wk">${w}</span>`);
+    for(let i=0;i<lead;i++) c+='<span class="dim"></span>';
+    for(let d=1;d<=last;d++){
+      const iso=`${y}-${pad2(m)}-${pad2(d)}`;
+      const cls=iso===TODAY?'tdy':dot.has(d)?'ev':'';
+      const st=(cls==='ev')?` style="--dot:${dot.get(d)}"`:'';
+      c+=`<span class="${cls}"${st}>${d}</span>`;
+    }
+    return `<div class="cal"><h4>${m}월</h4><div class="cal-g">${c}</div></div>`;
+  }
+
+  /* 오른쪽 목록은 5건까지만 — 달력 2개월이 200px 남짓인데 목록이 12건이면
+     카드 오른쪽만 길어져 아래 표가 밀린다. 달력 점은 자르지 않는다.
+     우리가 진행 중인 건(project)이 남의 마감 공고에 밀리지 않도록 먼저 놓는다. */
+  const EVENT_SHOWN_MAX = 5;
+  /* 미팅이 남의 마감 공고에 밀리면 안 된다 */
+  const KIND_ORDER = { meeting:0, project:1 };
+  const eventsRanked = [...events].sort((a,b)=>
+    (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9)
+    || String(a.date||'').localeCompare(String(b.date||'')));
+
+  function eventItem(e){
+    const k = kindOf(e);
+    /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
+    const left = e.past ? (e.kind==='meeting' ? '지남' : '종료') : (e.dday || '');
+    /* 7일 이내만 강조. D-DAY 도 임박으로 본다 */
+    const n = /^D-(\d+)$/.exec(e.dday || '');
+    const soon = !e.past && (e.dday === 'D-DAY' || (n && +n[1] <= 7));
+    /* D-day 는 왼쪽 열에 이미 있다. 여기서는 날짜와 단계만 */
+    /* 미팅은 시각이 있다. 종일 일정이면 time 이 없어 날짜만 나온다 */
+    const when = [String(e.date||'').slice(5).replace('-','/'), e.time]
+      .filter(Boolean).join(' ');
+    const sub = [when, e.meta].filter(Boolean).map(esc).join(' · ');
+    return `<div class="e${e.past?' gone':''}">
+      <span class="dd${soon?' soon':''}">${esc(left)}</span>
+      <span class="ei">
+      <span class="t"><span class="nm">${esc(e.title)}</span><span class="kd">${k.label}</span></span>
+      <span class="m">${sub}</span>
+      </span></div>`;
+  }
+
+  function schedule(limit){
+    const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1;
+    const ny=m===12?y+1:y, nm=m===12?1:m+1;
+    const cap = limit == null ? EVENT_SHOWN_MAX : limit;   /* 인쇄는 전부 낸다 */
+    const shown = cap === Infinity ? eventsRanked : eventsRanked.slice(0, cap);
+    const rest = eventsRanked.length - shown.length;
+    const list = events.length ? shown.map(eventItem).join('') + (rest > 0
+      ? `<a class="e emore" href="#" data-go="open">외 ${rest}건 →</a>` : '')
+      : '<p class="empty">등록된 일정이 없습니다.</p>';
+    return `<div class="card"><div class="ch"><h2>일정</h2></div><div class="cb">
+      <div class="cal-w">${calMonth(y,m)}${calMonth(ny,nm)}
+      <div class="evl">${list}</div></div></div></div>`;
+  }
+
+  /* 화면 */
+  const V={};
+  /* KPI 「다음 일정」 타일은 아직 안 지난 것 중 가장 가까운 건을 쓴다 */
+  const nextEv = events.find(e => !e.past) || null;
+
+  /* 설립연월 표기가 제각각으로 들어온다 — 2024.09 / 2024-09 / 2024-09-15 /
+     2024/09 / 2024년 9월 / 2024.9 를 모두 「2024.09」로 맞춘다.
+     못 알아보면 원문을 그대로 쓴다. 빈칸으로 만들지 않는다 */
+  const foundedTag = raw => {
+    const s = String(raw ?? '').trim();
+    if (!s) return '';
+    const m = s.match(/^(\d{4})\s*[.\-/년]\s*(\d{1,2})(?!\d)/);
+    if (m && +m[2] >= 1 && +m[2] <= 12)
+      return `${m[1]}.${String(+m[2]).padStart(2,'0')} 설립`;
+    /* 못 알아본 값은 원문 그대로 낸다. 「설립」을 덧붙이면
+       「설립일 미상 설립」처럼 겹쳐 읽힌다 */
+    return s;
+  };
+
+  /* 노션 사업내용에 **볼드** 가 섞여 온다. 그것만 <b> 로 바꾸고 나머지
+     마크다운은 건드리지 않는다. 짝이 안 맞아 남은 별표는 지운다.
+     esc 를 먼저 걸어 태그가 그대로 들어가지 않게 한다 */
+  const bizHtml = raw => esc(String(raw ?? ''))
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/\*/g, '');
+
+  /* 업종 → 소재지 → 설립. 값이 없는 것은 건너뛰고, 전부 없으면 줄을 안 낸다.
+     업종은 기업 DB 「업종분류」가 먼저고, 공유페이지 「업종」도 있으면 뒤에 붙인다 */
+  const heroTags = [...new Set([
+    ...(CO.industry || []), ...(CO.tags || []),
+    CO.address || '', foundedTag(CO.founded),
+  ].map(t => String(t ?? '').trim()).filter(Boolean))];
+
+  /* forPrint 면 공지는 요약 대신 전문, 일정은 5건 제한 없이 전부 */
+  V.info=(forPrint)=>`
+   <div class="hero"><span class="${markCls}">${logoMark(52)}</span><div>
+     <h2>${esc(CO.name || CLIENT)}</h2>
+     ${CO.biz?`<div class="biz">${bizHtml(CO.biz)}</div>`:''}
+     ${heroTags.length?`<div class="tags">${heroTags.map(t=>
+        `<span class="htag"><i>#</i>${esc(t)}</span>`).join('')}</div>`:''}
+   </div></div>
+
+   <div class="kpi">
+    <div class="k1"><div class="k">진행 중</div><div class="v">${kpi.running ?? running.length}<small>건</small></div>
+      <div class="s">지원사업 ${running.filter(r=>r.cat==='fund').length} · 인증 ${running.filter(r=>r.cat==='cert').length}</div></div>
+    <div class="k1"><div class="k">완료</div><div class="v">${kpi.done ?? 0}<small>건</small></div>
+      <div class="s">누적</div></div>
+    <div class="k1"><div class="k">취득 인증</div><div class="v">${kpi.certs ?? 0}<small>건</small></div>
+      <div class="s">기업인증·지식재산권 완료 건</div></div>
+    <div class="k1"><div class="k">다음 일정</div>
+      <div class="v">${nextEv?esc(String(nextEv.date).slice(5).replace('-','/')):'—'}</div>
+      <div class="s">${nextEv?esc(nextEv.title):'예정된 일정이 없습니다'}</div></div>
+   </div>
+
+   ${forPrint ? noticeFeed() : noticeSummary()}
+   ${schedule(forPrint ? Infinity : undefined)}
+
+   <div class="card" style="margin-top:24px">
+    <div class="ch"><h2>진행 중인 프로젝트</h2><a class="more" href="#" data-go="fund">전체 보기 →</a></div>
+    ${running.length?`<table><thead><tr>
+     <th style="width:38%">프로젝트</th><th style="width:13%">구분</th>
+     <th style="width:18%">단계</th><th style="width:10%">상태</th>
+     <th class="num" style="width:21%">지원내용</th></tr></thead>
+    <tbody>${running.map(r=>`<tr>
+      <td class="lead"><div class="t-nm">${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</div>
+          ${logLine(r)}</td>
+      <td class="dtc">${CATNM[r.cat].split('·')[0]}</td>
+      <td>${steps(r)}</td><td>${tag(r)}</td>
+      <td class="num sup">${support(r)}</td></tr>`).join('')}
+    </tbody></table>`:`<div class="cb"><p class="empty">진행 중인 프로젝트가 없습니다.</p></div>`}</div>`;
+
+  V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
+    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
+   ${noticeFeed()}`;
+
+  V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
+  V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${table('cert')}`;
+  V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
+
+  /* 소통 내역 — 노션 소통 DB 에서 「공개」인 것만 온다.
+     목록에는 일자·채널·제목만 두고, 본문은 행을 눌렀을 때 펼친다.
+     body 가 null 이면 펼칠 것이 없으므로 표시도 하지 않는다. */
+  /* 소통 내역 — 채널 탭으로 거른다. 좌측 메뉴는 「소통 내역」 하나로 둔다.
+     preview 는 미팅·유선(안건 목록)만 한 줄 보여준다. 메일 preview 는
+     본문 첫머리라 인사말·서명만 나와 목록에서 값을 못 한다. */
+  const TALK_TABS = [{k:'all',nm:'전체'},{k:'메일',nm:'메일'},
+                     {k:'유선',nm:'유선'},{k:'미팅',nm:'미팅'}];
+  const TALK_BADGE = {'메일':'ch-mail','유선':'ch-call','미팅':'ch-meet'};
+  const talkCount = k => k==='all' ? talks.length : talks.filter(t=>t.channel===k).length;
+  let talkTab = 'all';
+
+  /* opts.every  — 탭을 무시하고 전체를 낸다 (인쇄)
+     opts.noBody — 본문을 아예 싣지 않는다. 메일 본문·회의록 전문은
+                   종이에서 볼 내용이 아니라 리포트만 길어진다 (인쇄) */
+  function talkList(opts){
+    const o = opts || {};
+    const list = talks
+      .map((t,i)=>({t,i}))                       /* 아코디언 짝을 위해 원래 번호를 유지 */
+      .filter(({t})=> o.every || talkTab==='all' || t.channel===talkTab);
+    if(!list.length) return emptyBox('등록된 내용이 없습니다.');
+    return `<div class="card"><table class="tktbl"><thead><tr>
+      <th style="width:90px">일자</th><th style="width:110px">채널</th>
+      <th>제목</th></tr></thead>
+     <tbody>${list.map(({t,i})=>{
+       const open = t.hasBody && !o.noBody;
+       return `<tr class="tk${open?' has':''}" data-tk="${i}">
+       <td class="dtc">${fmt(t.date)}</td>
+       <td><span class="ch-b ${TALK_BADGE[t.channel]||'ch-mail'}">${esc(t.channel||'—')}</span>${
+         t.direction?`<span class="co${t.direction==='보냄'?' out':''}">${esc(t.direction)}</span>`:''}</td>
+       <td class="lead"><div class="t-nm">${open?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div>
+         ${!o.noBody&&t.channel!=='메일'&&t.preview?`<div class="tkpv">${esc(t.preview)}</div>`:''}</td>
+      </tr>${open?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
+       ${t.body_html
+         /* body_html 은 build_client.py 가 이스케이프해 조립한 HTML 이다 */
+         ?`<div class="tkbd doc">${t.body_html}</div>`
+         :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`;}).join('')}
+     </tbody></table></div>`;
+  }
+
+  function talkTabs(){
+    return `<div class="chips" id="tkTabs">${TALK_TABS.map(x=>{
+      const n = talkCount(x.k);
+      return `<button class="chip${talkTab===x.k?' on':''}${n?'':' zero'}" data-tktab="${esc(x.k)}"
+        >${x.nm}<span>${n}</span></button>`;
+    }).join('')}</div>`;
+  }
+
+  V.talk=()=>`<div class="vh"><h1>소통 내역</h1>
+    ${talks.length?`<span class="n">${talks.length}건</span>`:''}</div>
+   ${talks.length?`${talkTabs()}<div id="tkList">${talkList()}</div>`
+                 :emptyBox('등록된 내용이 없습니다.')}`;
+
+  /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
+     검토서는 발행된 HTML 이라 새 탭으로 연다. */
+  V.open=()=>`<div class="vh"><h1>추천 지원사업</h1>
+    ${recommend.length?`<span class="n">${recommend.length}건</span>`:''}</div>
+   ${recommend.length?`<div class="card"><table><thead><tr>
+    <th style="width:12%">마감</th><th style="width:66%">사업명</th>
+    <th class="num" style="width:22%">지원 규모</th></tr></thead>
+   <tbody>${recommend.map(o=>`<tr${o.expired?' class="gone"':''}>
+    <td class="dtc" style="${o.expired?'':'color:var(--run);'}font-weight:600">${
+      o.expired?'마감':esc(o.dday||'상시')}</td>
+    <td class="lead"><div class="t-nm">${esc(o.title||'')}${o.review_url
+        ?`<a class="rv" href="${encodeURI(o.review_url)}" target="_blank" rel="noopener">검토서</a>`:''}</div>
+        ${[o.org, o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')
+          ?`<div class="t-sub">${[o.org?esc(o.org):'', o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')}</div>`:''}</td>
+    <td class="num">${o.amount?esc(o.amount):'—'}</td></tr>`).join('')}
+   </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
+
+  /* ── 인쇄 리포트 ───────────────────────────────────────────────
+     화면 DOM 은 손대지 않고 #printdoc 을 따로 채워 그것만 인쇄한다.
+     아코디언을 열었다 되돌릴 필요가 없어 인쇄가 끝나도 화면이 그대로다. */
+  const PRINT_SECTIONS = [
+    {id:'info', nm:'기업 정보 · 공지사항'},
+    {id:'fund', nm:CATNM.fund},
+    {id:'cert', nm:CATNM.cert},
+    {id:'proj', nm:CATNM.proj},
+    {id:'open', nm:'추천 지원사업'},
+    {id:'talk', nm:'소통 내역'},
+  ];
+
+  function printCover(){
+    const p = (D.generated_at||'').slice(0,10).split('-');
+    const when = p.length===3 ? `${+p[0]}년 ${+p[1]}월 ${+p[2]}일 기준` : '';
+    return `<section class="pcover">
+      <div class="pcv-marks">
+        <img class="pcv-gh" src="${encodeURI(BRAND_LOGO)}" alt="그로스하이">
+        ${CO.logo?`<span class="pcv-sep"></span>
+          <img class="pcv-co" src="${encodeURI(BASE+CO.logo)}" alt="">`:''}
+      </div>
+      <h1>${esc(CO.name||CLIENT)} 진행 리포트</h1>
+      <p class="pcv-d">${esc(when)}</p>
+      ${CO.manager?`<p class="pcv-m">담당 컨설턴트 ${esc(CO.manager)}</p>`:''}
+    </section>`;
+  }
+
+  /* 인쇄용 섹션 본문. 화면과 다른 곳만 갈아 끼운다 */
+  function printBody(id){
+    if(id === 'info') return V.info(true);          /* 공지 전문 · 일정 전부 */
+    if(id === 'talk')                                /* 탭 없이 전체, 본문은 빼고 */
+      return talks.length ? talkList({every:true, noBody:true})
+                          : emptyBox('등록된 내용이 없습니다.');
+    return V[id] ? V[id]() : '';
+  }
+
+  /* ── 요약 리포트 — A4 한두 장. 표지 없이 머리글부터 바로 내용 ── */
+  function printSummary(){
+    const p = (D.generated_at||'').slice(0,10).split('-');
+    const when = p.length===3 ? `${+p[0]}년 ${+p[1]}월 ${+p[2]}일 기준` : '';
+    const nextEvSum = events.find(e => !e.past) || null;
+
+    /* 아직 손에 쥐고 있는 건만. 끝난 것은 건수로만 알린다 */
+    const live = rows.filter(r => r.badge==='run' || r.badge==='wait');
+    const done = rows.filter(r => r.badge==='ok').length;
+    const held = rows.filter(r => r.badge==='no').length;
+
+    const notice1 = (notice && (notice.sections||[])[0]) || null;
+    const rec5 = recommend.slice(0, 5);        /* 이미 마감 임박순이다 */
+    const talk5 = talks.slice(0, 5);           /* 노션에서 일자 내림차순으로 온다 */
+
+    return `<div class="psum">
+      <header class="sh">
+        <span class="sh-m">
+          <img src="${encodeURI(BRAND_LOGO)}" alt="그로스하이">
+          ${CO.logo?`<img src="${encodeURI(BASE+CO.logo)}" alt="">`:''}
+        </span>
+        <span class="sh-t"><b>${esc(CO.name||CLIENT)} 진행 요약</b>
+          <span>${esc(when)}${CO.manager?` · 담당 ${esc(CO.manager)}`:''}</span></span>
+      </header>
+
+      <section class="ssec"><h2>현황 요약</h2>
+        <div class="skpi">
+          <div><span class="k">진행 중</span><span class="v">${kpi.running ?? live.length}건</span></div>
+          <div><span class="k">완료</span><span class="v">${kpi.done ?? done}건</span></div>
+          <div><span class="k">취득 인증</span><span class="v">${kpi.certs ?? 0}건</span></div>
+          <div><span class="k">다음 일정</span><span class="v">${nextEvSum
+            ? esc(String(nextEvSum.date).slice(5).replace('-','/')) : '—'}</span>
+            <span class="s">${nextEvSum?esc(nextEvSum.title):'예정 없음'}</span></div>
+        </div></section>
+
+      ${notice1 ? `<section class="ssec">
+        <h2>${esc(notice1.heading || '이달 공지사항')}</h2>
+        ${(notice1.items||[]).length
+          ? `<ul class="ck">${notice1.items.map(i =>
+              noticeItem({...i, children:[]}, 1)).join('')}</ul>`
+          : '<p class="empty">등록된 내용이 없습니다.</p>'}
+      </section>` : ''}
+
+      <section class="ssec"><h2>진행 중인 건</h2>
+        ${live.length ? `<table><thead><tr>
+          <th style="width:44%">사업명</th><th style="width:16%">구분</th>
+          <th style="width:16%">단계</th>
+          <th class="num" style="width:24%">지원내용</th></tr></thead>
+        <tbody>${live.map(r=>`<tr>
+          <td>${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</td>
+          <td>${esc(CATNM[r.cat].split('·')[0])}</td>
+          <td>${esc(r.stage_label||'')}</td>
+          <td class="num">${support(r)}</td></tr>`).join('')}
+        </tbody></table>` : '<p class="empty">진행 중인 건이 없습니다.</p>'}
+        ${(done||held) ? `<p class="snote">그 외 완료 ${done}건${
+          held?` · 보류 ${held}건`:''}</p>` : ''}
+      </section>
+
+      <section class="ssec"><h2>다가오는 일정</h2>
+        ${events.length ? `<table><tbody>${events.map(e=>`<tr>
+          <td style="width:14%">${esc(e.past?'지남':(e.dday||''))}</td>
+          <td style="width:20%">${esc(String(e.date||'').slice(5).replace('-','/'))}${
+            e.time?` ${esc(e.time)}`:''}</td>
+          <td>${esc(e.title)}</td></tr>`).join('')}
+        </tbody></table>` : '<p class="empty">등록된 일정이 없습니다.</p>'}
+      </section>
+
+      ${rec5.length ? `<section class="ssec"><h2>추천 지원사업</h2>
+        <table><thead><tr><th style="width:14%">마감</th><th>사업명</th>
+          <th class="num" style="width:26%">지원 규모</th></tr></thead>
+        <tbody>${rec5.map(o=>`<tr>
+          <td>${o.expired?'마감':esc(o.dday||'상시')}</td>
+          <td>${esc(o.title||'')}</td>
+          <td class="num">${o.amount?esc(o.amount):'—'}</td></tr>`).join('')}
+        </tbody></table></section>` : ''}
+
+      ${talk5.length ? `<section class="ssec"><h2>최근 소통</h2>
+        <table><tbody>${talk5.map(t=>`<tr>
+          <td style="width:14%">${fmt(t.date)}</td>
+          <td style="width:12%">${esc(t.channel||'')}</td>
+          <td>${esc(t.title||'')}</td></tr>`).join('')}
+        </tbody></table>
+        <p class="snote">누적 ${talks.length}건</p></section>` : ''}
+    </div>`;
+  }
+
+  function buildPrintDoc(scope){
+    if(scope === 'sum'){
+      document.getElementById('printdoc').innerHTML = printSummary();
+      return;
+    }
+    const cur = document.querySelector('.nv.on');
+    const only = cur && cur.dataset ? cur.dataset.id : 'info';
+    const list = scope === 'cur'
+      ? PRINT_SECTIONS.filter(s => s.id === only)
+      : PRINT_SECTIONS;
+    const body = list.map(s =>
+      `<section class="psec"><h2>${esc(s.nm)}</h2>${printBody(s.id)}</section>`).join('');
+    const pd = document.getElementById('printdoc');
+    pd.innerHTML = (scope === 'cur' ? '' : printCover()) + body;
+    /* 화면용 제목줄은 지운다. 숨기기만 하면 h2+* 의 break-before:avoid 가
+       보이지 않는 .vh 에 걸려 정작 표를 제목에 붙이지 못한다 */
+    pd.querySelectorAll('.vh').forEach(n => n.remove());
+  }
+
+  let printScope = 'all', themeBeforePrint = null;
+  window.addEventListener('beforeprint', ()=>{
+    buildPrintDoc(printScope);
+    /* 다크로 보고 있어도 종이는 흰 배경이어야 한다 */
+    themeBeforePrint = document.documentElement.dataset.theme;
+    document.documentElement.dataset.theme = 'light';
+  });
+  window.addEventListener('afterprint', ()=>{
+    if(themeBeforePrint) document.documentElement.dataset.theme = themeBeforePrint;
+    themeBeforePrint = null;
+    document.getElementById('printdoc').innerHTML = '';
+    printScope = 'all';            /* 다음 Ctrl+P 는 다시 전체 리포트 */
+  });
+
+  const rptBtn = document.getElementById('rptbtn');
+  const rptMenu = document.getElementById('rptmenu');
+  const closeRpt = ()=>{ rptMenu.hidden = true; rptBtn.setAttribute('aria-expanded','false'); };
+  rptBtn.onclick = e => {
+    e.stopPropagation();
+    rptMenu.hidden = !rptMenu.hidden;
+    rptBtn.setAttribute('aria-expanded', String(!rptMenu.hidden));
+  };
+  document.addEventListener('click', closeRpt);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') closeRpt(); });
+  rptMenu.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => {
+    printScope = b.dataset.rp;
+    closeRpt();
+    window.print();
+  });
+
+  const CR={info:'기업 정보',fund:CATNM.fund,cert:CATNM.cert,
+    proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
+  CR.notice = noticeLabel;                     /* 공지가 없어도 화면은 있다 */
+  /* 화면 전환을 브라우저 히스토리에 남긴다. 안 남기면 뒤로 가기가
+     이전 화면이 아니라 사이트 밖으로 나가 버린다.
+     opt.replace  첫 진입 — 히스토리에 겹쳐 쌓지 않는다
+     opt.fromPop  뒤로/앞으로 — 그 이동을 다시 기록하지 않는다 */
+  function go(id, opt){
+    if(!V[id])return;
+    const o = opt || {};
+    /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
+       기준일은 상단 우측 pill 에만 표시한다. */
+    document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
+    document.getElementById('crumb').innerHTML=
+      `<span class="c0">${esc(CO.name||CLIENT)}</span><i>/</i>` +
+      `<span class="c1">${esc(CR[id])}</span>`;
+    document.querySelectorAll('.nv').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+    document.getElementById('scroll').scrollTop=0;
+    document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});
+    bindTalks();
+    bindNotice();
+
+    if(!o.fromPop){
+      const url = '#' + id;
+      if(o.replace) history.replaceState({view:id}, '', url);
+      else if(location.hash !== url) history.pushState({view:id}, '', url);
+    }
+  }
+
+  window.addEventListener('popstate', e => {
+    const id = (e.state && e.state.view) || (location.hash || '').slice(1);
+    go(V[id] ? id : 'info', {fromPop:true});
+  });
+
+  /* 공지 접기. 섹션 제목과 노션 toggle 항목이 같은 방식으로 움직인다.
+     요약 카드(.psum·개요)는 .notice 를 쓰지 않으므로 걸리지 않는다 */
+  function bindNotice(){
+    document.querySelectorAll('.notice>h3').forEach(h=>h.onclick=()=>
+      h.parentElement.classList.toggle('open'));
+    document.querySelectorAll('.ck li.tg>.tgh').forEach(h=>h.onclick=e=>{
+      e.stopPropagation();                      /* 중첩 토글에서 위까지 닫히지 않게 */
+      h.parentElement.classList.toggle('open');
+    });
+  }
+
+  /* 아코디언과 채널 탭. 탭을 누르면 목록만 다시 그리고 다시 묶는다 */
+  function bindTalks(){
+    document.querySelectorAll('tr.tk.has').forEach(tr=>tr.onclick=()=>{
+      const body=document.querySelector(`tr.tkb[data-tkb="${tr.dataset.tk}"]`);
+      tr.classList.toggle('open');
+      if(body) body.classList.toggle('open');
+    });
+    document.querySelectorAll('[data-tktab]').forEach(b=>b.onclick=()=>{
+      talkTab = b.dataset.tktab;
+      const box = document.getElementById('tkList');
+      if(box) box.innerHTML = talkList();
+      document.querySelectorAll('[data-tktab]').forEach(x=>
+        x.classList.toggle('on', x.dataset.tktab===talkTab));
+      bindTalks();
+    });
+  }
+  document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});
+  /* 주소에 해시가 있으면 그 화면에서 시작한다. 잠금이 풀린 뒤에만 온다 */
+  const startId = (location.hash || '').slice(1);
+  go(V[startId] ? startId : 'info', {replace:true});
+}
+
+document.getElementById('tgl').onclick=()=>{
+  const r=document.documentElement;
+  r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'};
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 User-agent: *
 Disallow: /
 Disallow: /sample
+Disallow: /beauty
 Disallow: /c/sample.json
