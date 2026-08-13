@@ -105,6 +105,10 @@ MASK_RULES: list[tuple[str, re.Pattern, str]] = [
     ("등록번호", re.compile(r"(?<!\d)\d{2,3}-\d{4,6}-\d{5,6}(?!\d)"), "**-******-******"),
     ("사업자번호", re.compile(r"(?<!\d)\d{3}-\d{2}-\d{5}(?!\d)"), "***-**-*****"),
     ("사업자번호", re.compile(r"(?<!\d)\d{10}(?!\d)"), "**********"),
+    # 자사 채용공고. 열면 실기업이 그대로 드러난다 — 주소째 지운다.
+    ("채용공고", re.compile(
+        r"https?://(?:www\.)?(?:saramin\.co\.kr/zf_user|jobkorea\.co\.kr)/\S*", re.I),
+     "https://example.com/"),
     # 제3자 상호·도메인
     ("제3자도메인", re.compile(r"\b(storytunes\.net|green-cos\.com|dasancpa\.com)\b",
                           re.I), "example.com"),
