@@ -1253,7 +1253,7 @@ TALK_CHANNELS_WITH_MINUTES = {"미팅", "유선"}
 # 사람이 손으로 분류해둔 고객사 폴더를 그대로 쓴다. 발신 도메인 추측보다 정확하다.
 TALKS_FOLDER_PREFIX = "Inbox.고객사."
 TALKS_DAYS = 90                 # 기본 수집 기간. --talks-days 로 바꾼다 (0 = 제한 없음)
-TALKS_FETCH_MAX = 150           # 폴더에서 읽어올 최근 메일 수
+TALKS_FETCH_MAX = 250           # 폴더에서 읽어올 최근 메일 수
 # JSON 에 담을 수. 노션 page_size 상한이 100 이고 페이지네이션을 하지 않으므로
 # 이 값을 더 올릴 수 없다. 넘치면 「일자」 내림차순의 앞 100건 — 최신이 남는다.
 TALKS_OUTPUT_MAX = 100

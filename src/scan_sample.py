@@ -44,9 +44,15 @@ CHECKS: list[tuple[str, str]] = [
     ("10자리 숫자", r"(?<![\d,.])\d{10}(?![\d,.])"),
     ("특허 등록번호", r"제\s*10-\d{6,8}\s*호"),
     ("전화번호", r"(?<!\d)0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)"),
-    ("도로명주소", r"[가-힣]{2,6}(?:대로|로|길)\s?\d+[길]?\s*[\d-]+"),
+    # 「~기준으로 11/17」 같은 부사구가 걸려 매번 오탐이 났다. 「으로」는 뺀다.
+    ("도로명주소", r"[가-힣]{2,6}(?:대로|로|길)(?<!으로)\s?\d+[길]?\s*[\d-]+"),
     ("우편번호", r"\(우[\s:]*\d{5}\)"),
-    ("자사 채용공고", r"saramin\.co\.kr/zf_user|jobkorea\.co\.kr"),
+    ("자사 채용공고", r"saramin\.co\.kr/zf_user|jobkorea\.co\.kr|gamejob\.co\.kr"),
+    # 앱 이름·패키지명이 URL 에 그대로 있다. 한글은 퍼센트 인코딩이라 안 걸린다
+    ("앱마켓·영상 링크",
+     r"apps\.apple\.com|play\.google\.com|youtu\.be|youtube\.com|onestore\.co\.kr"),
+    # 대용량 첨부 다운로드 토큰. 살아 있으면 첨부를 그대로 받아간다
+    ("메일 첨부 링크", r"daouoffice\.com"),
     ("구글드라이브 링크", r"(?:drive|docs)\.google\.com"),
     ("서명 블록 잔재",
      r"Time Saving|Republic of Korea|Operations Support|HR&GA"),

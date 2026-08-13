@@ -44,6 +44,17 @@ ROOT = Path(__file__).resolve().parent.parent
 #   exclude_title         이 정규식에 걸리는 제목의 메일은 빼고 가져온다
 #
 MERGE_SOURCES: dict[str, dict] = {
+    # 원본 자신을 다시 읽는 경우다. c/{원본}.enc 의 talks 는 TALKS_OUTPUT_MAX(100)
+    # 에서 잘려 있어, 폴더에 있는 205통을 다 담으려면 IMAP 을 직접 읽어야 한다.
+    # 표기·인명·주소 규칙은 make_sample.py 설정 블록이 이미 갖고 있으므로 비운다.
+    # 프로젝트는 이미 들어가 있다 — 반드시 --talks-only 로 돌릴 것.
+    "스튜디오엘비": {
+        "names": [], "brands": [], "domains": [], "accounts": {},
+        "people": {}, "address": [],
+        "projects": [],
+        "exclude_title": "",
+        "talks_days": 0,          # 0 = 기간 제한 없이 메일함 전부
+    },
     "더모멘트": {
         "names": ["주식회사 더모멘트", "주식회사더모멘트", "(주)더모멘트", "더모멘트"],
         "brands": ["디퍼앤디퍼", "THEMOMENT", "Themoment", "themoment"],
@@ -207,6 +218,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="다른 클라이언트를 샘플에 합친다")
     ap.add_argument("--company", required=True, help="기업 DB 의 기업명")
     ap.add_argument("--dry-run", action="store_true", help="아무것도 쓰지 않는다")
+    ap.add_argument("--talks-only", action="store_true",
+                    help="프로젝트는 건드리지 않고 소통 내역만 합친다 "
+                         "(원본 자신을 다시 읽어 잘린 메일을 채울 때)")
     args = ap.parse_args()
 
     cfg = MERGE_SOURCES.get(args.company)
@@ -221,9 +235,13 @@ def main() -> int:
     B._ASSET_CTX["dry_run"] = args.dry_run
 
     print(f"▶ {args.company}")
-    company_id = find_company(nt, args.company)
-    projects = fetch_projects(nt, company_id, cfg.get("projects") or [])
-    print(f"  프로젝트 {len(projects)}건")
+    if args.talks_only:
+        projects = []
+        print("  프로젝트 건너뜀 (--talks-only)")
+    else:
+        company_id = find_company(nt, args.company)
+        projects = fetch_projects(nt, company_id, cfg.get("projects") or [])
+        print(f"  프로젝트 {len(projects)}건")
 
     client_page = find_client_page(nt, args.company)
     meetings = fetch_meetings(nt, client_page) if client_page else []
@@ -265,8 +283,10 @@ def main() -> int:
     have = {(t["date"], t["title"]) for t in d["talks"]}
     add = [t for t in talks if (t["date"], t["title"]) not in have]
 
-    d["progress"] = sorted(d["progress"] + projects,
-                           key=lambda r: (r["start"] or "", r["title"]), reverse=True)
+    if projects:
+        d["progress"] = sorted(d["progress"] + projects,
+                               key=lambda r: (r["start"] or "", r["title"]),
+                               reverse=True)
     d["talks"] = sorted(d["talks"] + add, key=lambda t: t["date"], reverse=True)
     k = d.setdefault("kpi", {})
     k["running"] = sum(1 for r in d["progress"] if r["badge"] == "run")
