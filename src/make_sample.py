@@ -132,6 +132,27 @@ PROGRAM_WORDS = [
     "사업비사용실적보고서", "회사소개서", "조직도", "주주명부",
 ]
 
+# 데모에 남겨도 되는 유일한 노션 페이지 — 그로스하이 가이드북.
+KEEP_NOTION_PAGE = "f12815d712b982d3af19812af6f50cbe"
+
+# 사이드바 「자료」. 원본에서 물려받지 않고 여기서 정한다.
+# 물려받으면 원본 문서 주소가 그대로 데모에 실린다 — 라벨만 가명이고 열면 실기업이다.
+# 여기 적는 주소는 반드시 「내용까지 가명으로 다시 쓴 사본」이어야 한다.
+SAMPLE_DRIVE_URL = None
+SAMPLE_BIZPLAN_URL = None
+SAMPLE_LINKS: list[tuple[str, list[tuple[str, str]]]] = [
+    ("참고 자료", [
+        # 노션 API 의 public_url 을 그대로 쓴다. 게시하면 제목 슬러그가 앞에 붙는
+        # 것이 있어, 페이지 ID 만으로 주소를 지어내면 404 가 난다.
+        ("2024 병역특례 결과분석",
+         "https://yuncommon.notion.site/2024-3bb815d712b981a4aebed915f3b82fdf"),
+        ("현장실사 자료",
+         "https://yuncommon.notion.site/3bb815d712b981d9ad83c2761f643c9c"),
+        ("2025 회계연도 가결산 검토",
+         "https://yuncommon.notion.site/2025-3bb815d712b98114b869e3e44f12517a"),
+    ]),
+]
+
 # 거래처·제3자 상호와 도메인. 데모에 필요 없다.
 THIRD_PARTY = [
     (r"\b(sen\.go\.kr|ipzerone\.com|nate\.com)\b", "example.com"),
@@ -143,9 +164,11 @@ THIRD_PARTY = [
     (r"레이지\s*하우스", "○○○"),
     (r"삼덕\s*회계법인", "○○회계법인"),
     (r"헬프\s*미", "상표대행사"),
-    # 클라이언트가 공개해 둔 노션 사이트. 슬러그를 갈아도 살아 있는 주소처럼
-    # 남는다. 우리 워크스페이스(yuncommon)만 남기고 나머지는 지운다.
-    (r"https?://(?!yuncommon\.)[\w.-]*\.notion\.site/\S*", "https://example.com/"),
+    # 노션 사이트 주소는 아래 가이드북 한 장만 남기고 전부 지운다.
+    # 도메인으로 가르면 안 된다 — 클라이언트 자료도 우리 워크스페이스(yuncommon)에
+    # 올라가 있어, 도메인만 보면 원본 문서가 그대로 데모에 실린다.
+    (rf"https?://[\w.-]*\.notion\.site/(?!{KEEP_NOTION_PAGE})\S*",
+     "https://example.com/"),
 ]
 
 # 만들고 나서 전문을 훑는다. 하나라도 남으면 배포하지 않는다.
@@ -292,7 +315,7 @@ REPORT_ORDER = ("제목", "본문", "표", "메일주소", "기타", "첨부파�
                 "자격증명마스킹", "사람이름", "주소", "전화번호", "계좌번호",
                 "사업자번호", "등록번호", "특허번호", "채용공고", "앱마켓링크",
                 "메일첨부링크", "제3자도메인",
-                "서명블록삭제", "본문전체가서명", "드라이브참조줄삭제",
+                "자료링크교체", "서명블록삭제", "본문전체가서명", "드라이브참조줄삭제",
                 "드라이브항목삭제", "드라이브링크속성", "빈섹션삭제", "로고제거")
 
 
@@ -578,6 +601,14 @@ def main() -> int:
         stats["로고제거"] += 1
     co["logo"] = None
     co["logo_emoji"] = None
+
+    # 자료 링크는 원본 것을 버리고 설정한 것으로 갈아끼운다.
+    co["drive_url"] = SAMPLE_DRIVE_URL
+    co["bizplan_url"] = SAMPLE_BIZPLAN_URL
+    co["extra_links"] = [
+        {"group": group, "items": [{"label": l, "url": u} for l, u in items]}
+        for group, items in SAMPLE_LINKS]
+    stats["자료링크교체"] += sum(len(items) for _, items in SAMPLE_LINKS)
 
     envelope = {"v": 1, "enc": False, "data": payload}
     blob = json.dumps(envelope, ensure_ascii=False, separators=(",", ":"))
