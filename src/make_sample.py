@@ -32,6 +32,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC_SLUG = "forest-avenue"
 DST_SLUG = "sample"
 
+# 추천 지원사업만 원본을 복제하지 않고 따로 읽는다. Firestore 의
+# playlists/{이 이름} 문서다 — 원본 클라이언트의 재생목록과 완전히 분리된다.
+SAMPLE_PLAYLIST = "케이뷰티"
+
 # ── 치환표 ──────────────────────────────────────────────────────────────
 # 긴 것부터 건다. 「(주)포레스트에비뉴」는 마지막 규칙만으로도 처리되지만
 # 표기를 눈으로 확인할 수 있게 남겨 둔다.
@@ -386,6 +390,12 @@ def main() -> int:
     payload = walk(payload, [])
     strip_drive(payload)
     cut_signatures(payload.get("talks") or [])
+
+    # 치환 뒤에 읽는다. 정책정보에서 갓 받은 값이라 치울 것이 없고,
+    # 치환을 태우면 사업명이 엉뚱하게 바뀔 수 있다.
+    payload["recommend"] = B.fetch_recommend(SAMPLE_PLAYLIST, B.INCLUDE_EXPIRED)
+    print(f"추천 지원사업 {len(payload['recommend'])}건 "
+          f"(playlists/{SAMPLE_PLAYLIST})\n")
 
     # 로고는 원본 노션 아이콘이라 그대로 두면 진짜 회사 표식이 남는다.
     # 둘 다 비우면 index.html 이 기업명 앞 두 글자를 대신 그린다.
