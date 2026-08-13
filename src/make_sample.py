@@ -138,8 +138,13 @@ KEEP_NOTION_PAGE = "f12815d712b982d3af19812af6f50cbe"
 # 사이드바 「자료」. 원본에서 물려받지 않고 여기서 정한다.
 # 물려받으면 원본 문서 주소가 그대로 데모에 실린다 — 라벨만 가명이고 열면 실기업이다.
 # 여기 적는 주소는 반드시 「내용까지 가명으로 다시 쓴 사본」이어야 한다.
-SAMPLE_DRIVE_URL = None
+SAMPLE_DRIVE_URL = ("https://drive.google.com/drive/folders/"
+                    "1Awtz15T-wRPbomMq9TG6VZlBhfbkyPgw?usp=drive_link")
 SAMPLE_BIZPLAN_URL = None
+
+# 데모 로고. 원본 노션 아이콘은 진짜 회사 표식이라 늘 지우고, 대신 이것을 넣는다.
+# None 이면 화면이 기업명 앞 두 글자를 대신 그린다.
+SAMPLE_LOGO = "logo/game.png"
 SAMPLE_LINKS: list[tuple[str, list[tuple[str, str]]]] = [
     ("참고 자료", [
         # 노션 API 의 public_url 을 그대로 쓴다. 게시하면 제목 슬러그가 앞에 붙는
@@ -594,12 +599,12 @@ def main() -> int:
     print(f"추천 지원사업 {len(payload['recommend'])}건 (playlists/{PLAYLIST})\n")
 
     # 로고는 원본 노션 아이콘이라 그대로 두면 진짜 회사 표식이 남는다.
-    # 둘 다 비우면 index.html 이 기업명 앞 두 글자를 대신 그린다.
-    # 데모용 로고를 쓰려면 logo/{샘플슬러그}.png 를 두고 아래를 그 경로로 바꾼다.
+    # 설정의 SAMPLE_LOGO 로 갈아끼운다 — None 이면 index.html 이 기업명 앞
+    # 두 글자를 대신 그린다.
     co = payload.setdefault("company", {})
     if co.get("logo") or co.get("logo_emoji"):
         stats["로고제거"] += 1
-    co["logo"] = None
+    co["logo"] = SAMPLE_LOGO
     co["logo_emoji"] = None
 
     # 자료 링크는 원본 것을 버리고 설정한 것으로 갈아끼운다.
