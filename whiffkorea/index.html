@@ -922,7 +922,8 @@ function init(D){
       </div></div>`).join('');
   }
 
-  /* 공지 요약 — 첫 화면에서는 첫 섹션의 1단 항목만, 최대 5개까지 보여준다 */
+  /* 공지 요약 — 첫 화면에서는 섹션 제목만 차례처럼 늘어놓는다. 최대 5개.
+     안쪽 항목을 꺼내면 클라이언트마다 깊이가 달라 뒤죽박죽이 된다 */
   const SUMMARY_MAX = 5;
   /* 공지가 없어도 카드는 남긴다. 첫 화면의 구성이 클라이언트마다 달라지면
      비어 있는 것이 아니라 무언가 빠진 것처럼 보인다. */
@@ -930,17 +931,18 @@ function init(D){
     if(!notice) return `<div class="card" style="margin-top:24px">
       <div class="ch"><h2>${esc(noticeLabel)}</h2></div>
       <div class="cb"><p class="empty">등록된 내용이 없습니다.</p></div></div>`;
-    const first = (notice.sections || [])[0];
-    const items = (first && first.items) || [];
-    const shown = items.slice(0, SUMMARY_MAX);
-    const rest = items.length - shown.length;
+    const secs = notice.sections || [];
+    const shown = secs.slice(0, SUMMARY_MAX);
+    const rest = secs.length - shown.length;
     return `<div class="card" style="margin-top:24px">
       <div class="ch"><h2>${esc(noticeLabel)}</h2>
         ${notice.date?`<span class="d">${esc(notice.date)}</span>`:''}
         <a class="more" href="#" data-go="notice">전체 보기 →</a></div>
       <div class="cb">
        ${shown.length
-         ? `<ul class="ck">${shown.map(i=>noticeItem({...i, children:[]}, 1)).join('')}</ul>
+         ? `<ul class="ck">${shown.map(s=>noticeItem(
+              {checked:null, html:s.heading_html || esc(s.heading || ''), children:[]}, 1)
+            ).join('')}</ul>
             ${rest > 0 ? `<p class="empty" style="margin-top:6px">외 ${rest}건</p>` : ''}`
          : `<p class="empty">등록된 내용이 없습니다.</p>`}
       </div></div>`;
