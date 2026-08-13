@@ -14,9 +14,15 @@ src/build_client.py    빌더. 노션·Firestore·정책정보·메일을 모아
 src/check_imap.py      메일 서버 점검용. 빌드와는 무관한 단독 도구
 src/requirements.txt   의존성
 
+src/make_sample.py     클라이언트 하나를 복제·마스킹해 공개 데모를 만든다
+src/merge_sample.py    다른 클라이언트를 데모에 합친다
+src/scan_sample.py     데모에 남은 식별 정보를 훑는다. 배포 전 필수
+
 index.html             화면 전부. 데이터는 전부 .enc 에서 온다
 {슬러그}/index.html      클라이언트별 진입점. 루트 index.html 사본 + __SLUG__ 주입
 c/{슬러그}.enc           암호화된 데이터. 빌더가 만든다
+c/sample.json          공개 데모 데이터. 평문이라 게이트가 없다
+beauty/index.html      데모 주소 /beauty/. 슬러그 sample 을 주입한 사본
 logo/{슬러그}.png        노션 페이지 아이콘을 내려받은 것. 빌더가 만든다
 assets/                잠금 화면에 쓰는 그로스하이 로고
 
@@ -151,7 +157,126 @@ cp .env.example .env      # NOTION_TOKEN 을 채운다
 
 **루트 `index.html` 을 고쳤으면 반드시 다시 빌드한다.** `{슬러그}/index.html` 은 루트
 `index.html` 의 사본이다. 루트만 고치고 push 하면 클라이언트 주소는 옛 화면 그대로
-남는다. 빌드가 사본을 다시 만들어 준다.
+남는다. 빌드가 사본을 다시 만들어 준다. **`beauty/index.html` 은 빌드 대상이 아니라
+직접 다시 만들어야 한다** — 아래 「새 샘플 만들기」 5단계를 볼 것.
+
+---
+
+## 새 샘플 만들기
+
+영업·소개용 공개 데모다. 실제 클라이언트 하나를 복제해 이름을 갈아끼우고
+식별 정보를 지운 뒤 `c/sample.json` 으로 낸다. **비밀번호도 암호화도 없다** —
+주소만 알면 누구나 열린다는 뜻이다. 지우는 일에 인색하지 말 것.
+
+### 1. 설정을 고친다
+
+`src/make_sample.py` 상단 「설정」 블록 하나만 고치면 된다.
+
+| 값 | 무엇 |
+|---|---|
+| `SOURCE_SLUG` | 복제할 원본 클라이언트 |
+| `SAMPLE_SLUG` | 산출물 이름. `c/{이것}.json` |
+| `PLAYLIST` | 추천 지원사업을 읽어올 Firestore `playlists/{이름}` |
+| `NEW_NAME`·`NEW_EN`·`NEW_EN_CORP`·`NEW_DOMAIN` | 샘플에 나갈 새 표기 |
+| `SRC_NAMES`·`SRC_BRANDS`·`SRC_DOMAINS`·`SRC_EN` | 원본에서 지울 표기 |
+| `SRC_ACCOUNTS` | 공용 메일의 개인 계정. 로컬파트에 사명이 들면 도메인만 바꿔서는 남는다 |
+| `PEOPLE`·`PEOPLE_EN` | 클라이언트 측 실명 → 마스킹 |
+| `KEEP_PEOPLE` | 그로스하이 측. 마스킹하지 않는다 |
+| `SRC_ADDRESS` | 원본 소재지. 시(市)까지만 남긴다 |
+| `FORBIDDEN` | 산출물에 하나라도 남으면 실패로 보는 낱말 |
+
+그 아래 「영구 규칙」은 **클라이언트가 바뀌어도 그대로 둔다.** 자격증명·전화·계좌·
+사업자번호·특허 등록번호·FDA 등 공개 등록번호·자사 채용공고 URL·서명 블록 절단·
+구글드라이브가 여기 있다. 전부 실제로 한 번씩 새어 나왔던 것들이다.
+
+### 2. 재생목록을 만든다
+
+Firestore `playlists/{PLAYLIST}` 문서를 만들고 `items: [{slug, added_at}]` 를 채운다.
+`slug` 는 정책정보 `data-full.json` 의 `file` 에서 `.html` 을 뗀 값이다.
+**마감이 지난 사업은 빌드마다 걸러지므로** 마감이 먼 상시형으로 채우는 편이 오래 간다.
+
+### 3. 만든다
+
+```bash
+python src/make_sample.py --check    # 쓰지 않고 결과만 본다
+python src/make_sample.py            # c/sample.json 을 만든다
+```
+
+치환 건수와 금지어 검사가 함께 나온다. 금지어가 하나라도 남으면 종료 코드 1 이다.
+
+### 4. 다른 클라이언트를 합친다 (선택)
+
+한 곳만으로는 화면이 성기다. 두 번째 클라이언트를 같은 가명으로 덮어 합친다.
+
+```bash
+python src/merge_sample.py --company 더모멘트 --dry-run
+python src/merge_sample.py --company 더모멘트
+```
+
+`src/merge_sample.py` 상단 `MERGE_SOURCES` 에 그 클라이언트의 표기·인명·가져올
+프로젝트 목록을 적어 둔다. 프로젝트는 기업 DB 릴레이션으로, 메일은 IMAP 폴더에서
+직접, 미팅·유선은 노션 소통 DB 에서 가져온다.
+
+**겹치는 사업을 빼고 싶으면** `exclude_title` 에 정규식을 적는다. 다만 나중에 그
+사업을 다시 넣기로 했다면 이 값을 반드시 지울 것 — 안 그러면 관련 메일이 통째로
+빠진 채 남는다.
+
+### 5. 주소를 만든다
+
+`?c=sample` 은 그대로 열린다. 짧은 주소를 쓰려면 빌더가 만드는
+`{슬러그}/index.html` 과 같은 사본을 하나 두면 된다. 루트 `index.html` 을 복사하고
+`</main>` 다음 빈 줄 다음 `<script>` 앞에 아래 한 줄을 끼워 넣으면 끝이다.
+
+```html
+<script>window.__SLUG__="sample";window.__BASE__="../";</script>
+```
+
+디렉터리 이름과 슬러그를 다르게 둬도 된다. 지금 `/beauty/` 가 그렇다 — 디렉터리는
+`beauty`, 주입한 슬러그는 `sample` 이라 데이터는 `c/sample.json` 을 그대로 쓴다.
+슬러그까지 바꾸면 `index.html` 의 평문 분기(`CLIENT === 'sample'`)에 걸리지 않아
+비밀번호 게이트가 다시 뜬다.
+
+`robots.txt` 에 새 경로를 한 줄 추가한다.
+
+### 6. 훑는다 — 건너뛰지 말 것
+
+```bash
+python src/scan_sample.py
+```
+
+기업명·브랜드부터 주민번호·카드·여권·계좌·특허 등록번호·채용공고 URL·서명 잔재까지
+한 번에 본다. 종료 코드 0 이어야 배포한다. 손으로 고쳤든 스크립트로 만들었든
+결과물만 보므로, `c/sample.json` 을 직접 편집한 뒤에도 반드시 다시 돌린다.
+
+좌측 「자료」에 일부러 걸어 둔 링크는 검사에서 빼고 본다.
+
+### 7. 열어 본다
+
+```bash
+python -m http.server 8000 --bind 127.0.0.1
+```
+
+`http://localhost:8000/beauty/` 와 `http://localhost:8000/?c=sample` 둘 다 확인한다.
+게이트가 뜨지 않아야 하고, 다른 클라이언트(`/whiffkorea/`)는 반대로 떠야 한다.
+
+### 손으로 고칠 때
+
+`c/sample.json` 을 직접 편집해도 된다. 다만 **`make_sample.py` 를 다시 돌리면
+전부 덮어써진다.** 손질을 시작했다면 그 뒤로는 돌리지 말거나, 고친 내용을
+설정·규칙 쪽에 반영해 두는 편이 안전하다.
+
+편집 후에는 문법 검사와 전수 스캔을 함께 돌린다.
+
+```bash
+python -c "import json;json.load(open('c/sample.json',encoding='utf-8'));print('OK')"
+python src/scan_sample.py
+```
+
+화면 항목이 JSON 의 어느 키에 대응하는지는 `notice`·`progress`·`talks`·`recommend`·
+`events`·`kpi` 여섯이 전부다. `kpi` 는 자동 계산이 아니라 값을 그대로 찍으므로
+`progress` 를 고쳤으면 `running`·`done`·`certs` 도 함께 맞춰야 한다.
+접히는 공지 항목을 손으로 만들 때는 `children` 만으로는 안 되고 `toggle: true` 가
+있어야 접힌다.
 
 ---
 

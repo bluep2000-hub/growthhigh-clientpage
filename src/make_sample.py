@@ -1,13 +1,20 @@
-"""forest-avenue 를 복제해 공개 데모용 `c/sample.json` 을 만든다.
+"""클라이언트 하나를 복제해 공개 데모용 `c/{샘플슬러그}.json` 을 만든다.
 
-원본은 아무것도 바꾸지 않는다. `c/forest-avenue.enc` 를 풀어 메모리 위의
-사본에만 치환을 걸고, 평문 봉투(`enc:false`)로 `c/sample.json` 에 쓴다.
-노션에도 쓰지 않는다 — 읽기만 한다(비밀번호를 가져오기 위해서다).
+원본은 아무것도 바꾸지 않는다. `c/{원본}.enc` 를 풀어 메모리 위의 사본에만
+치환을 걸고, 평문 봉투(`enc:false`)로 쓴다. 노션에도 쓰지 않는다 —
+비밀번호를 가져오려고 읽기만 한다.
 
-index.html 은 슬러그가 `sample` 이면 이 파일을 읽고 비밀번호 게이트를 건너뛴다.
+`index.html` 은 슬러그가 `sample` 이면 이 파일을 읽고 비밀번호 게이트를 건너뛴다.
 
-    python src/make_sample.py            # c/sample.json 을 만든다
+    python src/make_sample.py            # 만든다
     python src/make_sample.py --check    # 만들지 않고 검사만 한다
+
+새 샘플을 만들 때 고칠 곳은 아래 「설정」 블록 하나뿐이다.
+그 아래 「영구 규칙」은 클라이언트와 무관하게 늘 적용된다 — 지우지 말 것.
+
+⚠ 이 스크립트는 산출물을 통째로 다시 만든다. 손으로 고친 내용
+(merge_sample.py 로 병합한 다른 클라이언트, 직접 편집한 공지 등)은 사라진다.
+자세한 절차는 README 「새 샘플 만들기」를 볼 것.
 """
 from __future__ import annotations
 
@@ -29,100 +36,70 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_client as B                                   # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC_SLUG = "forest-avenue"
-DST_SLUG = "sample"
 
-# 추천 지원사업만 원본을 복제하지 않고 따로 읽는다. Firestore 의
-# playlists/{이 이름} 문서다 — 원본 클라이언트의 재생목록과 완전히 분리된다.
-SAMPLE_PLAYLIST = "케이뷰티"
+# ══════════════════════════════════════════════════════════════════════════
+# 설정 — 새 샘플을 만들 때 여기만 고친다
+# ══════════════════════════════════════════════════════════════════════════
 
-# ── 치환표 ──────────────────────────────────────────────────────────────
-# 긴 것부터 건다. 「(주)포레스트에비뉴」는 마지막 규칙만으로도 처리되지만
-# 표기를 눈으로 확인할 수 있게 남겨 둔다.
-RULES: list[tuple[str, str]] = [
-    ("주식회사 포레스트에비뉴", "주식회사 케이뷰티"),
-    ("(주)포레스트에비뉴", "(주)케이뷰티"),
-    ("포레스트 에비뉴", "케이뷰티"),
-    ("포레스트에비뉴", "케이뷰티"),
-    (SRC_SLUG, DST_SLUG),
-    ("menokin.co.kr", "kbeauty.co.kr"),
-    ("MENOKIN", "KBEAUTY"),
-    ("Menokin", "Kbeauty"),
-    ("menokin", "kbeauty"),
-    ("메노킨", "케이뷰티"),
+SOURCE_SLUG = "forest-avenue"      # 복제할 원본 클라이언트
+SAMPLE_SLUG = "sample"             # 산출물 c/{이것}.json · assets/notice/{이것}-*
+
+# 추천 지원사업만 원본을 복제하지 않고 Firestore 에서 따로 읽는다.
+# playlists/{이 이름} 문서를 미리 만들어 둘 것. 없으면 recommend=[] 가 된다.
+PLAYLIST = "케이뷰티"
+
+# 샘플에 나갈 새 표기
+NEW_NAME = "케이코스메틱"
+NEW_EN = "KCOS"
+NEW_EN_CORP = "KCOS COSMETIC Co.,Ltd."
+NEW_DOMAIN = "kcosmetic.co.kr"
+
+# 원본에서 지울 표기. 긴 것부터 쓴다 — 앞의 규칙이 뒤를 먹지 않게.
+SRC_NAMES = ["주식회사 포레스트에비뉴", "(주)포레스트에비뉴",
+             "포레스트 에비뉴", "포레스트에비뉴"]
+SRC_BRANDS = ["메노킨", "MENOKIN", "Menokin", "menokin"]
+SRC_DOMAINS = ["menokin.co.kr"]
+SRC_EN = [r"forest\s*avenue"]      # 영문 상호. 정규식이라 대소문자·띄어쓰기를 가린다
+
+# 공용 메일(naver·nate 등)에 쓰는 개인 계정. 로컬파트에 사명·실명이 들어가면
+# 도메인 치환만으로는 남는다. 통째로 적어 둔다.
+SRC_ACCOUNTS = {
+    "sol@": "sl@",
+}
+
+# 클라이언트 측 인명 → 마스킹. 성만 남긴다.
+PEOPLE = {
+    "이준희": "이○○", "이한별": "이○○", "이보경": "이○○", "임솔": "임○",
+    "추성국": "추○○", "이은지": "이○○", "이윤주": "이○○", "김우현": "김○○",
+    "김효연": "김○○", "주한별": "주○○", "김희수": "김○○",
+    "정신자": "정○○",                       # 중진공 담당자
+    "박보영": "○○○",                        # 광고 모델 — 검색하면 브랜드가 나온다
+}
+PEOPLE_EN = {
+    r"junhee\s+lee|hanbyeol\s+lee": "LEE",
+    r"\bsol\s+lim\b": "LIM",
+    r"\bbo\s?kyung\s+lee\b": "LEE",
+}
+# 그로스하이 측은 남긴다. 여기 있는 이름은 마스킹 대상에서 뺀다.
+KEEP_PEOPLE = ["박재현", "윤범상", "양승현", "김수정", "박윤경"]
+
+# 원본 소재지. 시(市)까지만 남기고 그 아래를 가린다.
+SRC_ADDRESS = [
+    (r"방배로\s*\d+\s*길\s*\d+", "○○로 ○○"),
+    (r"\(방배동[^)]*\)", "(○○동)"),
+    (r"방배동", "○○동"),
+    (r"미도빌딩", "○○빌딩"),
+    (r"서초구", "○○구"),
+    (r"Bangbae-ro\s*\d+-gil", "○○-ro"),
+    (r"Seocho-gu", "○○-gu"),
+    (r"\b3F,\s*18,?", "○F, ○○,"),
+    (r"\b06562\b", "00000"),
 ]
 
-# 한글만 바꾸면 서명·영문 상호가 그대로 남는다. 대소문자·띄어쓰기를 가리지 않는다.
-RE_RULES: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"forest\s*avenue\s*co\.?,?\s*ltd\.?", re.I), "KBEAUTY Co.,Ltd."),
-    (re.compile(r"forest\s*avenue", re.I), "KBEAUTY"),
-]
+# 원본 메일 서명에 박힌 태그라인. 서명 블록을 잘라내는 표지로 쓴다.
+SRC_SIG_MARKS = [r"Time\s+Saving\s+Minimal\s+Skincare"]
 
-# 메일 본문에 정부지원 시스템 계정이 그대로 오간다. 공개본에는 값을 남기지 않는다.
-# 「ID / PW 공유 부탁드립니다」처럼 값이 없는 문장은 건드리지 않는다.
-CRED_RE = re.compile(
-    r"(?i)((?:\bID\b|\bPW\b|\bPASSWORD\b|아이디|비번|비밀번호)\s*[:：]\s*)"
-    r"([^\s|,]+?)(?=\s|$|,|\||비번|비밀번호|아이디)")
-CRED_MASK = "●●●●●●"
-
-# ── 추가 마스킹 ─────────────────────────────────────────────────────────
-# 공개 평문 페이지라 URL 만 알면 그대로 보인다. 데모에 필요 없는 식별 정보는
-# 여기서 지운다. 그로스하이 측 이름·메일과 기관명·사업명·금액·날짜는 남긴다.
-MASK_RULES: list[tuple[str, re.Pattern, str]] = [
-    # 클라이언트 측 사람 — 성만 남긴다
-    ("사람이름", re.compile(r"이\s*준\s*희"), "이○○"),
-    ("사람이름", re.compile(r"이\s*한\s*별"), "이○○"),
-    ("사람이름", re.compile(r"이\s*보\s*경"), "이○○"),
-    ("사람이름", re.compile(r"임\s*솔"), "임○"),
-    ("사람이름", re.compile(r"junhee\s+lee|hanbyeol\s+lee", re.I), "LEE"),
-    ("사람이름", re.compile(r"\bsol\s+lim\b", re.I), "LIM"),
-    ("사람이름", re.compile(r"\bbo\s?kyung\s+lee\b", re.I), "LEE"),
-    # 그로스하이 측은 남긴다 — 박재현·윤범상·양승현에 더해 김수정(이사/기업운영팀)·
-    # 박윤경(리서처)도 growthhigh.co.kr 소속이라 마스킹하지 않는다.
-    ("사람이름", re.compile(r"추\s*성\s*국"), "추○○"),   # 클라이언트 상무
-    ("사람이름", re.compile(r"정\s*신\s*자"), "정○○"),   # 중진공 담당자
-    # 메일 계정 하나만 따로 바꾼다
-    ("계정치환", re.compile(r"\bsol@"), "sl@"),
-    # 주소 — 시(市)까지만 남기고 그 아래를 가린다
-    # 도로명 주소 일반형. 사옥뿐 아니라 본문에 섞인 자택 주소까지 잡는다.
-    ("주소", re.compile(r"[가-힣]{2,6}(?:대로|로)\s?\d+길\s*\d+(?:-\d+)?"
-                        r"(?:\s*,?\s*\d+호)?"), "○○로 ○○"),
-    ("주소", re.compile(r"방배로\s*\d+\s*길\s*\d+"), "○○로 ○○"),
-    ("주소", re.compile(r"\(방배동[^)]*\)"), "(○○동)"),
-    ("주소", re.compile(r"방배동"), "○○동"),
-    ("주소", re.compile(r"미도빌딩"), "○○빌딩"),
-    ("주소", re.compile(r"서초구"), "○○구"),
-    ("주소", re.compile(r"Bangbae-ro\s*\d+-gil", re.I), "○○-ro"),
-    ("주소", re.compile(r"Seocho-gu", re.I), "○○-gu"),
-    ("주소", re.compile(r"\b3F,\s*18,?"), "○F, ○○,"),
-    ("주소", re.compile(r"\b06562\b"), "00000"),
-    # 연락처
-    ("전화번호", re.compile(r"(?<!\d)0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)"),
-     "0**-****-****"),
-    # 계좌·사업자등록번호
-    ("계좌번호", re.compile(r"(?<!\d)\d{3}-\d{3}-\d{6}(?!\d)"), "***-***-******"),
-    # FDA Product Listing 같은 공개 등록번호. 등록부에서 실기업을 되짚을 수 있다.
-    ("등록번호", re.compile(r"(?<!\d)\d{2,3}-\d{4,6}-\d{5,6}(?!\d)"), "**-******-******"),
-    ("사업자번호", re.compile(r"(?<!\d)\d{3}-\d{2}-\d{5}(?!\d)"), "***-**-*****"),
-    ("사업자번호", re.compile(r"(?<!\d)\d{10}(?!\d)"), "**********"),
-    # 자사 채용공고. 열면 실기업이 그대로 드러난다 — 주소째 지운다.
-    ("채용공고", re.compile(
-        r"https?://(?:www\.)?(?:saramin\.co\.kr/zf_user|jobkorea\.co\.kr)/\S*", re.I),
-     "https://example.com/"),
-    # 제3자 상호·도메인
-    ("제3자도메인", re.compile(r"\b(storytunes\.net|green-cos\.com|dasancpa\.com)\b",
-                          re.I), "example.com"),
-    ("제3자도메인", re.compile(r"\bgreen\s*cos\b", re.I), "○○○"),
-]
-
-# 남아 있으면 안 되는 흔적. 만들고 나서 전문을 훑는다.
-FORBIDDEN = ["포레스트", "에비뉴", "menokin", "MENOKIN", "메노킨", SRC_SLUG,
-             "forest", "avenue"]
-
-# 메일 주소는 계정(@ 앞)을 남기고 도메인만 바꾼다. 몇 건인지 따로 센다.
-MAIL_RE = re.compile(r"[\w.+-]+@(?:menokin\.co\.kr)", re.I)
-
-# 첨부 파일명에서 살릴 사업·제도·서식 이름. 여기 없으면 확장자만 남긴다.
+# 첨부 파일명에서 살릴 사업·제도·서식 이름. 없으면 확장자만 남긴다.
 PROGRAM_WORDS = [
     "창업도약패키지", "K-수출스타", "K수출스타", "수출바우처", "혁신바우처",
     "수출리스크", "해외규격인증", "기업부설연구소", "연구인력기초사항",
@@ -132,20 +109,144 @@ PROGRAM_WORDS = [
     "기술혁신개발사업", "브랜드소개서", "조직도", "주주명부",
 ]
 
-# 공지의 드라이브 항목은 링크가 아니라 글자뿐이다(노션에서 href 없이 적혀 있다).
-# 주소와 글자를 둘 다 본다.
-DRIVE_RE = re.compile(r"(drive|docs)\.google\.com|구글\s*드라이브|google\s*drive", re.I)
-ATTACH_PREFIX = "첨부: "
+# 거래처·제3자 상호와 도메인. 데모에 필요 없다.
+THIRD_PARTY = [
+    (r"\b(storytunes\.net|green-cos\.com|dasancpa\.com|nate\.com)\b", "example.com"),
+    (r"\bgreen\s*cos\b", "○○○"),
+]
 
-# 공지 안의 커스텀 이모지는 슬러그별 파일로 내려받혀 있다. 경로가 치환되면
-# sample-*.png 를 가리키게 되므로 원본에서 같은 이름으로 복사해 둔다.
-ASSET_RE = re.compile(rf"assets/notice/{DST_SLUG}-([0-9a-f]+)\.(\w+)")
+# 만들고 나서 전문을 훑는다. 하나라도 남으면 배포하지 않는다.
+FORBIDDEN = ["포레스트", "에비뉴", "메노킨", "menokin", "MENOKIN",
+             "forest", "avenue", SOURCE_SLUG]
+
+# ══════════════════════════════════════════════════════════════════════════
+# 영구 규칙 — 클라이언트가 바뀌어도 그대로 둔다
+# ══════════════════════════════════════════════════════════════════════════
+
+# 메일 본문에 정부지원 시스템 계정이 그대로 오간다. 값은 남기지 않는다.
+# 「ID / PW 공유 부탁드립니다」처럼 값이 없는 문장은 건드리지 않는다.
+CRED_RE = re.compile(
+    r"(?i)((?:\bID\b|\bPW\b|\bPASSWORD\b|아이디|비번|비밀번호)\s*[:：]\s*)"
+    r"([^\s|,]+?)(?=\s|$|,|\||비번|비밀번호|아이디)")
+CRED_MASK = "●●●●●●"
+
+# 라벨은 분류용이고 동작과 무관하다. 순서가 곧 적용 순서다.
+PERMANENT_RULES: list[tuple[str, str, str]] = [
+    # 도로명 주소 일반형. 사옥뿐 아니라 본문에 섞인 자택 주소까지 잡는다.
+    ("주소", r"[가-힣]{2,6}(?:대로|로)\s?\d+길\s*\d+(?:-\d+)?(?:\s*,?\s*\d+호)?",
+     "○○로 ○○"),
+    ("전화번호", r"(?<!\d)0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)", "0**-****-****"),
+    ("계좌번호", r"(?<!\d)\d{3}-\d{3}-\d{6}(?!\d)", "***-***-******"),
+    # FDA Product Listing 같은 공개 등록번호. 등록부에서 실기업을 되짚을 수 있다.
+    ("등록번호", r"(?<!\d)\d{2,3}-\d{4,6}-\d{5,6}(?!\d)", "**-******-******"),
+    ("사업자번호", r"(?<!\d)\d{3}-\d{2}-\d{5}(?!\d)", "***-**-*****"),
+    ("사업자번호", r"(?<!\d)\d{10}(?!\d)", "**********"),
+    # 특허 등록번호. 공개 등록부에서 출원인이 바로 나온다.
+    ("특허번호", r"제\s*10-\d{6,8}\s*호", "제10-○○○○○○○호"),
+    # 자사 채용공고. 열면 실기업이 그대로 드러난다 — 주소째 지운다.
+    ("채용공고",
+     r"https?://(?:www\.)?(?:saramin\.co\.kr/zf_user|jobkorea\.co\.kr)/\S*",
+     "https://example.com/"),
+]
+
+# 구글드라이브. 공지에서는 링크가 아니라 글자뿐인 경우가 많다(노션에서 href 없이 적힌다).
+DRIVE_RE = re.compile(r"(drive|docs)\.google\.com|구글\s*드라이브|google\s*drive", re.I)
+DRIVE_LINE_RE = re.compile(r"(?m)^.*구글\s*드라이브.*$\n?")
+
+ATTACH_PREFIX = "첨부: "
+SIG_MIN_KEEP = 30          # 서명을 자른 뒤 이보다 짧아지면 본문을 비운다
+
+# ══════════════════════════════════════════════════════════════════════════
+# 설정에서 규칙을 조립한다
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def _build_rules() -> list[tuple[str, str]]:
+    """단순 문자열 치환. 긴 것부터 적용되도록 순서를 지킨다."""
+    out: list[tuple[str, str]] = []
+    for name in SRC_NAMES:
+        new = name.replace(SRC_NAMES[-1], NEW_NAME) if SRC_NAMES[-1] in name else NEW_NAME
+        out.append((name, new))
+    for acc, new in SRC_ACCOUNTS.items():
+        out.append((acc, new))
+    for dom in SRC_DOMAINS:
+        out.append((dom, NEW_DOMAIN))
+    for brand in SRC_BRANDS:
+        if brand.isupper():
+            out.append((brand, NEW_EN.upper()))
+        elif brand[0].isupper() and brand[1:].islower():
+            out.append((brand, NEW_EN.capitalize()))
+        elif brand.islower() and brand.isascii():
+            out.append((brand, NEW_EN.lower()))
+        else:
+            out.append((brand, NEW_NAME))
+    out.append((SOURCE_SLUG, SAMPLE_SLUG))
+    return out
+
+
+def _build_re_rules() -> list[tuple[re.Pattern, str]]:
+    """영문 상호처럼 대소문자·띄어쓰기를 가리지 않아야 하는 것."""
+    out = []
+    for en in SRC_EN:
+        out.append((re.compile(en + r"\s*co\.?,?\s*ltd\.?", re.I), NEW_EN_CORP))
+        out.append((re.compile(en, re.I), NEW_EN))
+    return out
+
+
+def _build_mask_rules() -> list[tuple[str, re.Pattern, str]]:
+    """라벨이 붙은 정규식 규칙. 사람·주소는 설정에서, 나머지는 영구 규칙에서 온다."""
+    out: list[tuple[str, re.Pattern, str]] = []
+    for name, masked in PEOPLE.items():
+        if name in KEEP_PEOPLE:
+            continue
+        spaced = r"\s*".join(re.escape(ch) for ch in name)
+        out.append(("사람이름", re.compile(spaced), masked))
+    for pat, masked in PEOPLE_EN.items():
+        out.append(("사람이름", re.compile(pat, re.I), masked))
+    for pat, new in SRC_ADDRESS:
+        out.append(("주소", re.compile(pat, re.I), new))
+    for label, pat, new in PERMANENT_RULES:
+        out.append((label, re.compile(pat, re.I), new))
+    for pat, new in THIRD_PARTY:
+        out.append(("제3자도메인", re.compile(pat, re.I), new))
+    return out
+
+
+def _build_sig_re() -> re.Pattern:
+    """메일 끝 연락처 블록의 시작 표지. 여기서부터 끝까지 잘라낸다."""
+    marks = list(SRC_SIG_MARKS) + [
+        r"^\s*[_\-=–—]{3,}\s*$",                       # 구분선
+        r"Republic of Korea",
+        r"HR&GA\s*Part|Operations Support Manager",
+    ]
+    company = "|".join(re.escape(x) for x in (NEW_NAME, *SRC_NAMES))
+    marks.append(rf"^\s*\(?\*?주\)?\*?\s*(?:{company})\s*서울")
+    return re.compile("|".join(marks), re.I | re.M)
+
+
+RULES = _build_rules()
+RE_RULES = _build_re_rules()
+MASK_RULES = _build_mask_rules()
+SIG_RE = _build_sig_re()
+MAIL_RE = re.compile(r"[\w.+-]+@(?:" +
+                     "|".join(re.escape(d) for d in SRC_DOMAINS) + r")", re.I)
+ASSET_RE = re.compile(rf"assets/notice/{SAMPLE_SLUG}-([0-9a-f]+)\.(\w+)")
 
 stats: Counter = Counter()
 attach_map: dict[str, str] = {}
+sig_report: list[tuple] = []
+
+# 보고 순서. 여기 없는 라벨도 stats 에는 쌓이지만 표에는 안 나온다.
+REPORT_ORDER = ("제목", "본문", "표", "메일주소", "기타", "첨부파일명",
+                "자격증명마스킹", "사람이름", "주소", "전화번호", "계좌번호",
+                "사업자번호", "등록번호", "특허번호", "채용공고", "제3자도메인",
+                "서명블록삭제", "본문전체가서명", "드라이브참조줄삭제",
+                "드라이브항목삭제", "드라이브링크속성", "빈섹션삭제", "로고제거")
 
 
-# ── 문자열 치환 ─────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+# 치환
+# ══════════════════════════════════════════════════════════════════════════
 
 def bucket(path: list[str], text: str) -> str:
     """치환 건수를 어디로 셀지 정한다. 보고용 분류일 뿐 동작과는 무관하다."""
@@ -185,8 +286,6 @@ def scrub_text(text: str, path: list[str]) -> str:
     return text
 
 
-# ── 첨부 파일명 ─────────────────────────────────────────────────────────
-
 def scrub_filename(name: str) -> str:
     """확장자만 남긴다. 사업·서식 이름이 들어 있으면 그것만 살린다."""
     name = name.strip()
@@ -212,9 +311,8 @@ def scrub_attachments(text: str) -> str:
     return "\n".join(lines)
 
 
-# ── 트리 순회 ───────────────────────────────────────────────────────────
-
 def walk(node, path: list[str]):
+    """payload 트리의 모든 문자열에 치환을 건다."""
     if isinstance(node, str):
         text = scrub_attachments(node) if ATTACH_PREFIX in node else node
         return scrub_text(text, path)
@@ -224,6 +322,10 @@ def walk(node, path: list[str]):
         return {k: walk(v, path + [k]) for k, v in node.items()}
     return node
 
+
+# ══════════════════════════════════════════════════════════════════════════
+# 구글드라이브 · 서명 블록
+# ══════════════════════════════════════════════════════════════════════════
 
 def drop_drive_items(items: list[dict]) -> list[dict]:
     """구글드라이브 링크는 항목째 뺀다. 자식 안에 있으면 그 자식만 뺀다."""
@@ -261,23 +363,12 @@ def strip_drive(payload: dict) -> None:
     notice["sections"] = sections
 
 
-# ── 원본 읽기 ───────────────────────────────────────────────────────────
-
-# ── 서명 블록 ───────────────────────────────────────────────────────────
-# 메일 끝에 붙는 연락처 블록과 그 뒤의 인용 헤더를 통째로 뗀다. 본문은
-# 「감사합니다 / OOO 드림」까지다. 그로스하이 쪽은 이름 한 줄뿐이라 걸리지 않는다.
-SIG_RE = re.compile(
-    r"(?:KBEAUTY|MENOKIN)?\s*Time\s+Saving\s+Minimal\s+Skincare"
-    r"|^\s*[_\-=–—]{3,}\s*$"
-    r"|^\s*\(?\*?주\)?\*?\s*(?:케이뷰티|포레스트에비뉴)\s*서울"
-    r"|Republic of Korea"
-    r"|HR&GA\s*Part|Operations Support Manager",
-    re.I | re.M)
-
-# 잘라낸 뒤 이보다 짧아지면 자르지 않는다 — 본문이 통째로 날아가는 것을 막는다.
-SIG_MIN_KEEP = 30
-
-sig_report: list[tuple] = []
+def drop_drive_lines(text: str) -> str:
+    """본문에 남은 드라이브 참조 줄. 주소는 떨어져 나가고 글자만 남아 있다."""
+    out, n = DRIVE_LINE_RE.subn("", text)
+    if n:
+        stats["드라이브참조줄삭제"] += n
+    return out.rstrip()
 
 
 def cut_signature(text: str) -> tuple[str | None, str, int, int]:
@@ -300,7 +391,6 @@ def cut_signature(text: str) -> tuple[str | None, str, int, int]:
 
     kept = core[:m.start()].rstrip()
     if len(kept) < SIG_MIN_KEEP:
-        # 남는 게 없다 = 본문이 서명뿐이었다. 서명을 남기느니 본문을 비운다.
         out = tail or None
         return out, "empty", len(text), len(out or "")
 
@@ -308,18 +398,8 @@ def cut_signature(text: str) -> tuple[str | None, str, int, int]:
     return out, "cut", len(text), len(out)
 
 
-# 본문에 남은 드라이브 링크 참조 줄. 주소는 이미 떨어져 나가 글자만 남아 있다.
-DRIVE_LINE_RE = re.compile(r"(?m)^.*구글\s*드라이브.*$\n?")
-
-
-def drop_drive_lines(text: str) -> str:
-    out, n = DRIVE_LINE_RE.subn("", text)
-    if n:
-        stats["드라이브참조줄삭제"] += n
-    return out.rstrip()
-
-
 def cut_signatures(talks: list[dict]) -> None:
+    """소통 내역의 본문·요약에서 서명 블록과 드라이브 참조 줄을 뗀다."""
     for t in talks:
         for field in ("body", "preview"):
             if t.get(field) and "구글" in t[field]:
@@ -335,16 +415,20 @@ def cut_signatures(talks: list[dict]) -> None:
             if field != "body":
                 continue
             stats["서명블록삭제" if state == "cut" else "본문전체가서명"] += 1
-            sig_report.append((t["date"], t["direction"], t["title"],
+            sig_report.append((t.get("date"), t.get("direction"), t.get("title"),
                                before, after, state))
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# 자산 · 원본 읽기
+# ══════════════════════════════════════════════════════════════════════════
+
 def copy_assets(blob: str, dry: bool) -> list[str]:
-    """치환된 경로가 가리키는 이모지 이미지를 원본에서 복사한다."""
+    """치환된 경로가 가리키는 공지 이모지 이미지를 원본에서 복사한다."""
     made = []
     for h, ext in set(ASSET_RE.findall(blob)):
-        src = ROOT / "assets" / "notice" / f"{SRC_SLUG}-{h}.{ext}"
-        dst = ROOT / "assets" / "notice" / f"{DST_SLUG}-{h}.{ext}"
+        src = ROOT / "assets" / "notice" / f"{SOURCE_SLUG}-{h}.{ext}"
+        dst = ROOT / "assets" / "notice" / f"{SAMPLE_SLUG}-{h}.{ext}"
         if not src.exists():
             print(f"  ⚠ 원본 이미지 없음: {src.name}")
             continue
@@ -355,7 +439,7 @@ def copy_assets(blob: str, dry: bool) -> list[str]:
 
 
 def missing_assets(blob: str) -> list[str]:
-    """sample.json 이 가리키는 파일 중 실제로 없는 것."""
+    """산출물이 가리키는 파일 중 실제로 없는 것."""
     out = []
     for path in set(re.findall(r"(assets/[\w./-]+|logo/[\w./-]+)", blob)):
         if not (ROOT / path).exists():
@@ -363,16 +447,17 @@ def missing_assets(blob: str) -> list[str]:
     return sorted(out)
 
 
-def load_payload() -> dict:
-    env = json.loads((ROOT / "c" / f"{SRC_SLUG}.enc").read_text(encoding="utf-8"))
+def load_payload(slug: str = SOURCE_SLUG) -> dict:
+    """c/{slug}.enc 를 풀어 payload 를 돌려준다. 노션에서 비밀번호만 읽는다."""
+    env = json.loads((ROOT / "c" / f"{slug}.enc").read_text(encoding="utf-8"))
     if not env.get("enc"):
         return env["data"]
 
     load_dotenv(ROOT / ".env")
     nt = B.Notion(os.environ["NOTION_TOKEN"])
-    clients, _ = B.fetch_clients(nt, SRC_SLUG)
+    clients, _ = B.fetch_clients(nt, slug)
     if not clients:
-        raise SystemExit(f"{SRC_SLUG} 를 공유페이지 DB 에서 찾지 못했습니다.")
+        raise SystemExit(f"{slug} 를 공유페이지 DB 에서 찾지 못했습니다.")
     password = clients[0]["password"]
     if not password:
         raise SystemExit("비밀번호가 비어 있어 원본을 풀 수 없습니다.")
@@ -385,8 +470,41 @@ def load_payload() -> dict:
     return json.loads(plain)
 
 
+def report(blob: str, copied: list[str]) -> int:
+    """치환 건수·금지어·서명 처리 결과를 찍고 문제 건수를 돌려준다."""
+    print("치환 건수")
+    for k in REPORT_ORDER:
+        if stats.get(k):
+            print(f"  {k:16} {stats[k]:>4}건")
+
+    print("\n금지어 검사")
+    bad = 0
+    for word in FORBIDDEN:
+        n = blob.count(word)
+        bad += n
+        print(f"  {word:14} {n}건 {'' if n == 0 else '  ← 남아 있음'}")
+
+    gone = [p for p in missing_assets(blob) if Path(p).name not in copied]
+    if gone:
+        bad += len(gone)
+        print(f"\n⚠ 가리키는데 없는 파일 {len(gone)}개: {', '.join(gone)}")
+
+    if sig_report:
+        print(f"\n서명 블록 처리 {len(sig_report)}건 (본문 길이 변화)")
+        for d, direction, title, before, after, state in sig_report:
+            note = "  ← 본문 전체가 서명이라 비움" if state == "empty" else ""
+            print(f"  {d} {direction} {before:>5} -> {after:>5}  "
+                  f"{(title or '')[:40]}{note}")
+
+    if attach_map:
+        print(f"\n첨부 파일명 {len(attach_map)}종")
+        for src, dst in sorted(attach_map.items()):
+            print(f"  {src[:64]:<64} -> {dst}")
+    return bad
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="공개 데모용 sample 데이터 생성기")
+    ap = argparse.ArgumentParser(description="공개 데모용 샘플 데이터 생성기")
     ap.add_argument("--check", action="store_true", help="파일을 쓰지 않고 검사만 한다")
     args = ap.parse_args()
 
@@ -397,12 +515,12 @@ def main() -> int:
 
     # 치환 뒤에 읽는다. 정책정보에서 갓 받은 값이라 치울 것이 없고,
     # 치환을 태우면 사업명이 엉뚱하게 바뀔 수 있다.
-    payload["recommend"] = B.fetch_recommend(SAMPLE_PLAYLIST, B.INCLUDE_EXPIRED)
-    print(f"추천 지원사업 {len(payload['recommend'])}건 "
-          f"(playlists/{SAMPLE_PLAYLIST})\n")
+    payload["recommend"] = B.fetch_recommend(PLAYLIST, B.INCLUDE_EXPIRED)
+    print(f"추천 지원사업 {len(payload['recommend'])}건 (playlists/{PLAYLIST})\n")
 
     # 로고는 원본 노션 아이콘이라 그대로 두면 진짜 회사 표식이 남는다.
     # 둘 다 비우면 index.html 이 기업명 앞 두 글자를 대신 그린다.
+    # 데모용 로고를 쓰려면 logo/{샘플슬러그}.png 를 두고 아래를 그 경로로 바꾼다.
     co = payload.setdefault("company", {})
     if co.get("logo") or co.get("logo_emoji"):
         stats["로고제거"] += 1
@@ -417,50 +535,19 @@ def main() -> int:
         print(f"공지 이모지 이미지 {len(copied)}개 복사"
               f"{' (check — 쓰지 않음)' if args.check else ''}: {', '.join(copied)}\n")
 
-    print("치환 건수")
-    for k in ("제목", "본문", "표", "메일주소", "계정치환", "기타", "첨부파일명",
-              "자격증명마스킹", "사람이름", "주소", "전화번호", "계좌번호",
-              "사업자번호", "등록번호", "제3자도메인", "서명블록삭제", "본문전체가서명",
-              "드라이브참조줄삭제",
-              "드라이브항목삭제", "드라이브링크속성", "빈섹션삭제", "로고제거"):
-        if stats.get(k):
-            print(f"  {k:16} {stats[k]:>4}건")
+    bad = report(blob, copied)
 
-    print("\n금지어 검사 (c/sample.json 전문)")
-    bad = 0
-    for word in FORBIDDEN:
-        n = blob.count(word)
-        bad += n
-        print(f"  {word:14} {n}건 {'' if n == 0 else '  ← 남아 있음'}")
-
-    # --check 에서는 아직 복사하지 않았으므로 복사 예정인 것은 뺀다
-    gone = [p for p in missing_assets(blob) if Path(p).name not in copied]
-    if gone:
-        bad += len(gone)
-        print(f"\n⚠ 가리키는데 없는 파일 {len(gone)}개: {', '.join(gone)}")
-
-    if sig_report:
-        print(f"\n서명 블록 처리 {len(sig_report)}건 (본문 길이 변화)")
-        for d, direction, title, before, after, state in sig_report:
-            mark = f"{before:>5} -> {after:>5}"
-            note = "  ← 본문 전체가 서명이라 비움" if state == "empty" else ""
-            print(f"  {d} {direction} {mark}  {title[:40]}{note}")
-
-    if attach_map:
-        print(f"\n첨부 파일명 {len(attach_map)}종")
-        for src, dst in sorted(attach_map.items()):
-            print(f"  {src[:64]:<64} -> {dst}")
-
-    out = ROOT / "c" / f"{DST_SLUG}.json"
+    out = ROOT / "c" / f"{SAMPLE_SLUG}.json"
     if args.check:
         print(f"\n(check) {out} 쓰지 않음 · {len(blob.encode('utf-8')):,}B")
         return 1 if bad else 0
 
     B.atomic_write_bytes(out, blob.encode("utf-8"))
-    print(f"\nc/{DST_SLUG}.json {len(blob.encode('utf-8')):,}B · enc=False")
+    print(f"\nc/{SAMPLE_SLUG}.json {len(blob.encode('utf-8')):,}B · enc=False")
     if bad:
         print("⚠ 금지어가 남아 있습니다. 배포하지 마세요.")
         return 1
+    print("이어서 python src/scan_sample.py 로 전수 스캔을 돌리세요.")
     return 0
 
 
