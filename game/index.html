@@ -1473,8 +1473,14 @@ function init(D){
     const bars = years.flatMap(y => [eok(sum(y,'fund')), eok(sum(y,'gov'))]);
     const step = niceStep(Math.max(...bars, 0.1));
     const px   = 54.4 / step;                      /* 눈금 한 칸 = 54.4px */
+    /* 연도가 하나면 막대 두 개가 왼쪽에 몰려 오른쪽이 텅 빈다. 그룹째
+       플롯 가운데로 민다 — 눈금선이 28~392 이니 중앙은 210 이고, 그룹
+       중심은 119 다. 연도가 둘이면 시안 좌표 그대로 둔다. */
+    const shift = years.length === 1 ? 210 - 119 : 0;
     const geo  = [{bx:59,tx:86.5,lx:119},{bx:124,tx:151.5},
-                  {bx:241,tx:268.5,lx:301},{bx:306,tx:333.5}];
+                  {bx:241,tx:268.5,lx:301},{bx:306,tx:333.5}]
+      .map(g => ({bx:g.bx+shift, tx:g.tx+shift,
+                  lx:g.lx === undefined ? undefined : g.lx+shift}));
 
     const chart = years.flatMap((y,yi) => ['fund','gov'].map((t,ti) => {
       const g = geo[yi*2+ti], v = eok(sum(y,t));
