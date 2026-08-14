@@ -596,7 +596,9 @@ body.locked #gate{display:grid}
 .psum-hd-a{margin-left:auto;font-size:11px;font-weight:600;
   color:var(--accent);text-decoration:none}
 .psum-hd-a:hover{text-decoration:underline}
-.psum-body{display:grid;grid-template-columns:1fr 150px;gap:18px;align-items:center}
+.psum-body{display:grid;grid-template-columns:1fr 186px;gap:18px;align-items:center}
+/* 차트가 카드 폭을 다 쓰면 막대 사이가 과하게 벌어진다 */
+.psum-chart{max-width:420px}
 .psum-side{border-left:1px solid var(--line);padding-left:18px}
 .psum-tot-l{font-size:10.5px;color:var(--tx-3)}
 .psum-tot-v{font-size:21px;font-weight:700;letter-spacing:-.045em;
@@ -607,11 +609,14 @@ body.locked #gate{display:grid}
 .psum-sp i{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
 .psum-nm{color:var(--tx-2);flex:1}
 .psum-vl{font-weight:600;color:var(--tx)}
-/* 캔버스가 900 폭이라 화면에서는 0.85 배쯤으로 줄어 보인다. 그만큼 키워 둔다 */
-.psum-axis{font-size:12px;fill:var(--tx-3)}
-.psum-ylab{font-size:14px;font-weight:600;fill:var(--tx-2)}
-.psum-bval{font-size:13px;font-weight:700;letter-spacing:-.02em}
-.psum-body svg{display:block;max-height:130px}
+/* 캔버스 240x150 이 화면에서 0.87 배쯤으로 줄어 보인다. 그만큼 키워 둔다 */
+.psum-axis{font-size:11px;fill:var(--tx-3)}
+.psum-ylab{font-size:12px;font-weight:600;fill:var(--tx-2)}
+.psum-bval{font-size:11px;font-weight:700;letter-spacing:-.02em}
+/* 카드 높이를 잡는 건 이 한 줄이다. .psum-chart 의 max-width 보다 이쪽이
+   먼저 걸린다 — 240x150 이라 112px 높이면 그림은 179px 폭에서 멈춘다.
+   이 값을 키우면 카드가 그만큼 높아진다 (130px 이면 카드 185px). */
+.psum-body svg{display:block;max-height:112px}
 @media(max-width:640px){
   .psum-body{grid-template-columns:1fr;gap:12px}
   .psum-side{border-left:none;padding-left:0;
@@ -1196,26 +1201,28 @@ function init(D){
       <div class="psum-hd"><span class="psum-hd-t">조달현황</span>
         <a class="psum-hd-a" href="#" data-go="perf">자세히 보기 →</a></div>
       <div class="psum-body">
-       <div>
-        <!-- 넓고 낮은 캔버스다. width:100% 라 높이는 폭 × 132/900 로 정해진다 —
-             400 폭으로 두면 카드가 세 배로 높아진다. 눈금 17.5px = 1억원. -->
-        <svg width="100%" viewBox="0 0 900 132">
-         <line x1="34" y1="104" x2="890" y2="104" stroke="var(--line-2)" stroke-width="1.5"/>
-         <line x1="34" y1="69"  x2="890" y2="69"  stroke="var(--psum-grid)"/>
-         <line x1="34" y1="34"  x2="890" y2="34"  stroke="var(--psum-grid)"/>
-         <text class="psum-axis" x="26" y="108"  text-anchor="end">0</text>
-         <text class="psum-axis" x="26" y="73"   text-anchor="end">2</text>
-         <text class="psum-axis" x="26" y="38"   text-anchor="end">4</text>
-         <rect x="196" y="51.5" width="56" height="52.5" rx="3" fill="var(--psum-c1)"/>
-         <rect x="264" y="89.1" width="56" height="14.9" rx="3" fill="var(--psum-c2)"/>
-         <text class="psum-bval" x="224" y="46"   text-anchor="middle" fill="var(--psum-c1)">3.0</text>
-         <text class="psum-bval" x="292" y="83.6" text-anchor="middle" fill="var(--tx-2)">0.85</text>
-         <text class="psum-ylab" x="258" y="124" text-anchor="middle">2025</text>
-         <rect x="586" y="25.3" width="56" height="78.7" rx="3" fill="var(--psum-c1)"/>
-         <rect x="654" y="54.1" width="56" height="49.9" rx="3" fill="var(--psum-c2)"/>
-         <text class="psum-bval" x="614" y="19.8" text-anchor="middle" fill="var(--psum-c1)">4.5</text>
-         <text class="psum-bval" x="682" y="48.6" text-anchor="middle" fill="var(--tx-2)">2.85</text>
-         <text class="psum-ylab" x="648" y="124" text-anchor="middle">2026</text>
+       <div class="psum-chart">
+        <!-- 240x150. 눈금 21px = 1억원, 기준선 y=118.
+             막대 30 (폭의 12.5% — 시안 55/400 과 같은 비율), 짝 안쪽 간격 6,
+             연도 그룹 사이 32. 폭이 줄어 막대가 몰려 보이지 않는다.
+             높이는 아래 max-height 가 잡는다 — 카드가 높아지지 않게. -->
+        <svg width="100%" viewBox="0 0 240 150" preserveAspectRatio="xMinYMid meet">
+         <line x1="22" y1="118" x2="232" y2="118" stroke="var(--line-2)" stroke-width="1.2"/>
+         <line x1="22" y1="76"  x2="232" y2="76"  stroke="var(--psum-grid)"/>
+         <line x1="22" y1="34"  x2="232" y2="34"  stroke="var(--psum-grid)"/>
+         <text class="psum-axis" x="16" y="121.5" text-anchor="end">0</text>
+         <text class="psum-axis" x="16" y="79.5"  text-anchor="end">2</text>
+         <text class="psum-axis" x="16" y="37.5"  text-anchor="end">4</text>
+         <rect x="45"  y="55"     width="30" height="63"    rx="3" fill="var(--psum-c1)"/>
+         <rect x="81"  y="100.15" width="30" height="17.85" rx="3" fill="var(--psum-c2)"/>
+         <text class="psum-bval" x="60" y="50"   text-anchor="middle" fill="var(--psum-c1)">3.0</text>
+         <text class="psum-bval" x="96" y="95.2" text-anchor="middle" fill="var(--tx-2)">0.85</text>
+         <text class="psum-ylab" x="78" y="134" text-anchor="middle">2025</text>
+         <rect x="143" y="23.5"  width="30" height="94.5" rx="3" fill="var(--psum-c1)"/>
+         <rect x="179" y="58.15" width="30" height="59.85" rx="3" fill="var(--psum-c2)"/>
+         <text class="psum-bval" x="158" y="18.5" text-anchor="middle" fill="var(--psum-c1)">4.5</text>
+         <text class="psum-bval" x="194" y="53.2" text-anchor="middle" fill="var(--tx-2)">2.85</text>
+         <text class="psum-ylab" x="176" y="134" text-anchor="middle">2026</text>
         </svg>
        </div>
        <div class="psum-side">
