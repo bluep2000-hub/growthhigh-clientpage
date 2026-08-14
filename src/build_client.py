@@ -471,6 +471,53 @@ def parse_info(raw: str) -> list[dict]:
     return out
 
 
+# 인증 유효기간을 취득일에서 셀 수 있는 인증. 세 가지 모두 3년이다.
+# 기업부설연구소는 기한 자체가 없어 여기 없다.
+CERT_TERM_YEARS = {"벤처기업인증": 3, "벤처기업확인": 3, "이노비즈": 3, "메인비즈": 3}
+# 공지(대시보드)에 이미 적혀 있는 기업별 값. 같은 것을 속성에 또 적게 하지
+# 않는다. 화면에 낼 항목만 좁혀서 가져온다 — 공지 전체를 퍼오면 안 된다.
+NOTICE_INFO_KEYS = ("연구주제", "연구분야", "연구인력")
+NOTICE_INFO_RE = re.compile(
+    r"^\s*(" + "|".join(NOTICE_INFO_KEYS) + r")\s*[:：]\s*(.+?)\s*$")
+TAG_RE = re.compile(r"<[^>]+>")
+
+
+def cert_term(title: str) -> int | None:
+    """인증명에서 유효기간(년)을 찾는다. 표기가 갈려 공백을 지우고 본다."""
+    t = (title or "").replace(" ", "")
+    return next((y for k, y in CERT_TERM_YEARS.items() if k in t), None)
+
+
+def add_years(iso: str, years: int) -> str:
+    """취득일 + N년 − 1일. 3년짜리 인증서의 마지막 유효일이다."""
+    y, m, d = (int(x) for x in iso.split("-"))
+    try:
+        end = date(y + years, m, d)
+    except ValueError:                      # 2/29 → 평년
+        end = date(y + years, m, d - 1)
+    return (end - timedelta(days=1)).isoformat()
+
+
+def notice_info(notice: dict | None) -> list[dict]:
+    """공지에서 「연구주제 : …」 같은 줄만 골라 온다. 원문 그대로 쓴다."""
+    if not notice:
+        return []
+    out, seen = [], set()
+
+    def walk(items):
+        for it in items:
+            text = TAG_RE.sub("", it.get("html") or "").replace("&amp;", "&")
+            m = NOTICE_INFO_RE.match(text)
+            if m and m.group(1) not in seen:
+                seen.add(m.group(1))
+                out.append({"k": m.group(1), "v": m.group(2)})
+            walk(it.get("children") or [])
+
+    for s in notice.get("sections") or []:
+        walk(s.get("items") or [])
+    return out
+
+
 def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
     rows = nt.query_all(PROJECT_DB_ID, {
         "filter": {"property": "고객사 정보",
@@ -505,13 +552,19 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
 
         log_date, log_text = split_log(p_text(props, "최신로그"))
 
-        # 인증 유효기간 — 진행기간(컨설팅 기간)과 다른 값이다. 기업인증 행에만
-        # 채운다. 화면의 상태·잔여 기간은 오직 이 값으로만 계산한다 —
-        # 진행기간이나 최신로그로 취득일을 추정하지 말 것. 틀린 만료일은
-        # 빈칸보다 나쁘다. 갱신을 알리려는 화면이 갱신을 놓치게 한다.
+        # 인증 유효기간 — 진행기간(컨설팅 기간)과 다른 값이다. 기업인증
+        # 행에만 채운다. 화면의 상태·잔여 기간이 이 값 하나로 계산된다.
         valid = p_date(props, "인증 유효기간")
         v_start = (valid.get("start") or "")[:10]
         v_end = (valid.get("end") or "")[:10]
+        # 비어 있으면 취득일 + 3년으로 채운다. 취득일은 최신로그 날짜다 —
+        # 「인증 취득 경과」가 이미 그 날짜를 취득일로 쓰고 있어, 유효기간만
+        # 손으로 받으면 같은 사실을 두 번 적는 꼴이 된다.
+        # 노션에 값이 있으면 그것이 이긴다. 예외는 손으로 덮어쓰면 된다.
+        if not (v_start or v_end) and cat == "cert" and DATE_RE.match(log_date):
+            years = cert_term(title)
+            if years:
+                v_start, v_end = log_date, add_years(log_date, years)
 
         out.append({
             "title": title,
@@ -2410,6 +2463,16 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     notice = fetch_notice(nt, client.get("notice_db_url"))
     if notice:
         log(f"  공지: {notice['title']} ({notice['date']}) — 섹션 {len(notice['sections'])}")
+
+    # 연구주제·연구인력은 공지 대시보드에 이미 적혀 있다. 속성에 또 적게
+    # 하지 않는다. 「텍스트」에 값이 있으면 그쪽이 이긴다.
+    ninfo = notice_info(notice)
+    if ninfo:
+        for r in progress:
+            if r["cat"] == "cert" and "기업부설연구소" in r["title"] and not r["info"]:
+                r["info"] = ninfo
+        log(f"  공지에서 가져온 인증 정보 {len(ninfo)}건 — "
+            + " · ".join(x["k"] for x in ninfo))
 
     logo, logo_emoji = fetch_logo(client.get("icon"), slug, dry_run)
 
