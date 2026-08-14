@@ -95,6 +95,9 @@ CAT_BY_TYPE = {
     "(런웨이)IR/투자유치": "proj",
 }
 CAT_PRIORITY = ["fund", "cert", "proj"]
+# 조달현황은 정책자금과 정부지원사업을 갈라 보여준다. cat 은 둘을
+# 「정부지원사업·정책자금」 하나로 묶으므로 유형을 직접 봐야 한다.
+POLICY_FUND_TYPE = "(런웨이)정책자금"
 EXCLUDED_TYPE = "(그로스하이)내부프로젝트"
 
 # ── 프로젝트 상태 → (stage, badge) ───────────────────────────────────────
@@ -506,6 +509,8 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
             "amount": p_text(props, "확보금액").strip() or None,
             # 비어 있으면 키 자체를 null 로 둔다 — 화면이 「기한 없음」을 그린다
             "valid": [v_start, v_end] if (v_start or v_end) else None,
+            # 조달현황 범례용. 정책자금만 fund 고 나머지 지원사업은 전부 gov 다
+            "ptype": "fund" if POLICY_FUND_TYPE in types else "gov",
         })
 
     # 시작일 내림차순 — 노션 화면 순서와 같게 최근 건이 위로 온다
@@ -529,6 +534,9 @@ WON_RE = re.compile(AMOUNT_NUM + r"\s*원")
 BARE_AMOUNT_RE = re.compile(r"^\s*" + AMOUNT_NUM + r"\s*$")
 # 선정되지 않은 건은 확보금액이 아니다. 노션에는 신청액이 그대로 남아 있다
 DROP_LOG_RE = re.compile(r"미선정|탈락|미신청")
+# 취득 인증 타임라인에 남길 인증. index.html 의 CERT_LIB 과 같은 4종이고
+# 거르는 방식(공백 제거 후 부분일치)도 같다. 한쪽만 고치지 말 것.
+CERT_KINDS = ("기업부설연구소", "벤처기업인증", "벤처기업확인", "이노비즈", "메인비즈")
 
 
 def parse_amount(raw: str | None) -> int | None:
@@ -589,23 +597,32 @@ def build_perf(progress: list[dict]) -> tuple[dict | None, list[tuple[str, str]]
         if year is None:
             dropped.append((title, "연도 없음 — 진행기간·최신로그 둘 다 비어 있음"))
             continue
-        # 노션에 정책자금/정부지원사업 구분이 없다. 지금은 프로젝트 유형으로
-        # 대신한다 — (런웨이)정책자금이 fund, 나머지는 gov 로 묶인다.
+        # 프로젝트 유형에서 온 값이다. cat 을 쓰면 「(런웨이)지원사업」까지
+        # 정책자금으로 묶여 소공인 판로개척이 정책자금 칸에 들어간다.
         programs.append({"year": year, "name": title, "amount": amount,
-                         "type": "fund" if r.get("cat") == "fund" else "gov"})
+                         "type": r.get("ptype") or "gov"})
 
     if not programs:
         return None, dropped
 
-    # 취득 인증 — 조달현황 화면의 타임라인. 금액이 없어 programs 와 따로 센다
+    # 취득 인증 — 조달현황 화면의 타임라인. 금액이 없어 programs 와 따로 센다.
+    # 인증만 남긴다. 기술이전·상표권등록·병역지정업체는 (밸류업)으로 묶여
+    # cat 이 cert 지만 취득하는 인증이 아니다 — 화면의 CERT_LIB 4종과
+    # 같은 기준으로 거른다.
+    # 취득일은 최신로그 날짜다. 진행기간 종료일은 컨설팅이 끝난 날이라
+    # 인증서 발급일과 몇 주씩 어긋난다 (위프코리아 벤처: 12/31 vs 01/06).
     certs = []
     for r in progress:
         if r.get("cat") != "cert" or r.get("badge") != "ok":
             continue
-        d = next((x for x in (r.get("end") or "", r.get("log_date") or "")
-                  if DATE_RE.match(x)), "")
-        certs.append({"name": r.get("title") or "", "date": d[:7].replace("-", ".")})
-    certs.sort(key=lambda c: c["date"])
+        name = (r.get("title") or "")
+        if not any(k in name.replace(" ", "") for k in CERT_KINDS):
+            continue
+        d = r.get("log_date") or ""
+        certs.append({"name": name,
+                      "date": d[:7].replace("-", ".") if DATE_RE.match(d) else ""})
+    # 날짜 없는 건은 뒤로 — 타임라인이 빈칸부터 시작하면 읽히지 않는다
+    certs.sort(key=lambda c: (c["date"] == "", c["date"]))
 
     programs.sort(key=lambda p: (p["year"], -p["amount"]))
     return {"programs": programs, "certs": certs}, dropped
