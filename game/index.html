@@ -580,8 +580,7 @@ body.locked #gate{display:grid}
   .kpi{grid-template-columns:repeat(4,1fr)}
   .view{padding:0;max-width:none}
 }
-
-/* ── 성과 화면 (이 사본 전용) ──────────────────────────────────────
+/* ── 조달현황 화면 ──────────────────────────────────────
    시안 kcos-performance-v8 에서 옮겼다. 셸과 겹치는 이름이 많아
    (.card .item .grp .two .legend .axis .n .lg .dot) 전부 .perf- 로 갈랐다.
    색은 셸 토큰을 그대로 쓴다 — 다크 모드도 같이 따라간다.
@@ -762,23 +761,11 @@ body.locked #gate{display:grid}
      c/game.json 에 아직 없는 것들이다. 노션 속성이 정리되면 데이터로 옮긴다.
      비워 두면 해당 화면·카드가 통째로 빠진다 — 남의 숫자가 뜨는 것보다 낫다.
 
-     perf   : 조달현황 화면과 기업 정보의 요약 카드가 함께 쓴다.
-              programs 의 type 은 fund(정책자금·보증) 또는 gov(정부지원사업).
-              amount 는 원 단위 정수. 요약 카드 막대는 최근 2개 연도만 쓴다.
      notice : 기업 정보 공지 카드에서 접히는 섹션. html 은 그대로 들어간다.
      support: 진행 중인 프로젝트 표의 「지원내용」. 키는 프로젝트명 전체.
      ════════════════════════════════════════════════════════════════ -->
 <script>
 window.HAND = {
-  perf: null,
-  /* perf 예시 —
-  perf: {
-    programs: [
-      { year:2025, name:'중진공 정책자금', amount:300000000, type:'fund' },
-      { year:2026, name:'창업도약패키지',  amount:200000000, type:'gov'  },
-    ],
-    certs: [ { name:'기업부설연구소', date:'2025.05' } ],
-  }, */
   notice: [],
   /* notice 예시 —
   notice: [
@@ -815,8 +802,7 @@ const CLIENT = clean(window.__SLUG__) || clean(Q.get('c') || Q.get('client')) ||
 /* 아래 슬러그는 가짜 데이터로 만든 공개 데모라 암호화하지 않는다. 확장자만 갈린다.
    봉투가 enc:false 라 아래 boot() 에서 비밀번호 게이트를 그냥 지나간다.
    그 밖의 슬러그는 지금까지처럼 .enc + 게이트다.
-   루트 index.html 의 SAMPLES 와 같은 목록을 유지할 것 — 빠뜨리면
-   게이트가 뜨고 있지도 않은 .enc 를 찾는다. */
+   샘플을 늘리면 여기에 슬러그를 더한다 — 빠뜨리면 게이트가 뜨고 .enc 를 찾는다. */
 const SAMPLES = ['sample', 'game'];
 const SAMPLE = SAMPLES.includes(CLIENT);
 const SRC  = CLIENT ? `${BASE}c/${CLIENT}${SAMPLE ? '.json' : '.enc'}` : null;
@@ -974,6 +960,11 @@ function init(D){
     .map(t => ({ ...t, hasBody: !!(t.body || t.body_html) }));
   const kpi = D.kpi || {};
   const notice = D.notice;
+  /* 조달현황 — build_client 가 진행내역에서 만든다. 하드코딩이 아니다.
+     값이 없으면 null 이고 메뉴·요약 카드·화면이 통째로 빠진다 */
+  const PERF = (D.perf && (D.perf.programs || []).length) ? D.perf : null;
+  const hasPerf = !!PERF;
+  window.__PERF__ = PERF;              /* 페이지 끝 조달현황 스크립트가 읽는다 */
 
   const cnt = c => rows.filter(r => r.cat === c).length;
   const running = rows.filter(r => r.badge === 'run');
@@ -1013,13 +1004,11 @@ function init(D){
      비어 있으면 항목을 빼는 대신 건수 배지를 감추고 라벨만 흐리게 둔다.
      눌러 들어가면 각 화면이 「등록된 내용이 없습니다」를 보여준다. */
   const hasNotice = !!(notice && (notice.sections || []).some(s => (s.items || []).length));
-  /* 조달현황은 HAND.perf 가 있을 때만 낸다. 흐리게 두는 다른 항목과 달리
-     빈 화면이 아니라 없는 화면이다 — 셸이 아니라 이 사본에만 있는 값이다 */
-  const HAND = window.HAND || {};
-  const hasPerf = !!(HAND.perf && (HAND.perf.programs || []).length);
   const NAV = [
     { g:'기업', items:[
       {id:'info',ic:'info',nm:'기업 정보'},
+      /* 조달현황은 값이 있을 때만 낸다. 흐리게 두는 다른 항목과 달리
+         빈 화면이 아니라 없는 화면이다 */
       ...(hasPerf ? [{id:'perf',ic:'perf',nm:'조달현황'}] : []),
       {id:'notice',ic:'notice',nm:noticeLabel,dim:!hasNotice}]},
     { g:'진행 현황', items:[
@@ -1085,11 +1074,7 @@ function init(D){
     return `<div class="t-sub">${d?`<span class="lgd">${d}</span>`:''}${esc(r.log_text||'')}</div>`;
   };
 
-  /* 진행 건 지원내용 — 노션 「확보금액」이 아직 비어 있는 건은 HAND.support
-     가 채운다. c/game.json 에는 넣지 않는다 (조달현황과 같은 방침).
-     값은 이미 이스케이프된 HTML 이다 (금액은 굵게, 산출물은 보통 굵기).
-     노션 속성이 정리되면 이 갈래를 지우고 r.amount 만 쓰면 된다. */
-  const SUP_FIX = HAND.support || {};
+  const SUP_FIX = (window.HAND && window.HAND.support) || {};
 
   /* 지원내용 — 확보금액이 있으면 그 값, 없으면 빈칸.
      확보금액은 노션에서 rich_text 라 「100,000,000원」 같은 금액과
@@ -1296,9 +1281,26 @@ function init(D){
       </div></div>`).join('');
   }
 
-  /* 셸의 공지 요약 카드(noticeSummary)는 여기서 쓰지 않는다. 첫 화면 공지는
-     조달현황 옆 2단 카드(noticeCard)가 대신한다. 원래 코드는 루트
-     index.html 에 그대로 있다 — 되돌릴 일이 생기면 거기서 가져올 것. */
+  /* 공지 요약 카드 — 조달현황 옆자리. 접히는 섹션은 HAND.notice 가 낸다.
+     c/game.json 의 notice(전문)와는 다르다 — 대시보드에서 골라낸 항목만
+     여기 손으로 넣는다. 노션 속성이 정리되면 데이터로 옮긴다.
+     「전체 보기」는 전문(V.notice)으로 보낸다. 날짜만 데이터에서 가져온다. */
+  function noticeCard(){
+    const secs = (HAND.notice || []).filter(s => s && s.title);
+    return `<div class="p2c">
+      <div class="p2hd"><span class="p2hd-t">${esc(noticeLabel)}</span>
+        ${notice && notice.date ? `<span class="p2hd-d">${esc(notice.date)}</span>` : ''}
+        <a class="p2hd-a" href="#" data-go="notice">전체 보기 →</a></div>
+      <div class="p2pad"><div class="p2nt">
+       ${secs.length
+         ? secs.map(s => `<details>
+        <summary>${esc(s.title)}</summary>
+        <div class="p2nt-b">${s.html || ''}</div>
+       </details>`).join('')
+         : `<p class="empty" style="padding:12px 0">등록된 내용이 없습니다.</p>`}
+      </div></div>
+     </div>`;
+  }
 
   /* 일정 — 구글 캘린더의 미팅, progress 의 종료 예정일, recommend 의 마감일.
      이벤트가 없어도 달력은 그대로 둔다. */
@@ -1432,8 +1434,8 @@ function init(D){
     <div class="ch"><h2>진행 중인 프로젝트</h2><a class="more" href="#" data-go="fund">전체 보기 →</a></div>
     ${running.length?`<table><thead><tr>
      <th style="width:38%">프로젝트</th><th style="width:13%">구분</th>
-     <th style="width:18%">단계</th><th style="width:8%">상태</th>
-     <th class="num" style="width:23%">지원내용</th></tr></thead>
+     <th style="width:18%">단계</th><th style="width:10%">상태</th>
+     <th class="num" style="width:21%">지원내용</th></tr></thead>
     <tbody>${running.map(r=>`<tr>
       <td class="lead"><div class="t-nm">${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</div>
           ${logLine(r)}</td>
@@ -1458,7 +1460,7 @@ function init(D){
   const niceStep = max => NICE.find(s => s * 2.2 >= max) || NICE[NICE.length-1];
 
   function psumCard(){
-    const perf = HAND.perf;
+    const perf = PERF;
     if(!hasPerf) return '';
     const progs = perf.programs || [];
     const years = [...new Set(progs.map(p => +p.year))].sort((a,b)=>a-b).slice(-2);
@@ -1516,30 +1518,6 @@ function init(D){
      </div>`;
   }
 
-  /* 공지 요약 카드 — 조달현황 옆자리. 접히는 섹션은 HAND.notice 가 낸다.
-     c/game.json 의 notice(전문)와는 다르다 — 대시보드에서 골라낸 항목만
-     여기 손으로 넣는다. 노션 속성이 정리되면 데이터로 옮긴다.
-     「전체 보기」는 전문(V.notice)으로 보낸다. 날짜만 데이터에서 가져온다. */
-  function noticeCard(){
-    const secs = (HAND.notice || []).filter(s => s && s.title);
-    return `<div class="p2c">
-      <div class="p2hd"><span class="p2hd-t">${esc(noticeLabel)}</span>
-        ${notice && notice.date ? `<span class="p2hd-d">${esc(notice.date)}</span>` : ''}
-        <a class="p2hd-a" href="#" data-go="notice">전체 보기 →</a></div>
-      <div class="p2pad"><div class="p2nt">
-       ${secs.length
-         ? secs.map(s => `<details>
-        <summary>${esc(s.title)}</summary>
-        <div class="p2nt-b">${s.html || ''}</div>
-       </details>`).join('')
-         : `<p class="empty" style="padding:12px 0">등록된 내용이 없습니다.</p>`}
-      </div></div>
-     </div>`;
-  }
-
-  /* 조달현황 — 마크업만 낸다. 값 채우기와 차트는 아래 perfFit 이 맡는다.
-     go() 가 화면을 새로 그린 뒤에 불러야 폭·높이를 잴 수 있다.
-     화면 id 는 perf 그대로다 — 주소(#perf)와 window.perfFit 을 유지한다. */
   /* 값이 없으면 0억원짜리 빈 차트 대신 빈 상태를 낸다. 좌측 메뉴에는
      항목이 없지만 주소(#perf)로 바로 들어오는 길은 남아 있다 */
   V.perf=()=> !hasPerf
@@ -1582,6 +1560,14 @@ function init(D){
        <div class="perf-tl-row" id="perfTl"></div></div>
     </div>
    </div>`;
+
+  V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
+    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
+   ${noticeFeed()}`;
+
+  V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
+  V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
+  V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
 
   V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
     ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
@@ -1853,7 +1839,7 @@ function init(D){
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});
     bindTalks();
     bindNotice();
-    /* 성과 화면은 그려진 뒤에 값을 채우고 높이를 잰다. 숨은 상태에서 재면
+    /* 조달현황은 그려진 뒤에 값을 채우고 높이를 잰다. 숨은 상태에서 재면
        폭·높이가 0 이라 차트 크기 계산이 틀어진다 */
     if(id==='perf' && window.perfFit) window.perfFit();
 
@@ -1906,10 +1892,9 @@ document.getElementById('tgl').onclick=()=>{
   const r=document.documentElement;
   r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'};
 </script>
-
 <script>
 /* ══════════════════════════════════════════════════════════════════
-   성과 화면 (이 사본 전용)
+   조달현황 화면
 
    시안 kcos-performance-v8 의 스크립트를 옮겼다. 셸에도 DATA·C·fit 같은
    흔한 이름을 쓰는 코드가 늘 수 있어 통째로 감싸 전역을 하나만 남긴다
@@ -1918,14 +1903,19 @@ document.getElementById('tgl').onclick=()=>{
    go() 가 화면을 다시 그릴 때마다 __perfMount 를 부른다. 화면이 숨은
    상태에서 재면 폭이 0 이라 차트 높이 계산이 틀어지기 때문이다.
 
-   ⚠ 값은 페이지 맨 위 window.HAND.perf 에 손으로 넣는다. 노션 속성이
-     정리되면 c/game.json 으로 옮긴다 — 지금은 데이터 파일에 넣지 않는다.
+   값은 payload.perf 에서 온다. build_client.py 가 진행내역에서 만든다 —
+   이 파일에 숫자를 적지 말 것.
    ══════════════════════════════════════════════════════════════════ */
 (function(){
-  /* 값은 페이지 맨 위 window.HAND.perf 하나에서 온다 — 기업 정보의
-     요약 카드와 이 화면이 같은 값을 봐야 한다. 비어 있으면 아래 mount()
-     가 첫 줄에서 되돌아 나가고, 좌측 메뉴에도 조달현황이 뜨지 않는다. */
-  const DATA = (window.HAND && window.HAND.perf) || { programs: [], certs: [] };
+  /* 값은 payload 의 perf 하나에서 온다 — 기업 정보의 요약 카드와 이
+     화면이 같은 값을 봐야 한다. 셸이 데이터를 푼 뒤 window.__PERF__ 에
+     얹어 둔다. 비어 있으면 아래 mount() 가 첫 줄에서 되돌아 나가고,
+     좌측 메뉴에도 조달현황이 뜨지 않는다. */
+  /* 셸이 데이터를 받은 뒤에야 __PERF__ 가 생긴다. 이 스크립트는 그보다
+     먼저 파싱되므로 값을 여기서 붙잡아 두면 안 된다 — 화면을 그릴 때
+     (mount) 읽어서 아래 파생값을 다시 만든다. */
+  let DATA = { programs: [], certs: [] };
+  let years = [], byYear = [], grand = 0;
 
   /* 색은 셸 토큰을 그대로 쓴다. SVG fill 에도 var() 가 통한다 */
   const C = { fund:'var(--perf-c1)', gov:'var(--perf-c2)' };
@@ -1957,14 +1947,17 @@ document.getElementById('tgl').onclick=()=>{
     return out;
   }
 
-  const years = [...new Set(DATA.programs.map(p => p.year))].sort();
-  const byYear = years.map(y => {
-    const rows = DATA.programs.filter(p => p.year===y).sort((a,b) => b.amount-a.amount);
-    const fund = rows.filter(r => r.type==='fund').reduce((s,r) => s+r.amount, 0);
-    const gov  = rows.filter(r => r.type==='gov' ).reduce((s,r) => s+r.amount, 0);
-    return { year:y, rows, fund, gov, total:fund+gov };
-  });
-  const grand = byYear.reduce((s,y) => s+y.total, 0);
+  function prep(){
+    DATA = window.__PERF__ || { programs: [], certs: [] };
+    years = [...new Set(DATA.programs.map(p => p.year))].sort();
+    byYear = years.map(y => {
+      const rows = DATA.programs.filter(p => p.year===y).sort((a,b) => b.amount-a.amount);
+      const fund = rows.filter(r => r.type==='fund').reduce((s,r) => s+r.amount, 0);
+      const gov  = rows.filter(r => r.type==='gov' ).reduce((s,r) => s+r.amount, 0);
+      return { year:y, rows, fund, gov, total:fund+gov };
+    });
+    grand = byYear.reduce((s,y) => s+y.total, 0);
+  }
 
   function renderChart(){
     const box = document.getElementById('perfChart');
@@ -2039,7 +2032,8 @@ document.getElementById('tgl').onclick=()=>{
 
   function mount(){
     const amt = document.getElementById('perfKpiAmt');
-    if (!amt) return;                       /* 성과 화면이 아니다 */
+    if (!amt) return;                       /* 조달현황 화면이 아니다 */
+    prep();                                 /* 값은 그릴 때마다 새로 읽는다 */
     amt.innerHTML = eok(grand) + '<span class="perf-u">억원</span>';
     document.getElementById('perfKpiCnt').innerHTML =
       DATA.programs.length + '<span class="perf-u">건</span>';
@@ -2077,5 +2071,6 @@ document.getElementById('tgl').onclick=()=>{
   });
 })();
 </script>
+
 </body>
 </html>

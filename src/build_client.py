@@ -514,6 +514,104 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# §6-1 조달현황
+# ══════════════════════════════════════════════════════════════════════════
+#
+# 「확보금액」은 rich_text 라 표기가 제각각이다. 「300,000,000원」·「3억」·
+# 「2억원(기표완료)」·「하이서울기업 인증서」가 한 속성에 섞여 있다.
+# 숫자로 읽히는 것만 쓰고, 읽지 못한 것은 그 항목째 뺀다 — 0원으로 세면
+# 막대가 없는 사업이 있는 것처럼 보인다.
+
+AMOUNT_NUM = r"(\d+(?:,\d{3})*(?:\.\d+)?)"
+EOK_RE = re.compile(AMOUNT_NUM + r"\s*억")
+MAN_RE = re.compile(AMOUNT_NUM + r"\s*만")
+WON_RE = re.compile(AMOUNT_NUM + r"\s*원")
+BARE_AMOUNT_RE = re.compile(r"^\s*" + AMOUNT_NUM + r"\s*$")
+# 선정되지 않은 건은 확보금액이 아니다. 노션에는 신청액이 그대로 남아 있다
+DROP_LOG_RE = re.compile(r"미선정|탈락|미신청")
+
+
+def parse_amount(raw: str | None) -> int | None:
+    """확보금액 원문에서 원 단위 정수를 뽑는다. 못 읽으면 None."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    num = lambda m: float(m.group(1).replace(",", ""))
+    # 억·만은 함께 올 수 있다 — 「1억 4,000만원」
+    total = 0.0
+    if (m := EOK_RE.search(s)):
+        total += num(m) * 100_000_000
+    if (m := MAN_RE.search(s)):
+        total += num(m) * 10_000
+    if total:
+        return int(round(total))
+    if (m := WON_RE.search(s)):
+        return int(round(num(m)))
+    if (m := BARE_AMOUNT_RE.match(s)):
+        return int(round(num(m)))
+    return None
+
+
+def perf_year(r: dict) -> int | None:
+    """확보 연도. 진행기간 종료일이 먼저고, 없으면 최신로그 날짜를 쓴다."""
+    for d in (r.get("end") or "", r.get("log_date") or ""):
+        if DATE_RE.match(d):
+            return int(d[:4])
+    return None
+
+
+def build_perf(progress: list[dict]) -> tuple[dict | None, list[tuple[str, str]]]:
+    """진행내역에서 조달현황을 만든다. 하드코딩 없이 progress 만 본다.
+
+    돌려주는 값은 (perf, 제외목록). 제외목록은 (제목, 사유)다 — 왜 빠졌는지
+    로그로 남겨야 「우리 사업이 왜 안 보이냐」에 답할 수 있다.
+    """
+    programs, dropped = [], []
+    for r in progress:
+        title = r.get("title") or ""
+        # 금액이 아예 없는 행은 조달현황의 후보가 아니다. 로그로도 남기지
+        # 않는다 — 남기면 진행내역 전체가 「빠짐」으로 도배된다
+        has_amount = bool((r.get("amount") or "").strip())
+        if r.get("badge") != "ok":
+            if has_amount:
+                dropped.append((title, f"badge={r.get('badge')} — 확보 전"))
+            continue
+        if DROP_LOG_RE.search(r.get("log_text") or ""):
+            if has_amount:
+                dropped.append((title, f"최신로그 {r.get('log_text','')[:20]!r}"))
+            continue
+        amount = parse_amount(r.get("amount"))
+        if amount is None:
+            if has_amount:
+                dropped.append((title, f"금액 파싱 실패 {r['amount'][:24]!r}"))
+            continue
+        year = perf_year(r)
+        if year is None:
+            dropped.append((title, "연도 없음 — 진행기간·최신로그 둘 다 비어 있음"))
+            continue
+        # 노션에 정책자금/정부지원사업 구분이 없다. 지금은 프로젝트 유형으로
+        # 대신한다 — (런웨이)정책자금이 fund, 나머지는 gov 로 묶인다.
+        programs.append({"year": year, "name": title, "amount": amount,
+                         "type": "fund" if r.get("cat") == "fund" else "gov"})
+
+    if not programs:
+        return None, dropped
+
+    # 취득 인증 — 조달현황 화면의 타임라인. 금액이 없어 programs 와 따로 센다
+    certs = []
+    for r in progress:
+        if r.get("cat") != "cert" or r.get("badge") != "ok":
+            continue
+        d = next((x for x in (r.get("end") or "", r.get("log_date") or "")
+                  if DATE_RE.match(x)), "")
+        certs.append({"name": r.get("title") or "", "date": d[:7].replace("-", ".")})
+    certs.sort(key=lambda c: c["date"])
+
+    programs.sort(key=lambda p: (p["year"], -p["amount"]))
+    return {"programs": programs, "certs": certs}, dropped
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # §7 공지사항
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -2284,6 +2382,16 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     events = build_events(progress, name, include_expired)
     log(f"  일정 {len(events)}건")
 
+    perf, perf_dropped = build_perf(progress)
+    if perf:
+        tot = sum(p["amount"] for p in perf["programs"])
+        log(f"  조달현황 {len(perf['programs'])}건 · 누적 {tot/100_000_000:.2f}억원"
+            f" · 취득 인증 {len(perf['certs'])}건")
+    else:
+        log("  조달현황 없음 — perf=null")
+    for t, why in perf_dropped:
+        log(f"    빠짐: {t[:34]} — {why}")
+
     next_ev = next((e for e in events if not e["past"]), None)
     kpi = {
         "running": sum(1 for r in progress if r["badge"] == "run"),
@@ -2314,6 +2422,8 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
             "extra_links": client.get("extra_links") or [],
         },
         "notice": notice,
+        # 값이 없으면 null 이다. 화면이 조달현황 메뉴·카드를 통째로 뺀다
+        "perf": perf,
         "progress": progress,
         "recommend": recommend,
         "talks": talks,
