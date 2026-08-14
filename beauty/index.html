@@ -601,25 +601,33 @@ body.locked #gate{display:grid}
 .psum-hd-a{margin-left:auto;font-size:12px;font-weight:600;
   color:var(--psum-c1);text-decoration:none}
 .psum-hd-a:hover{text-decoration:underline}
-.psum-body{display:grid;grid-template-columns:1fr 186px;gap:28px;align-items:center}
+.psum-body{display:grid;grid-template-columns:1fr 220px;gap:28px;align-items:center}
 .psum-side{border-left:1px solid var(--line);padding-left:26px}
-.psum-tot-l{font-size:11.5px;color:var(--tx-3)}
-.psum-tot-v{font-size:30px;font-weight:800;letter-spacing:-.045em;
+.psum-tot-l{font-size:13px;color:var(--tx-3)}
+.psum-tot-v{font-size:34px;font-weight:800;letter-spacing:-.045em;
   line-height:1.1;color:var(--psum-c1);margin-top:4px}
-.psum-tot-v .psum-u{font-size:14px;font-weight:600;margin-left:1px}
+.psum-tot-v .psum-u{font-size:16px;font-weight:600;margin-left:1px}
 .psum-split{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
-.psum-sp{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
-.psum-sp i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
-.psum-nm{color:var(--tx-2);flex:1}
-.psum-vl{font-weight:700;letter-spacing:-.01em;color:var(--tx)}
+.psum-sp{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13.5px}
+.psum-sp i{width:10px;height:10px;border-radius:2px;flex:none;display:inline-block}
+.psum-nm{color:var(--tx-2);flex:1;white-space:nowrap}
+.psum-vl{font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--tx)}
 .psum-axis{font-size:10.5px;fill:var(--tx-3)}
 .psum-ylab{font-size:12.5px;font-weight:700;fill:var(--tx-2)}
 .psum-bval{font-size:12px;font-weight:800;letter-spacing:-.02em}
-.psum-body svg{display:block}
+/* 세로를 기준으로 줄인다. viewBox 는 400x200 그대로고 폭이 따라온다
+   (190px 높이면 380px 폭). 막대 글씨·축 숫자도 같은 비율로 작아진다.
+   height 를 함께 줘야 svg 의 height:100% 가 풀린다 — max-height 만으로는
+   부모 높이가 auto 라 퍼센트가 잡히지 않는다. */
+.psum-chart{max-height:190px;height:190px}
+.psum-chart svg{display:block;height:100%;width:auto;max-width:100%}
 @media(max-width:640px){
   .psum-body{grid-template-columns:1fr;gap:18px}
   .psum-side{border-left:none;padding-left:0;
     border-top:1px solid var(--line);padding-top:18px}
+  /* 한 열로 접히면 폭이 기준이다. 세로 고정을 풀지 않으면 위아래가 빈다 */
+  .psum-chart{height:auto;max-height:none}
+  .psum-chart svg{width:100%;height:auto}
 }
 </style>
 </head>
@@ -1200,7 +1208,7 @@ function init(D){
       <div class="psum-hd"><span class="psum-hd-t">조달현황</span>
         <a class="psum-hd-a" href="#" data-go="perf">자세히 보기 →</a></div>
       <div class="psum-body">
-       <div>
+       <div class="psum-chart">
         <!-- 시안 perf-summary-widget-v3 의 마크업 그대로다. 좌표를 고치지 말 것.
              바꾼 것은 색뿐 — 하드코딩 대신 셸 토큰을 쓴다.
                #D9DCE2 → var(--line-2)      var(--grid) → var(--psum-grid)
