@@ -580,6 +580,136 @@ body.locked #gate{display:grid}
   .kpi{grid-template-columns:repeat(4,1fr)}
   .view{padding:0;max-width:none}
 }
+
+/* ── 성과 화면 (이 사본 전용) ──────────────────────────────────────
+   시안 kcos-performance-v8 에서 옮겼다. 셸과 겹치는 이름이 많아
+   (.card .item .grp .two .legend .axis .n .lg .dot) 전부 .perf- 로 갈랐다.
+   색은 셸 토큰을 그대로 쓴다 — 다크 모드도 같이 따라간다.
+   body·.wrap·.page-title 은 옮기지 않는다. 셸 레이아웃이 깨진다. */
+.perf{--perf-c1:var(--accent);
+      --perf-c2:#9DBAFF;
+      --perf-c2:color-mix(in srgb, var(--accent) 38%, var(--panel));
+      --perf-grid:var(--line)}
+.perf-card{background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r);padding:22px 24px;margin-bottom:12px}
+.perf-nums{display:grid;grid-template-columns:repeat(3,1fr)}
+.perf-n{padding:0 22px;border-left:1px solid var(--line)}
+.perf-n:first-child{padding-left:0;border-left:none}
+.perf-n-val{font-size:30px;font-weight:700;letter-spacing:-.04em;
+  line-height:1.05;color:var(--tx)}
+.perf-n-val .perf-u{font-size:14px;font-weight:600;margin-left:1px}
+.perf-n-lbl{font-size:11.5px;color:var(--tx-3);margin-top:7px}
+.perf-n:first-child .perf-n-val{color:var(--perf-c1)}
+.perf-blk-t{font-size:13px;font-weight:600;color:var(--tx)}
+.perf-blk-s{font-size:11px;color:var(--tx-3);margin-top:2px;margin-bottom:14px}
+.perf-two{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:start}
+.perf-col-r{border-left:1px solid var(--line);padding-left:30px}
+.perf-axis{font-size:11px;fill:var(--tx-3)}
+.perf-ylab{font-weight:600;fill:var(--tx-2)}
+.perf-bval{font-weight:700;letter-spacing:-.02em}
+.perf-legend{display:flex;gap:14px;justify-content:center;margin-top:6px;flex-wrap:wrap}
+.perf-lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tx-2)}
+.perf-lg i{width:9px;height:9px;border-radius:3px;display:inline-block;flex:none}
+.perf-grp{margin-bottom:16px}
+.perf-grp:last-child{margin-bottom:0}
+.perf-grp-head{display:flex;align-items:baseline;padding-bottom:6px;
+  border-bottom:1px solid var(--line);margin-bottom:4px}
+.perf-grp-nm{font-size:12.5px;font-weight:700;color:var(--tx);letter-spacing:-.02em}
+.perf-grp-sum{font-size:11.5px;font-weight:600;margin-left:auto;color:var(--perf-c1)}
+.perf-item{display:flex;align-items:center;gap:9px;padding:5px 0}
+.perf-it-dot{width:7px;height:7px;border-radius:2px;flex:none}
+.perf-it-nm{font-size:11.5px;color:var(--tx-2);flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.perf-it-amt{font-size:11.5px;font-weight:600;color:var(--tx);flex:none}
+.perf-tl{position:relative;padding-top:4px;overflow-x:auto}
+.perf-tl-line{position:absolute;left:0;right:0;top:18px;height:2px;background:var(--line)}
+.perf-tl-row{display:flex;position:relative;min-width:100%}
+.perf-tl-i{text-align:center;flex:1 0 96px}
+.perf-tl-dot{width:12px;height:12px;border-radius:50%;background:var(--perf-c1);
+  border:3px solid var(--panel);box-shadow:0 0 0 1.5px var(--perf-c1);margin:6px auto 12px}
+.perf-tl-nm{font-size:11px;font-weight:600;color:var(--tx-2);line-height:1.3;padding:0 4px}
+.perf-tl-dt{font-size:10.5px;color:var(--tx-3);margin-top:3px}
+@media(max-width:800px){
+  .perf-two{grid-template-columns:1fr;gap:24px}
+  .perf-col-r{border-left:none;padding-left:0;
+    border-top:1px solid var(--line);padding-top:22px}
+  .perf-nums{grid-template-columns:1fr 1fr;gap:18px 0}
+  .perf-n:nth-child(3){padding-left:0;border-left:none}
+}
+
+/* ── 기업 정보 2단 — 조달현황 · 공지사항 ────────────────────────────
+   시안 company-2col-layout-v3 에서 옮겼다. 셸에 .card .pad .hd .tot .lgs
+   .nt 가 모두 이미 있어 바깥 껍데기는 .p2- 로 갈랐다. 조달현황 안쪽은
+   앞서 쓰던 .psum- 을 그대로 이어 쓴다.
+   색은 하드코딩 대신 셸 토큰이다 — 다크 모드를 따라가야 한다
+   (시안 #3F4BA8 ≈ --accent). 카드 껍데기·여백·글자 크기는 시안 그대로다.
+   두 카드 바닥선은 stretch + .p2pad{flex:1} + .psum-lgs{margin-top:auto}
+   로 맞춘다. 범례가 카드 바닥에 붙어 옆 카드와 높이가 같아진다. */
+.p2row{display:grid;grid-template-columns:1fr 1fr;gap:14px;
+  align-items:stretch;margin:16px 0}
+.p2c{display:flex;flex-direction:column;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px}
+.p2hd{display:flex;align-items:center;gap:8px;padding:18px 22px 0}
+.p2hd-t{font-size:13.5px;font-weight:700;color:var(--tx)}
+.p2hd-d{font-size:11.5px;color:var(--tx-3)}
+.p2hd-a{margin-left:auto;font-size:12px;font-weight:600;
+  color:var(--accent);text-decoration:none}
+.p2hd-a:hover{text-decoration:underline}
+.p2pad{padding:0 22px 20px;flex:1;display:flex;flex-direction:column}
+
+/* 조달현황 — 세로 구성이다: 누적 확보금액 → 차트 → 범례.
+   카드 폭이 절반이라 SVG 는 width:100% 만으로 꽉 찬다.
+   max-width·max-height 를 걸지 말 것 — 걸면 다시 여백이 남는다 */
+.psum-card{--psum-c1:var(--accent);
+           --psum-c2:#B3BCE3;
+           --psum-c2:color-mix(in srgb, var(--accent) 38%, var(--panel));
+           --psum-grid:var(--line)}
+.psum-tot{display:flex;align-items:baseline;gap:10px;margin:16px 0 4px}
+.psum-tot-v{font-size:30px;font-weight:800;letter-spacing:-.045em;
+  line-height:1;color:var(--psum-c1)}
+.psum-tot-v .psum-u{font-size:14px;font-weight:600;margin-left:1px}
+.psum-tot-l{font-size:11.5px;color:var(--tx-3)}
+.psum-chart{margin-top:6px}
+.psum-chart svg{display:block;width:100%;height:auto}
+.psum-axis{font-size:11px;fill:var(--tx-3)}
+.psum-ylab{font-size:12.5px;font-weight:700;fill:var(--tx-2)}
+.psum-bval{font-size:12px;font-weight:800;letter-spacing:-.02em}
+.psum-lgs{margin-top:auto;padding-top:14px;border-top:1px solid var(--line)}
+.psum-sp{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0}
+.psum-sp i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
+.psum-nm{color:var(--tx-2);flex:1}
+.psum-vl{font-weight:700;letter-spacing:-.01em;color:var(--tx)}
+
+/* 공지 — 섹션을 접는다. 기본은 전부 접힘.
+   화살표는 ::before 로 직접 그리므로 브라우저 기본 마커를 반드시 지운다.
+   크롬은 ::-webkit-details-marker, 파이어폭스는 list-style, 그 밖은 ::marker */
+.p2nt{margin-top:14px}
+.p2nt details{border-bottom:1px solid var(--line)}
+.p2nt details:last-of-type{border-bottom:none}
+.p2nt summary{list-style:none;cursor:pointer;padding:12px 0;display:flex;
+  align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--tx-2)}
+.p2nt summary::-webkit-details-marker{display:none}
+.p2nt summary::marker{content:''}
+.p2nt summary:hover{color:var(--tx)}
+.p2nt summary::before{content:'';width:0;height:0;flex:none;
+  border-left:5px solid var(--tx-3);border-top:4px solid transparent;
+  border-bottom:4px solid transparent;transition:transform .15s}
+.p2nt details[open] summary::before{transform:rotate(90deg)}
+.p2nt details[open] summary{color:var(--accent)}
+.p2nt-b{padding:0 0 12px 13px}
+.p2l1{list-style:none}
+.p2l1>li{font-size:12px;color:var(--tx-2);padding:3px 0 3px 13px;position:relative}
+.p2l1>li::before{content:'';position:absolute;left:0;top:11px;
+  width:4px;height:4px;border-radius:50%;background:var(--tx-3)}
+.p2l2{list-style:none;padding-left:13px;margin-top:2px}
+.p2l2>li{font-size:11.5px;color:var(--tx-3);padding:2px 0 2px 12px;
+  position:relative;line-height:1.55}
+.p2l2>li::before{content:'';position:absolute;left:0;top:10px;
+  width:5px;height:1px;background:var(--line-2)}
+
+@media(max-width:860px){ .p2row{grid-template-columns:1fr} }
+/* 인쇄는 한 단으로 편다. 인쇄용 화면은 공지를 접지 않고 전문을 쓴다 */
+@media print{ .p2row{grid-template-columns:1fr} }
 </style>
 </head>
 <body class="locked">
@@ -626,7 +756,40 @@ body.locked #gate{display:grid}
   <div class="scroll" id="scroll"></div>
 </main>
 
-<script>window.__SLUG__="whiffkorea";window.__BASE__="../";</script>
+<script>window.__SLUG__="game";window.__BASE__="../";</script>
+
+<!-- ══ 이 사본에 손으로 넣는 값 ═══════════════════════════════════════
+     c/game.json 에 아직 없는 것들이다. 노션 속성이 정리되면 데이터로 옮긴다.
+     비워 두면 해당 화면·카드가 통째로 빠진다 — 남의 숫자가 뜨는 것보다 낫다.
+
+     perf   : 조달현황 화면과 기업 정보의 요약 카드가 함께 쓴다.
+              programs 의 type 은 fund(정책자금·보증) 또는 gov(정부지원사업).
+              amount 는 원 단위 정수. 요약 카드 막대는 최근 2개 연도만 쓴다.
+     notice : 기업 정보 공지 카드에서 접히는 섹션. html 은 그대로 들어간다.
+     support: 진행 중인 프로젝트 표의 「지원내용」. 키는 프로젝트명 전체.
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+window.HAND = {
+  perf: null,
+  /* perf 예시 —
+  perf: {
+    programs: [
+      { year:2025, name:'중진공 정책자금', amount:300000000, type:'fund' },
+      { year:2026, name:'창업도약패키지',  amount:200000000, type:'gov'  },
+    ],
+    certs: [ { name:'기업부설연구소', date:'2025.05' } ],
+  }, */
+  notice: [],
+  /* notice 예시 —
+  notice: [
+    { title:'지식재산권', html:`<ul class="p2l1">
+        <li>(상표권) 개인 등록 5건 → 법인</li></ul>` },
+  ], */
+  support: {},
+  /* support 예시 —
+  support: { '2026년 중진공 1월 정책자금': '<b>3억원</b>' }, */
+};
+</script>
 <script>
 /* ══════════════════════════════════════════════════════════════════
    데이터는 전부 build_client.py 가 만든 c/{슬러그}.enc 에서 온다.
@@ -652,7 +815,8 @@ const CLIENT = clean(window.__SLUG__) || clean(Q.get('c') || Q.get('client')) ||
 /* 아래 슬러그는 가짜 데이터로 만든 공개 데모라 암호화하지 않는다. 확장자만 갈린다.
    봉투가 enc:false 라 아래 boot() 에서 비밀번호 게이트를 그냥 지나간다.
    그 밖의 슬러그는 지금까지처럼 .enc + 게이트다.
-   샘플을 늘리면 여기에 슬러그를 더한다 — 빠뜨리면 게이트가 뜨고 .enc 를 찾는다. */
+   루트 index.html 의 SAMPLES 와 같은 목록을 유지할 것 — 빠뜨리면
+   게이트가 뜨고 있지도 않은 .enc 를 찾는다. */
 const SAMPLES = ['sample', 'game'];
 const SAMPLE = SAMPLES.includes(CLIENT);
 const SRC  = CLIENT ? `${BASE}c/${CLIENT}${SAMPLE ? '.json' : '.enc'}` : null;
@@ -667,7 +831,7 @@ const LABELS = {
 /* fund 에는 (런웨이)정책자금도 들어온다. 사이드바·본문 제목·breadcrumb 이 모두 이 값을 쓴다 */
 const CATNM = { fund:'정부지원사업·정책자금', cert:'기업인증·지식재산권', proj:'경영자문 프로젝트' };
 const BADGE = { run:'진행', ok:'종료', no:'보류', wait:'예정' };
-const GL = { info:'▣', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
+const GL = { info:'▣', perf:'▦', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
 
 /* 사이드바·헤더 마크는 복호화한 뒤에야 기업 로고로 채운다 (init 참고).
    잠금 화면(루트·404 안내 포함)은 그로스하이 로고만 쓴다. */
@@ -849,9 +1013,14 @@ function init(D){
      비어 있으면 항목을 빼는 대신 건수 배지를 감추고 라벨만 흐리게 둔다.
      눌러 들어가면 각 화면이 「등록된 내용이 없습니다」를 보여준다. */
   const hasNotice = !!(notice && (notice.sections || []).some(s => (s.items || []).length));
+  /* 조달현황은 HAND.perf 가 있을 때만 낸다. 흐리게 두는 다른 항목과 달리
+     빈 화면이 아니라 없는 화면이다 — 셸이 아니라 이 사본에만 있는 값이다 */
+  const HAND = window.HAND || {};
+  const hasPerf = !!(HAND.perf && (HAND.perf.programs || []).length);
   const NAV = [
     { g:'기업', items:[
       {id:'info',ic:'info',nm:'기업 정보'},
+      ...(hasPerf ? [{id:'perf',ic:'perf',nm:'조달현황'}] : []),
       {id:'notice',ic:'notice',nm:noticeLabel,dim:!hasNotice}]},
     { g:'진행 현황', items:[
       {id:'fund',ic:'fund',nm:CATNM.fund,ct:cnt('fund')},
@@ -916,13 +1085,19 @@ function init(D){
     return `<div class="t-sub">${d?`<span class="lgd">${d}</span>`:''}${esc(r.log_text||'')}</div>`;
   };
 
+  /* 진행 건 지원내용 — 노션 「확보금액」이 아직 비어 있는 건은 HAND.support
+     가 채운다. c/game.json 에는 넣지 않는다 (조달현황과 같은 방침).
+     값은 이미 이스케이프된 HTML 이다 (금액은 굵게, 산출물은 보통 굵기).
+     노션 속성이 정리되면 이 갈래를 지우고 r.amount 만 쓰면 된다. */
+  const SUP_FIX = HAND.support || {};
+
   /* 지원내용 — 확보금액이 있으면 그 값, 없으면 빈칸.
      확보금액은 노션에서 rich_text 라 「100,000,000원」 같은 금액과
      「하이서울기업 인증서」 같은 산출물이 함께 들어온다. 원문을 그대로 쓰고,
      숫자만 들어온 경우에만 세 자리로 끊는다. */
   const support = r => {
     const a = (r.amount == null ? '' : String(r.amount)).trim();
-    if(!a) return '';
+    if(!a) return SUP_FIX[String(r.title || '').trim()] || '';
     return /^\d+$/.test(a) ? esc(Number(a).toLocaleString('ko-KR')) : esc(a);
   };
 
@@ -1121,31 +1296,9 @@ function init(D){
       </div></div>`).join('');
   }
 
-  /* 공지 요약 — 첫 화면에서는 섹션 제목만 차례처럼 늘어놓는다. 최대 5개.
-     안쪽 항목을 꺼내면 클라이언트마다 깊이가 달라 뒤죽박죽이 된다 */
-  const SUMMARY_MAX = 5;
-  /* 공지가 없어도 카드는 남긴다. 첫 화면의 구성이 클라이언트마다 달라지면
-     비어 있는 것이 아니라 무언가 빠진 것처럼 보인다. */
-  function noticeSummary(){
-    if(!notice) return `<div class="card" style="margin-top:24px">
-      <div class="ch"><h2>${esc(noticeLabel)}</h2></div>
-      <div class="cb"><p class="empty">등록된 내용이 없습니다.</p></div></div>`;
-    const secs = notice.sections || [];
-    const shown = secs.slice(0, SUMMARY_MAX);
-    const rest = secs.length - shown.length;
-    return `<div class="card" style="margin-top:24px">
-      <div class="ch"><h2>${esc(noticeLabel)}</h2>
-        ${notice.date?`<span class="d">${esc(notice.date)}</span>`:''}
-        <a class="more" href="#" data-go="notice">전체 보기 →</a></div>
-      <div class="cb">
-       ${shown.length
-         ? `<ul class="ck">${shown.map(s=>noticeItem(
-              {checked:null, html:s.heading_html || esc(s.heading || ''), children:[]}, 1)
-            ).join('')}</ul>
-            ${rest > 0 ? `<p class="empty" style="margin-top:6px">외 ${rest}건</p>` : ''}`
-         : `<p class="empty">등록된 내용이 없습니다.</p>`}
-      </div></div>`;
-  }
+  /* 셸의 공지 요약 카드(noticeSummary)는 여기서 쓰지 않는다. 첫 화면 공지는
+     조달현황 옆 2단 카드(noticeCard)가 대신한다. 원래 코드는 루트
+     index.html 에 그대로 있다 — 되돌릴 일이 생기면 거기서 가져올 것. */
 
   /* 일정 — 구글 캘린더의 미팅, progress 의 종료 예정일, recommend 의 마감일.
      이벤트가 없어도 달력은 그대로 둔다. */
@@ -1269,15 +1422,18 @@ function init(D){
       <div class="s">${nextEv?esc(nextEv.title):'예정된 일정이 없습니다'}</div></div>
    </div>
 
-   ${forPrint ? noticeFeed() : noticeSummary()}
+   ${forPrint
+      ? `${hasPerf ? `<div class="p2row">${psumCard()}</div>` : ''}${noticeFeed()}`
+      : `<div class="p2row"${hasPerf ? '' : ' style="grid-template-columns:1fr"'}>
+          ${psumCard()}${noticeCard()}</div>`}
    ${schedule(forPrint ? Infinity : undefined)}
 
    <div class="card" style="margin-top:24px">
     <div class="ch"><h2>진행 중인 프로젝트</h2><a class="more" href="#" data-go="fund">전체 보기 →</a></div>
     ${running.length?`<table><thead><tr>
      <th style="width:38%">프로젝트</th><th style="width:13%">구분</th>
-     <th style="width:18%">단계</th><th style="width:10%">상태</th>
-     <th class="num" style="width:21%">지원내용</th></tr></thead>
+     <th style="width:18%">단계</th><th style="width:8%">상태</th>
+     <th class="num" style="width:23%">지원내용</th></tr></thead>
     <tbody>${running.map(r=>`<tr>
       <td class="lead"><div class="t-nm">${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</div>
           ${logLine(r)}</td>
@@ -1285,6 +1441,147 @@ function init(D){
       <td>${steps(r)}</td><td>${tag(r)}</td>
       <td class="num sup">${support(r)}</td></tr>`).join('')}
     </tbody></table>`:`<div class="cb"><p class="empty">진행 중인 프로젝트가 없습니다.</p></div>`}</div>`;
+
+  /* 조달현황 요약 — 기업 정보 화면에서 공지사항 옆에 놓는다.
+     상단 KPI 타일(진행 중·완료·취득 인증·다음 일정)과 겹치지 않게
+     누적 확보금액 하나만 둔다. 지표를 더 붙이지 말 것.
+     「자세히 보기」는 셸의 data-go 로 조달현황 화면에 연결된다.
+
+     그림틀은 시안 company-2col-layout-v3 그대로다 — viewBox·막대 x·폭·
+     연도 라벨 자리를 고치지 말 것. 데이터에 따라 움직이는 것은 셋뿐이다:
+     막대 높이, 눈금 숫자, 막대 위 값. 최근 2개 연도만 그린다. */
+  const EOK = 100000000;
+  const eok = v => +(v / EOK).toFixed(2);
+  /* 눈금 간격. 가운데 눈금이 최대 막대의 절반쯤 오도록 고른다 —
+     시안이 최대 4.5억에 눈금 2/4 였던 비율(막대가 위 눈금을 살짝 넘김) */
+  const NICE = [0.1,0.25,0.5,1,2,2.5,5,10,25,50,100,250,500];
+  const niceStep = max => NICE.find(s => s * 2.2 >= max) || NICE[NICE.length-1];
+
+  function psumCard(){
+    const perf = HAND.perf;
+    if(!hasPerf) return '';
+    const progs = perf.programs || [];
+    const years = [...new Set(progs.map(p => +p.year))].sort((a,b)=>a-b).slice(-2);
+    const sum = (y,t) => progs
+      .filter(p => +p.year === y && (t == null || p.type === t))
+      .reduce((n,p) => n + (+p.amount || 0), 0);
+    const grand = progs.reduce((n,p) => n + (+p.amount || 0), 0);
+
+    /* 두 유형의 막대를 한 줄로 세운다. 최대값으로 눈금을 정한다 */
+    const bars = years.flatMap(y => [eok(sum(y,'fund')), eok(sum(y,'gov'))]);
+    const step = niceStep(Math.max(...bars, 0.1));
+    const px   = 54.4 / step;                      /* 눈금 한 칸 = 54.4px */
+    const geo  = [{bx:59,tx:86.5,lx:119},{bx:124,tx:151.5},
+                  {bx:241,tx:268.5,lx:301},{bx:306,tx:333.5}];
+
+    const chart = years.flatMap((y,yi) => ['fund','gov'].map((t,ti) => {
+      const g = geo[yi*2+ti], v = eok(sum(y,t));
+      const h = Math.max(v * px, 0), top = 160 - h;
+      const c = t === 'fund' ? 'var(--psum-c1)' : 'var(--tx-2)';
+      return `<rect x="${g.bx}" y="${top.toFixed(1)}" width="55" height="${h.toFixed(1)}"
+            rx="4" fill="var(--psum-c${ti+1})"/>
+          <text class="psum-bval" x="${g.tx}" y="${(top-7.4).toFixed(1)}"
+            text-anchor="middle" fill="${c}">${v}</text>`
+        + (ti ? '' : `<text class="psum-ylab" x="${g.lx}" y="182"
+            text-anchor="middle">${y}</text>`);
+    })).join('\n          ');
+
+    const lg = (t,nm) => `<div class="psum-sp"><i style="background:var(--psum-c${t==='fund'?1:2})"></i>
+          <span class="psum-nm">${nm}</span><span class="psum-vl">${
+          eok(progs.filter(p=>p.type===t).reduce((n,p)=>n+(+p.amount||0),0))}억원</span></div>`;
+
+    return `<div class="p2c psum-card">
+      <div class="p2hd"><span class="p2hd-t">조달현황</span>
+        <a class="p2hd-a" href="#" data-go="perf">자세히 보기 →</a></div>
+      <div class="p2pad">
+       <div class="psum-tot">
+        <span class="psum-tot-v">${eok(grand)}<span class="psum-u">억원</span></span>
+        <span class="psum-tot-l">누적 확보금액</span></div>
+       <div class="psum-chart">
+        <svg width="100%" viewBox="0 0 400 200">
+          <line x1="28" y1="160"   x2="392" y2="160"   stroke="var(--line-2)" stroke-width="1.5"/>
+          <line x1="28" y1="105.6" x2="392" y2="105.6" stroke="var(--psum-grid)"/>
+          <line x1="28" y1="51.2"  x2="392" y2="51.2"  stroke="var(--psum-grid)"/>
+          <text class="psum-axis" x="22" y="164" text-anchor="end">0</text>
+          <text class="psum-axis" x="22" y="110" text-anchor="end">${step}</text>
+          <text class="psum-axis" x="22" y="55"  text-anchor="end">${step*2}</text>
+          ${chart}
+        </svg>
+       </div>
+       <div class="psum-lgs">
+        ${lg('fund','정책자금·보증')}
+        ${lg('gov','정부지원사업')}
+       </div>
+      </div>
+     </div>`;
+  }
+
+  /* 공지 요약 카드 — 조달현황 옆자리. 접히는 섹션은 HAND.notice 가 낸다.
+     c/game.json 의 notice(전문)와는 다르다 — 대시보드에서 골라낸 항목만
+     여기 손으로 넣는다. 노션 속성이 정리되면 데이터로 옮긴다.
+     「전체 보기」는 전문(V.notice)으로 보낸다. 날짜만 데이터에서 가져온다. */
+  function noticeCard(){
+    const secs = (HAND.notice || []).filter(s => s && s.title);
+    return `<div class="p2c">
+      <div class="p2hd"><span class="p2hd-t">${esc(noticeLabel)}</span>
+        ${notice && notice.date ? `<span class="p2hd-d">${esc(notice.date)}</span>` : ''}
+        <a class="p2hd-a" href="#" data-go="notice">전체 보기 →</a></div>
+      <div class="p2pad"><div class="p2nt">
+       ${secs.length
+         ? secs.map(s => `<details>
+        <summary>${esc(s.title)}</summary>
+        <div class="p2nt-b">${s.html || ''}</div>
+       </details>`).join('')
+         : `<p class="empty" style="padding:12px 0">등록된 내용이 없습니다.</p>`}
+      </div></div>
+     </div>`;
+  }
+
+  /* 조달현황 — 마크업만 낸다. 값 채우기와 차트는 아래 perfFit 이 맡는다.
+     go() 가 화면을 새로 그린 뒤에 불러야 폭·높이를 잴 수 있다.
+     화면 id 는 perf 그대로다 — 주소(#perf)와 window.perfFit 을 유지한다. */
+  /* 값이 없으면 0억원짜리 빈 차트 대신 빈 상태를 낸다. 좌측 메뉴에는
+     항목이 없지만 주소(#perf)로 바로 들어오는 길은 남아 있다 */
+  V.perf=()=> !hasPerf
+   ? `<div class="vh"><h1>조달현황</h1></div>
+      <div class="card"><div class="cb"><p class="empty">등록된 내용이 없습니다.</p></div></div>`
+   : `<div class="vh"><h1>조달현황</h1></div>
+   <div class="perf">
+    <div class="perf-card">
+     <div class="perf-nums">
+      <div class="perf-n"><div class="perf-n-val" id="perfKpiAmt"></div>
+        <div class="perf-n-lbl">누적 확보금액</div></div>
+      <div class="perf-n"><div class="perf-n-val" id="perfKpiCnt"></div>
+        <div class="perf-n-lbl">선정 사업</div></div>
+      <div class="perf-n"><div class="perf-n-val" id="perfKpiCert"></div>
+        <div class="perf-n-lbl">취득 인증</div></div>
+     </div>
+    </div>
+    <div class="perf-card">
+     <div class="perf-two">
+      <div class="perf-col-l">
+       <div class="perf-blk-t">연도별 확보금액</div>
+       <div class="perf-blk-s">단위 억원</div>
+       <div id="perfChart"></div>
+       <div class="perf-legend">
+        <span class="perf-lg"><i style="background:var(--perf-c1)"></i>정책자금·보증</span>
+        <span class="perf-lg"><i style="background:var(--perf-c2)"></i>정부지원사업</span>
+       </div>
+      </div>
+      <div class="perf-col-r">
+       <div class="perf-blk-t">사업별 확보 내역</div>
+       <div class="perf-blk-s">연도별 · 확보금액 순</div>
+       <div id="perfList"></div>
+      </div>
+     </div>
+    </div>
+    <div class="perf-card">
+     <div class="perf-blk-t">인증 취득 경과</div>
+     <div class="perf-blk-s">취득 순서</div>
+     <div class="perf-tl"><div class="perf-tl-line"></div>
+       <div class="perf-tl-row" id="perfTl"></div></div>
+    </div>
+   </div>`;
 
   V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
     ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
@@ -1535,7 +1832,7 @@ function init(D){
     window.print();
   });
 
-  const CR={info:'기업 정보',fund:CATNM.fund,cert:CATNM.cert,
+  const CR={info:'기업 정보',perf:'조달현황',fund:CATNM.fund,cert:CATNM.cert,
     proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
   CR.notice = noticeLabel;                     /* 공지가 없어도 화면은 있다 */
   /* 화면 전환을 브라우저 히스토리에 남긴다. 안 남기면 뒤로 가기가
@@ -1556,6 +1853,9 @@ function init(D){
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});
     bindTalks();
     bindNotice();
+    /* 성과 화면은 그려진 뒤에 값을 채우고 높이를 잰다. 숨은 상태에서 재면
+       폭·높이가 0 이라 차트 크기 계산이 틀어진다 */
+    if(id==='perf' && window.perfFit) window.perfFit();
 
     if(!o.fromPop){
       const url = '#' + id;
@@ -1605,6 +1905,177 @@ function init(D){
 document.getElementById('tgl').onclick=()=>{
   const r=document.documentElement;
   r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'};
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   성과 화면 (이 사본 전용)
+
+   시안 kcos-performance-v8 의 스크립트를 옮겼다. 셸에도 DATA·C·fit 같은
+   흔한 이름을 쓰는 코드가 늘 수 있어 통째로 감싸 전역을 하나만 남긴다
+   — window.__perfMount.
+
+   go() 가 화면을 다시 그릴 때마다 __perfMount 를 부른다. 화면이 숨은
+   상태에서 재면 폭이 0 이라 차트 높이 계산이 틀어지기 때문이다.
+
+   ⚠ 값은 페이지 맨 위 window.HAND.perf 에 손으로 넣는다. 노션 속성이
+     정리되면 c/game.json 으로 옮긴다 — 지금은 데이터 파일에 넣지 않는다.
+   ══════════════════════════════════════════════════════════════════ */
+(function(){
+  /* 값은 페이지 맨 위 window.HAND.perf 하나에서 온다 — 기업 정보의
+     요약 카드와 이 화면이 같은 값을 봐야 한다. 비어 있으면 아래 mount()
+     가 첫 줄에서 되돌아 나가고, 좌측 메뉴에도 조달현황이 뜨지 않는다. */
+  const DATA = (window.HAND && window.HAND.perf) || { programs: [], certs: [] };
+
+  /* 색은 셸 토큰을 그대로 쓴다. SVG fill 에도 var() 가 통한다 */
+  const C = { fund:'var(--perf-c1)', gov:'var(--perf-c2)' };
+  const EOK = 100000000;
+  const CW = 420;
+  let CH = 300;
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function won(v){
+    if (v >= EOK){ const e = v/EOK; return (Number.isInteger(e) ? e : +e.toFixed(2)) + '억원'; }
+    return (v/10000).toLocaleString() + '만원';
+  }
+  function eok(v){ return +(v/EOK).toFixed(2); }
+
+  function niceMax(v){
+    if (v <= 0) return 1;
+    const k = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const m of [1,2,2.5,5,10]) if (m*k >= v) return m*k;
+    return 10*k;
+  }
+  function ticks(max){
+    const base = Math.pow(10, Math.floor(Math.log10(max))-1);
+    const cand = [1,2,2.5,5,10,20,25,50].map(m => m*base);
+    let step = cand.find(s => max/s <= 6) || max/5;
+    if (max/step < 3) step /= 2;
+    const out = []; for (let v=0; v<=max+1e-9; v+=step) out.push(+v.toFixed(4));
+    return out;
+  }
+
+  const years = [...new Set(DATA.programs.map(p => p.year))].sort();
+  const byYear = years.map(y => {
+    const rows = DATA.programs.filter(p => p.year===y).sort((a,b) => b.amount-a.amount);
+    const fund = rows.filter(r => r.type==='fund').reduce((s,r) => s+r.amount, 0);
+    const gov  = rows.filter(r => r.type==='gov' ).reduce((s,r) => s+r.amount, 0);
+    return { year:y, rows, fund, gov, total:fund+gov };
+  });
+  const grand = byYear.reduce((s,y) => s+y.total, 0);
+
+  function renderChart(){
+    const box = document.getElementById('perfChart');
+    if (!box) return;
+    const n = byYear.length;
+    const stacked = n >= 5;
+    const peak = stacked
+      ? Math.max(...byYear.map(y => eok(y.total)))
+      : Math.max(...byYear.map(y => Math.max(eok(y.fund), eok(y.gov))));
+    const max = niceMax(peak);
+
+    const L=40, R=CW-14, TOP=26, BOT=CH-46;
+    const gw = (R-L)/n;
+    const barW = stacked ? Math.min(72, gw*0.46) : Math.min(62, gw*0.30);
+    const gap  = stacked ? 0 : Math.max(6, barW*0.18);
+    const yOf = v => BOT - (v/max)*(BOT-TOP);
+    const showVal = barW >= 30;
+    const fs = barW >= 46 ? 13 : 11;
+
+    let s = `<svg width="100%" viewBox="0 0 ${CW} ${CH}">`;
+    ticks(max).forEach(t => {
+      const y = yOf(t);
+      s += `<line x1="${L-4}" y1="${y}" x2="${R}" y2="${y}" stroke="${
+        t===0 ? 'var(--line-2)' : 'var(--perf-grid)'}" stroke-width="${t===0?1.5:1}"/>`;
+      s += `<text class="perf-axis" x="${L-10}" y="${y+4}" text-anchor="end">${+t.toFixed(2)}</text>`;
+    });
+    byYear.forEach((y,i) => {
+      const cx = L + gw*i + gw/2;
+      const f = eok(y.fund), g = eok(y.gov);
+      const hF = (f/max)*(BOT-TOP), hG = (g/max)*(BOT-TOP);
+      if (stacked){
+        const x = cx - barW/2;
+        s += `<rect x="${x}" y="${BOT-hF-hG}" width="${barW}" height="${hG}" rx="4" fill="${C.gov}"/>`;
+        s += `<rect x="${x}" y="${BOT-hF}"    width="${barW}" height="${hF}" rx="4" fill="${C.fund}"/>`;
+        s += `<text class="perf-bval" x="${cx}" y="${BOT-hF-hG-9}" text-anchor="middle" `
+           + `font-size="${fs}" fill="var(--tx)">${eok(y.total)}</text>`;
+      } else {
+        const x1 = cx-barW-gap/2, x2 = cx+gap/2;
+        s += `<rect x="${x1}" y="${BOT-hF}" width="${barW}" height="${hF}" rx="5" fill="${C.fund}"/>`;
+        s += `<rect x="${x2}" y="${BOT-hG}" width="${barW}" height="${hG}" rx="5" fill="${C.gov}"/>`;
+        if (showVal){
+          s += `<text class="perf-bval" x="${x1+barW/2}" y="${BOT-hF-9}" text-anchor="middle" `
+             + `font-size="${fs}" fill="var(--perf-c1)">${f}</text>`;
+          s += `<text class="perf-bval" x="${x2+barW/2}" y="${BOT-hG-9}" text-anchor="middle" `
+             + `font-size="${fs}" fill="var(--tx-2)">${g}</text>`;
+        }
+      }
+      s += `<text class="perf-ylab" x="${cx}" y="${BOT+26}" text-anchor="middle" `
+         + `font-size="${n>6?11:13}">${y.year}</text>`;
+    });
+    s += `</svg>`;
+    box.innerHTML = s;
+  }
+
+  /* 좌우 높이 맞춤 — 차트를 늘려 하단 공백을 없앤다 */
+  function fit(){
+    CH = 300; renderChart();
+    if (window.innerWidth <= 800) return;
+    const l = document.querySelector('.perf-col-l');
+    const r = document.querySelector('.perf-col-r');
+    const box = document.getElementById('perfChart');
+    if (!l || !r || !box) return;
+    for (let i=0; i<6; i++){
+      const diff = r.offsetHeight - l.offsetHeight;
+      if (diff < 14) break;
+      const pxPerUnit = box.clientWidth / CW;
+      if (!pxPerUnit) break;
+      CH = Math.min(CH + diff/pxPerUnit, 900);
+      renderChart();
+    }
+  }
+
+  function mount(){
+    const amt = document.getElementById('perfKpiAmt');
+    if (!amt) return;                       /* 성과 화면이 아니다 */
+    amt.innerHTML = eok(grand) + '<span class="perf-u">억원</span>';
+    document.getElementById('perfKpiCnt').innerHTML =
+      DATA.programs.length + '<span class="perf-u">건</span>';
+    document.getElementById('perfKpiCert').innerHTML =
+      DATA.certs.length + '<span class="perf-u">건</span>';
+
+    document.getElementById('perfList').innerHTML = byYear.map(y => `
+      <div class="perf-grp">
+        <div class="perf-grp-head"><span class="perf-grp-nm">${y.year}</span>
+          <span class="perf-grp-sum">${won(y.total)}</span></div>
+        ${y.rows.map(r => `<div class="perf-item">
+          <span class="perf-it-dot" style="background:${C[r.type]}"></span>
+          <span class="perf-it-nm">${esc(r.name)}</span>
+          <span class="perf-it-amt">${won(r.amount)}</span></div>`).join('')}
+      </div>`).join('');
+
+    document.getElementById('perfTl').innerHTML = DATA.certs.map(c => `
+      <div class="perf-tl-i"><div class="perf-tl-dot"></div>
+        <div class="perf-tl-nm">${esc(c.name)}</div>
+        <div class="perf-tl-dt">${esc(c.date)}</div></div>`).join('');
+
+    fit();
+  }
+
+  /* 화면이 보이게 된 뒤에 셸이 부른다. 값 채우기와 높이 맞춤을 함께 한다 —
+     go() 가 화면을 다시 그릴 때마다 DOM 이 새것이라 둘 다 필요하다. */
+  window.perfFit = mount;
+  window.__perfMount = mount;          /* 옛 이름 — 쓰던 곳이 있으면 그대로 돈다 */
+
+  /* 창 크기가 바뀌면 다시 잰다. 성과 화면이 떠 있을 때만 움직인다 */
+  let t;
+  addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { if (document.getElementById('perfChart')) fit(); }, 150);
+  });
+})();
 </script>
 </body>
 </html>

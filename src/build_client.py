@@ -482,6 +482,14 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
 
         log_date, log_text = split_log(p_text(props, "최신로그"))
 
+        # 인증 유효기간 — 진행기간(컨설팅 기간)과 다른 값이다. 기업인증 행에만
+        # 채운다. 화면의 상태·잔여 기간은 오직 이 값으로만 계산한다 —
+        # 진행기간이나 최신로그로 취득일을 추정하지 말 것. 틀린 만료일은
+        # 빈칸보다 나쁘다. 갱신을 알리려는 화면이 갱신을 놓치게 한다.
+        valid = p_date(props, "인증 유효기간")
+        v_start = (valid.get("start") or "")[:10]
+        v_end = (valid.get("end") or "")[:10]
+
         out.append({
             "title": title,
             "cat": cat,
@@ -496,6 +504,8 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
             # 「확보금액」은 number 가 아니라 rich_text 다. 금액만이 아니라
             # 「하이서울기업 인증서」 같은 산출물도 들어 있어 원문을 그대로 넘긴다.
             "amount": p_text(props, "확보금액").strip() or None,
+            # 비어 있으면 키 자체를 null 로 둔다 — 화면이 「기한 없음」을 그린다
+            "valid": [v_start, v_end] if (v_start or v_end) else None,
         })
 
     # 시작일 내림차순 — 노션 화면 순서와 같게 최근 건이 위로 온다
