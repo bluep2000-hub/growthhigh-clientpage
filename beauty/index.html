@@ -389,6 +389,59 @@ tr.tkb>td{padding:0 13px 13px;border-bottom:1px solid var(--line)}
 .steps i.f{background:var(--ok)}.steps i.c{background:var(--run)}
 .stepnm{font-size:11px;color:var(--tx-2);margin-top:5px}
 .stepnm b{color:var(--run);font-weight:600}
+/* ── 기업인증·지식재산권 표 (이 사본 전용) ──────────────────────────
+   시안 cert-toggle-v3 에서 옮겼다. 행을 펼쳐야 해서 <table> 대신 그리드다
+   — tbody 안에 <details> 를 넣을 수 없다. 겉모습은 옆 표와 같게 맞췄다:
+   머리 배경 --panel-2, 머리 아래 --line-2, 행 구분선 --line, hover --hover.
+   셸에 .cols .thead .badge .steps .body .f 가 이미 있어 전부 .ct- 로 갈랐다.
+   단계 막대와 상태 뱃지만은 셸 것(.steps · .tag.g-*)을 그대로 쓴다 —
+   초록·노랑·빨강이 화면 전체에서 같은 뜻이어야 한다. */
+.ct-tbl{overflow:hidden;border-radius:9px}
+.ct-cols{display:grid;grid-template-columns:1fr 190px 104px 150px 168px;
+  gap:14px;align-items:center;padding:11px 20px}
+.ct-hd{background:var(--panel-2);border-bottom:1px solid var(--line-2)}
+.ct-hd span{font-size:11.5px;color:var(--tx-2);font-weight:600}
+.ct-tbl details{border-bottom:1px solid var(--line)}
+.ct-tbl details:last-child{border-bottom:none}
+.ct-tbl summary{list-style:none;cursor:pointer;transition:background .12s}
+.ct-tbl summary::-webkit-details-marker{display:none}
+.ct-tbl summary::marker{content:''}
+.ct-tbl summary:hover{background:var(--hover)}
+.ct-tbl details[open] summary{background:var(--panel-2)}
+.ct-tbl summary .ct-cols{padding:15px 20px}
+.ct-nm{font-size:13.5px;font-weight:700;color:var(--tx);letter-spacing:-.012em}
+.ct-sub{font-size:11.5px;color:var(--tx-2);margin-top:3px}
+.ct-sub .lgd{color:var(--tx-3);font-variant-numeric:tabular-nums;margin-right:5px}
+.ct-per{font-size:12.5px;color:var(--tx-2);font-variant-numeric:tabular-nums}
+.ct-val{font-size:12.5px;color:var(--tx-2);font-weight:600;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums}
+.ct-val .ct-rem{display:block;font-size:11px;color:var(--tx-3);font-weight:400;margin-top:2px}
+/* 기한이 없는 인증. 유효/만료 어느 쪽도 아니라 회색이다 */
+.tag.g-none{background:var(--panel-2);color:var(--tx-3)}
+.ct-body{padding:4px 20px 20px;background:var(--panel-2);border-top:1px solid var(--line)}
+.ct-g2{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding-top:16px}
+.ct-f{display:flex;gap:12px;padding:5px 0;font-size:12.5px}
+.ct-k{width:76px;flex:none;color:var(--tx-3)}
+.ct-v{color:var(--tx-2);flex:1}
+.ct-v b{font-weight:700;color:var(--tx)}
+.ct-ben-t{font-size:11.5px;font-weight:700;color:var(--accent);margin-bottom:8px}
+.ct-ben ul{list-style:none}
+.ct-ben li{font-size:12px;color:var(--tx-2);padding:3.5px 0 3.5px 13px;
+  position:relative;line-height:1.55}
+.ct-ben li::before{content:'';position:absolute;left:1px;top:11px;
+  width:4px;height:4px;border-radius:50%;background:var(--line-2)}
+.ct-ben li b{font-weight:700;color:var(--tx)}
+.ct-note{font-size:11px;color:var(--tx-3);margin-top:9px}
+@media(max-width:900px){
+  .ct-hd{display:none}
+  .ct-cols{grid-template-columns:1fr;gap:8px}
+  .ct-g2{grid-template-columns:1fr;gap:18px}
+}
+/* 인쇄는 접힌 것을 전부 편다 — 종이에는 누를 수가 없다 */
+@media print{
+  .ct-tbl details>*{display:block}
+  .ct-g2{grid-template-columns:1fr 1fr}
+}
 .chips{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
 .chip{font-size:12px;padding:4px 11px;border-radius:var(--r);color:var(--tx-2);background:var(--panel-2)}
 [data-theme="light"] .chip{background:var(--panel-2)}
@@ -1009,6 +1062,131 @@ function init(D){
     return /^\d+$/.test(a) ? esc(Number(a).toLocaleString('ko-KR')) : esc(a);
   };
 
+  /* ── 기업인증·지식재산권 ────────────────────────────────────────
+     유효기간과 펼침 내용은 노션에 없는 값이라 여기 손으로 넣는다.
+     조달현황 DATA 와 같은 방침으로 c/sample.json 에는 넣지 않는다.
+     키는 progress 의 제목 전체다. 없는 제목은 그냥 요약 줄만 나온다.
+     혜택 문구는 시안 cert-toggle-v3 그대로다 — 줄이거나 바꾸지 말 것. */
+  const CERT = {
+    '벤처기업인증(갱신)': {
+      valid: ['2026-01-28', '2029-01-27'],
+      facts: [['인증 유형','혁신성장유형'],
+              ['확인기관','벤처기업확인기관'],
+              ['갱신','만료 전 갱신 확인 필요 · 유효기간 3년']],
+      ben_t: '벤처기업확인 혜택',
+      ben: ['창업 3년 이내 확인 시 <b>법인세·소득세 50% 감면</b> — 최초 소득 발생 과세연도부터 5년간',
+            '정책자금·보증 우대 및 보증한도 확대',
+            '정부 R&amp;D·지원사업 신청 자격 및 가점',
+            '병역지정업체 선정 가점',
+            '임직원 스톡옵션 부여 범위 확대 및 과세특례'],
+      note: '이노비즈·메인비즈와 중복 보유 시 보증료 감면·조달 가점이 중복 적용됩니다.',
+    },
+    '기업부설연구소': {
+      valid: null, rem: '변경 시 신고 의무',
+      facts: [['연구인력','김○○ 연구소장 · 이○○ 연구원 · 주○○ 연구보조원'],
+              ['연구분야','패키지 디자인'],
+              ['인정일','<b>2025.06.05</b>']],
+      ben_t: '기업부설연구소 혜택',
+      ben: ['연구·인력개발비 세액공제 — 연구개발비의 <b>최대 25%</b> 법인세 공제 (중소기업 기준)',
+            '연구원 연구활동비 <b>월 20만원까지 소득세 비과세</b>',
+            '연구소용 부동산 <b>취득세·재산세 감면</b> — 전담부서에는 없는 연구소 전용 혜택',
+            '병역지정업체(전문연구요원) 지정 신청 자격',
+            '이노비즈 신청 시 인력기준 완화'],
+      note: '세액공제는 인정일 이후 발생 비용부터 적용되며, 연구노트·보고서를 5년간 보관해야 합니다.',
+    },
+    '이노비즈': {
+      valid: ['2025-06-04', '2028-06-03'],
+      facts: [['평가기관','기술보증기금'],
+              ['갱신','만료 <b>3개월 ~ 1개월 전</b> 재인증 신청'],
+              ['갱신 비용','44만원 (VAT 포함)']],
+      ben_t: '이노비즈 인증 혜택',
+      ben: ['<b>정기 세무조사 유예</b> — 수도권 2년 · 지방 3년, 관세조사 1년 유예',
+            '수도권 <b>취득세 중과 면제</b>',
+            '정책자금 금리 우대 및 신용보증 한도 확대',
+            '공공기관 물품 구매 적격심사 가점',
+            '병역지정업체 선정 가점 · 중기부 R&amp;D 신청 자격',
+            '특허 우선심사 신청 자격'],
+      note: '취득세 중과 면제는 지자체 조례와 인증 유효기간을 함께 확인해야 합니다.',
+    },
+    '메인비즈': {
+      valid: ['2025-05-15', '2028-05-14'],
+      facts: [['인증기관','중소벤처기업부'],
+              ['갱신','만료 전 연장평가 신청 · 유효기간 3년'],
+              ['갱신 비용','44만원 (VAT 포함)']],
+      ben_t: '메인비즈 인증 혜택',
+      ben: ['신용보증기금 <b>보증료 우대 · 보증한도 확대</b> (최대 70억원)',
+            '정책자금 사업 신청 가점',
+            '공공기관 물품 구매 적격심사 가점',
+            '정기 세무조사 유예',
+            '병역지정업체 선정 가점',
+            '수출·판로 지원사업 및 정부 홍보 우대'],
+      note: '이노비즈와 평가 초점이 달라 동시 보유가 가능하며 혜택이 중복 적용됩니다.',
+    },
+  };
+
+  /* 상태와 잔여 기간은 종료일과 오늘로 그때그때 계산한다. 하드코딩하면
+     날짜가 지나도 「유효」로 남는다 — 갱신을 놓치는 화면이 된다.
+     기준은 셸의 TODAY(브라우저 시계)다. */
+  const DAY = 86400000;
+  const days = end => Math.round((Date.parse(end) - Date.parse(TODAY)) / DAY);
+  const SOON = 60;                                   /* 이 안에 들면 갱신 알림 */
+  function certState(end){
+    if(!end)          return {cls:'none', txt:'기한 없음'};
+    const d = days(end);
+    if(d < 0)         return {cls:'no',   txt:'만료'};
+    if(d <= SOON)     return {cls:'run',  txt:`갱신 D-${d}`};
+    return              {cls:'ok',   txt:'유효'};
+  }
+  /* 「잔여 2년 5개월」. 달 수로 세고 날짜가 모자라면 한 달 뺀다 —
+     8/14 에서 6/3 까지는 아직 한 달이 덜 찼다 */
+  function certRemain(end){
+    const t = new Date(TODAY), e = new Date(end);
+    if(isNaN(e)) return '';
+    let m = (e.getFullYear()-t.getFullYear())*12 + (e.getMonth()-t.getMonth());
+    if(e.getDate() < t.getDate()) m--;
+    if(m < 0)  return '';
+    if(m === 0) return `잔여 ${Math.max(days(end),0)}일`;
+    const y = Math.floor(m/12), mo = m%12;
+    return '잔여 ' + (y ? `${y}년${mo?` ${mo}개월`:''}` : `${mo}개월`);
+  }
+  const ymd = d => String(d||'').replace(/-/g,'.');
+
+  function certTable(){
+    const list = rows.filter(r=>r.cat==='cert');
+    if(!list.length) return emptyBox('등록된 내용이 없습니다.');
+    return `<div class="card"><div class="ct-tbl">
+      <div class="ct-cols ct-hd">
+       <span>인증·권리</span><span>단계</span><span>상태</span>
+       <span>진행 기간</span><span>유효기간</span></div>
+      ${list.map(r=>{
+        const c = CERT[String(r.title||'').trim()] || {};
+        const end = (c.valid || [])[1] || '';
+        const st = certState(end);
+        const rem = end ? certRemain(end) : (c.rem || '');
+        return `<details>
+        <summary><div class="ct-cols">
+          <div><div class="ct-nm">${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</div>
+            ${logLine(r).replace('class="t-sub"','class="ct-sub"')}</div>
+          <div>${steps(r)}</div>
+          <div><span class="tag g-${st.cls}">${st.txt}</span></div>
+          <div class="ct-per">${fmt(r.start)} – ${fmt(r.end)}</div>
+          <div class="ct-val">${c.valid ? `${ymd(c.valid[0])} ~ ${ymd(end)}` : '―'}
+            ${rem ? `<span class="ct-rem">${esc(rem)}</span>` : ''}</div>
+        </div></summary>
+        ${(c.facts || c.ben) ? `<div class="ct-body"><div class="ct-g2">
+          <div>${(c.facts||[]).map(([k,v])=>`<div class="ct-f">
+            <span class="ct-k">${esc(k)}</span><span class="ct-v">${v}</span></div>`).join('')}</div>
+          <div class="ct-ben">
+            <div class="ct-ben-t">${esc(c.ben_t||'')}</div>
+            <ul>${(c.ben||[]).map(b=>`<li>${b}</li>`).join('')}</ul>
+            ${c.note?`<div class="ct-note">${esc(c.note)}</div>`:''}
+          </div>
+        </div></div>` : ''}
+       </details>`;
+      }).join('')}
+    </div></div>`;
+  }
+
   function table(cat){
     const list = rows.filter(r=>r.cat===cat);
     if(!list.length) return emptyBox('등록된 내용이 없습니다.');
@@ -1373,7 +1551,7 @@ function init(D){
    ${noticeFeed()}`;
 
   V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
-  V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${table('cert')}`;
+  V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
   V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
 
   /* 소통 내역 — 노션 소통 DB 에서 「공개」인 것만 온다.
