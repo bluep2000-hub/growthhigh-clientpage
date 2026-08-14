@@ -580,39 +580,42 @@ body.locked #gate{display:grid}
   .perf-n:nth-child(3){padding-left:0;border-left:none}
 }
 
-/* ── 성과 요약 카드 (기업 정보 화면 하단) ──────────────────────────
+/* ── 조달현황 요약 카드 (기업 정보 화면, 공지사항 위) ──────────────
    시안 perf-summary-widget-v3 에서 옮겼다. 셸에 .psum 이 이미 있고
-   (.body .split .nm 도 겹친다) 성과 화면과도 토큰 이름이 같아,
-   클래스와 변수를 .psum- / --psum- 으로 따로 갈랐다. */
+   (.body .split .nm 도 겹친다) 조달현황 화면과도 토큰 이름이 같아,
+   클래스와 변수를 .psum- / --psum- 으로 따로 갈랐다.
+   첫 화면에 얹는 카드라 시안보다 한참 눌러 놨다 — 여백·글자·차트 모두. */
 .psum-card{--psum-c1:var(--accent);
            --psum-c2:#9DBAFF;
            --psum-c2:color-mix(in srgb, var(--accent) 38%, var(--panel));
            --psum-grid:var(--line);
   background:var(--panel);border:1px solid var(--line);
-  border-radius:var(--r);padding:20px 22px;margin-top:16px}
-.psum-hd{display:flex;align-items:center;margin-bottom:14px}
-.psum-hd-t{font-size:13px;font-weight:600;color:var(--tx)}
-.psum-hd-a{margin-left:auto;font-size:11.5px;font-weight:600;
+  border-radius:var(--r);padding:13px 16px;margin-top:16px}
+.psum-hd{display:flex;align-items:center;margin-bottom:8px}
+.psum-hd-t{font-size:12px;font-weight:600;color:var(--tx)}
+.psum-hd-a{margin-left:auto;font-size:11px;font-weight:600;
   color:var(--accent);text-decoration:none}
 .psum-hd-a:hover{text-decoration:underline}
-.psum-body{display:grid;grid-template-columns:1fr 186px;gap:26px;align-items:center}
-.psum-side{border-left:1px solid var(--line);padding-left:24px}
-.psum-tot-l{font-size:11px;color:var(--tx-3)}
-.psum-tot-v{font-size:28px;font-weight:700;letter-spacing:-.045em;
-  line-height:1.1;color:var(--psum-c1);margin-top:4px}
-.psum-tot-v .psum-u{font-size:13px;font-weight:600;margin-left:1px}
-.psum-split{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
-.psum-sp{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11.5px}
-.psum-sp i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
+.psum-body{display:grid;grid-template-columns:1fr 150px;gap:18px;align-items:center}
+.psum-side{border-left:1px solid var(--line);padding-left:18px}
+.psum-tot-l{font-size:10.5px;color:var(--tx-3)}
+.psum-tot-v{font-size:21px;font-weight:700;letter-spacing:-.045em;
+  line-height:1.1;color:var(--psum-c1);margin-top:2px}
+.psum-tot-v .psum-u{font-size:11.5px;font-weight:600;margin-left:1px}
+.psum-split{margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}
+.psum-sp{display:flex;align-items:center;gap:7px;padding:2.5px 0;font-size:11px}
+.psum-sp i{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
 .psum-nm{color:var(--tx-2);flex:1}
 .psum-vl{font-weight:600;color:var(--tx)}
-.psum-axis{font-size:10.5px;fill:var(--tx-3)}
-.psum-ylab{font-size:12px;font-weight:600;fill:var(--tx-2)}
-.psum-bval{font-size:11.5px;font-weight:700;letter-spacing:-.02em}
+/* 캔버스가 900 폭이라 화면에서는 0.85 배쯤으로 줄어 보인다. 그만큼 키워 둔다 */
+.psum-axis{font-size:12px;fill:var(--tx-3)}
+.psum-ylab{font-size:14px;font-weight:600;fill:var(--tx-2)}
+.psum-bval{font-size:13px;font-weight:700;letter-spacing:-.02em}
+.psum-body svg{display:block;max-height:130px}
 @media(max-width:640px){
-  .psum-body{grid-template-columns:1fr;gap:16px}
+  .psum-body{grid-template-columns:1fr;gap:12px}
   .psum-side{border-left:none;padding-left:0;
-    border-top:1px solid var(--line);padding-top:16px}
+    border-top:1px solid var(--line);padding-top:12px}
 }
 </style>
 </head>
@@ -884,7 +887,7 @@ function init(D){
   const NAV = [
     { g:'기업', items:[
       {id:'info',ic:'info',nm:'기업 정보'},
-      {id:'perf',ic:'perf',nm:'성과'},
+      {id:'perf',ic:'perf',nm:'조달현황'},
       {id:'notice',ic:'notice',nm:noticeLabel,dim:!hasNotice}]},
     { g:'진행 현황', items:[
       {id:'fund',ic:'fund',nm:CATNM.fund,ct:cnt('fund')},
@@ -1162,6 +1165,7 @@ function init(D){
       <div class="s">${nextEv?esc(nextEv.title):'예정된 일정이 없습니다'}</div></div>
    </div>
 
+   ${psumCard()}
    ${forPrint ? noticeFeed() : noticeSummary()}
    ${schedule(forPrint ? Infinity : undefined)}
 
@@ -1177,37 +1181,41 @@ function init(D){
       <td class="dtc">${CATNM[r.cat].split('·')[0]}</td>
       <td>${steps(r)}</td><td>${tag(r)}</td>
       <td class="num sup">${support(r)}</td></tr>`).join('')}
-    </tbody></table>`:`<div class="cb"><p class="empty">진행 중인 프로젝트가 없습니다.</p></div>`}</div>
-   ${psumCard()}`;
+    </tbody></table>`:`<div class="cb"><p class="empty">진행 중인 프로젝트가 없습니다.</p></div>`}</div>`;
 
-  /* 성과 요약 카드 — 기업 정보 화면 맨 아래.
+  /* 조달현황 요약 — 기업 정보 화면에서 공지사항 바로 위에 놓는다.
      상단 KPI 타일(진행 중·완료·취득 인증·다음 일정)과 겹치지 않게
-     누적 확보금액 하나만 둔다. 숫자와 막대는 하드코딩이다 —
-     성과 화면의 DATA 와 같은 값이고, 노션 속성이 정리되면 함께 옮긴다.
-     「자세히 보기」는 셸의 data-go 로 성과 화면에 연결된다. */
+     누적 확보금액 하나만 둔다. 지표를 더 붙이지 말 것.
+     첫 화면에 얹는 카드라 조달현황 화면보다 훨씬 납작하게 만들었다 —
+     차트 세로를 200 에서 132 로 눌렀다(눈금 간격 27.2 → 17.5px).
+     숫자와 막대는 하드코딩이다. 조달현황 화면의 DATA 와 같은 값이고,
+     노션 속성이 정리되면 함께 옮긴다.
+     「자세히 보기」는 셸의 data-go 로 조달현황 화면에 연결된다. */
   function psumCard(){
     return `<div class="psum-card">
-      <div class="psum-hd"><span class="psum-hd-t">성과</span>
+      <div class="psum-hd"><span class="psum-hd-t">조달현황</span>
         <a class="psum-hd-a" href="#" data-go="perf">자세히 보기 →</a></div>
       <div class="psum-body">
        <div>
-        <svg width="100%" viewBox="0 0 400 200">
-         <line x1="28" y1="160"   x2="392" y2="160"   stroke="var(--line-2)" stroke-width="1.5"/>
-         <line x1="28" y1="105.6" x2="392" y2="105.6" stroke="var(--psum-grid)"/>
-         <line x1="28" y1="51.2"  x2="392" y2="51.2"  stroke="var(--psum-grid)"/>
-         <text class="psum-axis" x="22" y="164" text-anchor="end">0</text>
-         <text class="psum-axis" x="22" y="110" text-anchor="end">2</text>
-         <text class="psum-axis" x="22" y="55"  text-anchor="end">4</text>
-         <rect x="59"  y="78.4"  width="55" height="81.6" rx="4" fill="var(--psum-c1)"/>
-         <rect x="124" y="136.9" width="55" height="23.1" rx="4" fill="var(--psum-c2)"/>
-         <text class="psum-bval" x="86.5"  y="71"    text-anchor="middle" fill="var(--psum-c1)">3.0</text>
-         <text class="psum-bval" x="151.5" y="129.5" text-anchor="middle" fill="var(--tx-2)">0.85</text>
-         <text class="psum-ylab" x="119" y="182" text-anchor="middle">2025</text>
-         <rect x="241" y="37.6"  width="55" height="122.4" rx="4" fill="var(--psum-c1)"/>
-         <rect x="306" y="82.5"  width="55" height="77.5"  rx="4" fill="var(--psum-c2)"/>
-         <text class="psum-bval" x="268.5" y="30" text-anchor="middle" fill="var(--psum-c1)">4.5</text>
-         <text class="psum-bval" x="333.5" y="75" text-anchor="middle" fill="var(--tx-2)">2.85</text>
-         <text class="psum-ylab" x="301" y="182" text-anchor="middle">2026</text>
+        <!-- 넓고 낮은 캔버스다. width:100% 라 높이는 폭 × 132/900 로 정해진다 —
+             400 폭으로 두면 카드가 세 배로 높아진다. 눈금 17.5px = 1억원. -->
+        <svg width="100%" viewBox="0 0 900 132">
+         <line x1="34" y1="104" x2="890" y2="104" stroke="var(--line-2)" stroke-width="1.5"/>
+         <line x1="34" y1="69"  x2="890" y2="69"  stroke="var(--psum-grid)"/>
+         <line x1="34" y1="34"  x2="890" y2="34"  stroke="var(--psum-grid)"/>
+         <text class="psum-axis" x="26" y="108"  text-anchor="end">0</text>
+         <text class="psum-axis" x="26" y="73"   text-anchor="end">2</text>
+         <text class="psum-axis" x="26" y="38"   text-anchor="end">4</text>
+         <rect x="196" y="51.5" width="56" height="52.5" rx="3" fill="var(--psum-c1)"/>
+         <rect x="264" y="89.1" width="56" height="14.9" rx="3" fill="var(--psum-c2)"/>
+         <text class="psum-bval" x="224" y="46"   text-anchor="middle" fill="var(--psum-c1)">3.0</text>
+         <text class="psum-bval" x="292" y="83.6" text-anchor="middle" fill="var(--tx-2)">0.85</text>
+         <text class="psum-ylab" x="258" y="124" text-anchor="middle">2025</text>
+         <rect x="586" y="25.3" width="56" height="78.7" rx="3" fill="var(--psum-c1)"/>
+         <rect x="654" y="54.1" width="56" height="49.9" rx="3" fill="var(--psum-c2)"/>
+         <text class="psum-bval" x="614" y="19.8" text-anchor="middle" fill="var(--psum-c1)">4.5</text>
+         <text class="psum-bval" x="682" y="48.6" text-anchor="middle" fill="var(--tx-2)">2.85</text>
+         <text class="psum-ylab" x="648" y="124" text-anchor="middle">2026</text>
         </svg>
        </div>
        <div class="psum-side">
@@ -1224,9 +1232,10 @@ function init(D){
      </div>`;
   }
 
-  /* 성과 — 마크업만 낸다. 값 채우기와 차트는 아래 perfFit 이 맡는다.
-     go() 가 화면을 새로 그린 뒤에 불러야 폭·높이를 잴 수 있다. */
-  V.perf=()=>`<div class="vh"><h1>성과</h1></div>
+  /* 조달현황 — 마크업만 낸다. 값 채우기와 차트는 아래 perfFit 이 맡는다.
+     go() 가 화면을 새로 그린 뒤에 불러야 폭·높이를 잴 수 있다.
+     화면 id 는 perf 그대로다 — 주소(#perf)와 window.perfFit 을 유지한다. */
+  V.perf=()=>`<div class="vh"><h1>조달현황</h1></div>
    <div class="perf">
     <div class="perf-card">
      <div class="perf-nums">
@@ -1513,7 +1522,7 @@ function init(D){
     window.print();
   });
 
-  const CR={info:'기업 정보',perf:'성과',fund:CATNM.fund,cert:CATNM.cert,
+  const CR={info:'기업 정보',perf:'조달현황',fund:CATNM.fund,cert:CATNM.cert,
     proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
   CR.notice = noticeLabel;                     /* 공지가 없어도 화면은 있다 */
   /* 화면 전환을 브라우저 히스토리에 남긴다. 안 남기면 뒤로 가기가
