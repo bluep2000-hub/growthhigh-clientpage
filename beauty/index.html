@@ -580,55 +580,79 @@ body.locked #gate{display:grid}
   .perf-n:nth-child(3){padding-left:0;border-left:none}
 }
 
-/* ── 조달현황 요약 카드 (기업 정보 화면, 공지사항 위) ──────────────
-   시안 perf-summary-widget-v3 에서 옮겼다. 셸에 .psum 이 이미 있고
-   (.body .split .nm 도 겹친다) 조달현황 화면과도 토큰 이름이 같아,
-   클래스와 변수를 .psum- / --psum- 으로 따로 갈랐다.
-   첫 화면에 얹는 카드라 시안보다 한참 눌러 놨다 — 여백·글자·차트 모두. */
-/* 값은 시안 그대로다. 바꾼 것은 둘뿐 —
-     · 색: 하드코딩 대신 셸 토큰. 다크 모드를 따라가야 한다
-     · padding 세로와 .psum-hd 아래 여백: 첫 화면에 얹는 카드라 낮췄다
-       (시안 22px/16px → 14px/10px. 이 둘 말고는 손대지 않았다)
-   SVG 에는 크기 제한을 걸지 않는다. 차트 높이는 칸 폭의 절반이다. */
+/* ── 기업 정보 2단 — 조달현황 · 공지사항 ────────────────────────────
+   시안 company-2col-layout-v3 에서 옮겼다. 셸에 .card .pad .hd .tot .lgs
+   .nt 가 모두 이미 있어 바깥 껍데기는 .p2- 로 갈랐다. 조달현황 안쪽은
+   앞서 쓰던 .psum- 을 그대로 이어 쓴다.
+   색은 하드코딩 대신 셸 토큰이다 — 다크 모드를 따라가야 한다
+   (시안 #3F4BA8 ≈ --accent). 카드 껍데기·여백·글자 크기는 시안 그대로다.
+   두 카드 바닥선은 stretch + .p2pad{flex:1} + .psum-lgs{margin-top:auto}
+   로 맞춘다. 범례가 카드 바닥에 붙어 옆 카드와 높이가 같아진다. */
+.p2row{display:grid;grid-template-columns:1fr 1fr;gap:14px;
+  align-items:stretch;margin:16px 0}
+.p2c{display:flex;flex-direction:column;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px}
+.p2hd{display:flex;align-items:center;gap:8px;padding:18px 22px 0}
+.p2hd-t{font-size:13.5px;font-weight:700;color:var(--tx)}
+.p2hd-d{font-size:11.5px;color:var(--tx-3)}
+.p2hd-a{margin-left:auto;font-size:12px;font-weight:600;
+  color:var(--accent);text-decoration:none}
+.p2hd-a:hover{text-decoration:underline}
+.p2pad{padding:0 22px 20px;flex:1;display:flex;flex-direction:column}
+
+/* 조달현황 — 세로 구성이다: 누적 확보금액 → 차트 → 범례.
+   카드 폭이 절반이라 SVG 는 width:100% 만으로 꽉 찬다.
+   max-width·max-height 를 걸지 말 것 — 걸면 다시 여백이 남는다 */
 .psum-card{--psum-c1:var(--accent);
-           --psum-c2:#9DBAFF;
+           --psum-c2:#B3BCE3;
            --psum-c2:color-mix(in srgb, var(--accent) 38%, var(--panel));
-           --psum-grid:var(--line);
-  background:var(--panel);border:1px solid var(--line);
-  border-radius:14px;padding:14px 24px;margin-top:16px}
-.psum-hd{display:flex;align-items:center;margin-bottom:10px}
-.psum-hd-t{font-size:13.5px;font-weight:700;color:var(--tx)}
-.psum-hd-a{margin-left:auto;font-size:12px;font-weight:600;
-  color:var(--psum-c1);text-decoration:none}
-.psum-hd-a:hover{text-decoration:underline}
-.psum-body{display:grid;grid-template-columns:1fr 220px;gap:28px;align-items:center}
-.psum-side{border-left:1px solid var(--line);padding-left:26px}
-.psum-tot-l{font-size:13px;color:var(--tx-3)}
-.psum-tot-v{font-size:34px;font-weight:800;letter-spacing:-.045em;
-  line-height:1.1;color:var(--psum-c1);margin-top:4px}
-.psum-tot-v .psum-u{font-size:16px;font-weight:600;margin-left:1px}
-.psum-split{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
-.psum-sp{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13.5px}
-.psum-sp i{width:10px;height:10px;border-radius:2px;flex:none;display:inline-block}
-.psum-nm{color:var(--tx-2);flex:1;white-space:nowrap}
-.psum-vl{font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--tx)}
-.psum-axis{font-size:10.5px;fill:var(--tx-3)}
+           --psum-grid:var(--line)}
+.psum-tot{display:flex;align-items:baseline;gap:10px;margin:16px 0 4px}
+.psum-tot-v{font-size:30px;font-weight:800;letter-spacing:-.045em;
+  line-height:1;color:var(--psum-c1)}
+.psum-tot-v .psum-u{font-size:14px;font-weight:600;margin-left:1px}
+.psum-tot-l{font-size:11.5px;color:var(--tx-3)}
+.psum-chart{margin-top:6px}
+.psum-chart svg{display:block;width:100%;height:auto}
+.psum-axis{font-size:11px;fill:var(--tx-3)}
 .psum-ylab{font-size:12.5px;font-weight:700;fill:var(--tx-2)}
 .psum-bval{font-size:12px;font-weight:800;letter-spacing:-.02em}
-/* 세로를 기준으로 줄인다. viewBox 는 400x200 그대로고 폭이 따라온다
-   (190px 높이면 380px 폭). 막대 글씨·축 숫자도 같은 비율로 작아진다.
-   height 를 함께 줘야 svg 의 height:100% 가 풀린다 — max-height 만으로는
-   부모 높이가 auto 라 퍼센트가 잡히지 않는다. */
-.psum-chart{max-height:190px;height:190px}
-.psum-chart svg{display:block;height:100%;width:auto;max-width:100%}
-@media(max-width:640px){
-  .psum-body{grid-template-columns:1fr;gap:18px}
-  .psum-side{border-left:none;padding-left:0;
-    border-top:1px solid var(--line);padding-top:18px}
-  /* 한 열로 접히면 폭이 기준이다. 세로 고정을 풀지 않으면 위아래가 빈다 */
-  .psum-chart{height:auto;max-height:none}
-  .psum-chart svg{width:100%;height:auto}
-}
+.psum-lgs{margin-top:auto;padding-top:14px;border-top:1px solid var(--line)}
+.psum-sp{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0}
+.psum-sp i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
+.psum-nm{color:var(--tx-2);flex:1}
+.psum-vl{font-weight:700;letter-spacing:-.01em;color:var(--tx)}
+
+/* 공지 — 섹션을 접는다. 기본은 전부 접힘.
+   화살표는 ::before 로 직접 그리므로 브라우저 기본 마커를 반드시 지운다.
+   크롬은 ::-webkit-details-marker, 파이어폭스는 list-style, 그 밖은 ::marker */
+.p2nt{margin-top:14px}
+.p2nt details{border-bottom:1px solid var(--line)}
+.p2nt details:last-of-type{border-bottom:none}
+.p2nt summary{list-style:none;cursor:pointer;padding:12px 0;display:flex;
+  align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--tx-2)}
+.p2nt summary::-webkit-details-marker{display:none}
+.p2nt summary::marker{content:''}
+.p2nt summary:hover{color:var(--tx)}
+.p2nt summary::before{content:'';width:0;height:0;flex:none;
+  border-left:5px solid var(--tx-3);border-top:4px solid transparent;
+  border-bottom:4px solid transparent;transition:transform .15s}
+.p2nt details[open] summary::before{transform:rotate(90deg)}
+.p2nt details[open] summary{color:var(--accent)}
+.p2nt-b{padding:0 0 12px 13px}
+.p2l1{list-style:none}
+.p2l1>li{font-size:12px;color:var(--tx-2);padding:3px 0 3px 13px;position:relative}
+.p2l1>li::before{content:'';position:absolute;left:0;top:11px;
+  width:4px;height:4px;border-radius:50%;background:var(--tx-3)}
+.p2l2{list-style:none;padding-left:13px;margin-top:2px}
+.p2l2>li{font-size:11.5px;color:var(--tx-3);padding:2px 0 2px 12px;
+  position:relative;line-height:1.55}
+.p2l2>li::before{content:'';position:absolute;left:0;top:10px;
+  width:5px;height:1px;background:var(--line-2)}
+
+@media(max-width:860px){ .p2row{grid-template-columns:1fr} }
+/* 인쇄는 한 단으로 편다. 인쇄용 화면은 공지를 접지 않고 전문을 쓴다 */
+@media print{ .p2row{grid-template-columns:1fr} }
 </style>
 </head>
 <body class="locked">
@@ -964,13 +988,24 @@ function init(D){
     return `<div class="t-sub">${d?`<span class="lgd">${d}</span>`:''}${esc(r.log_text||'')}</div>`;
   };
 
+  /* 진행 건 지원내용 — 노션 「확보금액」이 아직 비어 있어 여기서 채운다.
+     조달현황 DATA 와 같은 방침으로 c/sample.json 에는 넣지 않는다.
+     값은 이미 이스케이프된 HTML 이다 (금액은 굵게, 산출물은 보통 굵기).
+     노션 속성이 정리되면 이 표를 지우고 r.amount 만 쓰면 된다. */
+  const SUP_FIX = {
+    '2026년 해외규격인증획득지원사업(일반지원) 2차': '<b>최대 4건 · 1억원</b>',
+    '2026년 수출전략품목 육성지원사업':              'K-전략수출품목 인정서',
+    '2026년 소공인 판로개척 지원사업(트랙I)':        '<b>오프라인 판매수수료 2,000만원</b>',
+    '2026년 창업도약패키지(일반형)':                 '<b>사업화자금 2억원</b>',
+  };
+
   /* 지원내용 — 확보금액이 있으면 그 값, 없으면 빈칸.
      확보금액은 노션에서 rich_text 라 「100,000,000원」 같은 금액과
      「하이서울기업 인증서」 같은 산출물이 함께 들어온다. 원문을 그대로 쓰고,
      숫자만 들어온 경우에만 세 자리로 끊는다. */
   const support = r => {
     const a = (r.amount == null ? '' : String(r.amount)).trim();
-    if(!a) return '';
+    if(!a) return SUP_FIX[String(r.title || '').trim()] || '';
     return /^\d+$/.test(a) ? esc(Number(a).toLocaleString('ko-KR')) : esc(a);
   };
 
@@ -1029,31 +1064,9 @@ function init(D){
       </div></div>`).join('');
   }
 
-  /* 공지 요약 — 첫 화면에서는 섹션 제목만 차례처럼 늘어놓는다. 최대 5개.
-     안쪽 항목을 꺼내면 클라이언트마다 깊이가 달라 뒤죽박죽이 된다 */
-  const SUMMARY_MAX = 5;
-  /* 공지가 없어도 카드는 남긴다. 첫 화면의 구성이 클라이언트마다 달라지면
-     비어 있는 것이 아니라 무언가 빠진 것처럼 보인다. */
-  function noticeSummary(){
-    if(!notice) return `<div class="card" style="margin-top:24px">
-      <div class="ch"><h2>${esc(noticeLabel)}</h2></div>
-      <div class="cb"><p class="empty">등록된 내용이 없습니다.</p></div></div>`;
-    const secs = notice.sections || [];
-    const shown = secs.slice(0, SUMMARY_MAX);
-    const rest = secs.length - shown.length;
-    return `<div class="card" style="margin-top:24px">
-      <div class="ch"><h2>${esc(noticeLabel)}</h2>
-        ${notice.date?`<span class="d">${esc(notice.date)}</span>`:''}
-        <a class="more" href="#" data-go="notice">전체 보기 →</a></div>
-      <div class="cb">
-       ${shown.length
-         ? `<ul class="ck">${shown.map(s=>noticeItem(
-              {checked:null, html:s.heading_html || esc(s.heading || ''), children:[]}, 1)
-            ).join('')}</ul>
-            ${rest > 0 ? `<p class="empty" style="margin-top:6px">외 ${rest}건</p>` : ''}`
-         : `<p class="empty">등록된 내용이 없습니다.</p>`}
-      </div></div>`;
-  }
+  /* 셸의 공지 요약 카드(noticeSummary)는 여기서 쓰지 않는다. 첫 화면 공지는
+     조달현황 옆 2단 카드(noticeCard)가 대신한다. 원래 코드는 루트
+     index.html 에 그대로 있다 — 되돌릴 일이 생기면 거기서 가져올 것. */
 
   /* 일정 — 구글 캘린더의 미팅, progress 의 종료 예정일, recommend 의 마감일.
      이벤트가 없어도 달력은 그대로 둔다. */
@@ -1177,16 +1190,17 @@ function init(D){
       <div class="s">${nextEv?esc(nextEv.title):'예정된 일정이 없습니다'}</div></div>
    </div>
 
-   ${psumCard()}
-   ${forPrint ? noticeFeed() : noticeSummary()}
+   ${forPrint
+      ? `<div class="p2row">${psumCard()}</div>${noticeFeed()}`
+      : `<div class="p2row">${psumCard()}${noticeCard()}</div>`}
    ${schedule(forPrint ? Infinity : undefined)}
 
    <div class="card" style="margin-top:24px">
     <div class="ch"><h2>진행 중인 프로젝트</h2><a class="more" href="#" data-go="fund">전체 보기 →</a></div>
     ${running.length?`<table><thead><tr>
      <th style="width:38%">프로젝트</th><th style="width:13%">구분</th>
-     <th style="width:18%">단계</th><th style="width:10%">상태</th>
-     <th class="num" style="width:21%">지원내용</th></tr></thead>
+     <th style="width:18%">단계</th><th style="width:8%">상태</th>
+     <th class="num" style="width:23%">지원내용</th></tr></thead>
     <tbody>${running.map(r=>`<tr>
       <td class="lead"><div class="t-nm">${esc(r.title)}${r.joint?'<span class="co">공동</span>':''}</div>
           ${logLine(r)}</td>
@@ -1204,16 +1218,19 @@ function init(D){
      노션 속성이 정리되면 함께 옮긴다.
      「자세히 보기」는 셸의 data-go 로 조달현황 화면에 연결된다. */
   function psumCard(){
-    return `<div class="psum-card">
-      <div class="psum-hd"><span class="psum-hd-t">조달현황</span>
-        <a class="psum-hd-a" href="#" data-go="perf">자세히 보기 →</a></div>
-      <div class="psum-body">
+    return `<div class="p2c psum-card">
+      <div class="p2hd"><span class="p2hd-t">조달현황</span>
+        <a class="p2hd-a" href="#" data-go="perf">자세히 보기 →</a></div>
+      <div class="p2pad">
+       <div class="psum-tot">
+        <span class="psum-tot-v">11.2<span class="psum-u">억원</span></span>
+        <span class="psum-tot-l">누적 확보금액</span></div>
        <div class="psum-chart">
-        <!-- 시안 perf-summary-widget-v3 의 마크업 그대로다. 좌표를 고치지 말 것.
+        <!-- 시안 company-2col-layout-v3 의 마크업 그대로다. 좌표를 고치지 말 것.
              바꾼 것은 색뿐 — 하드코딩 대신 셸 토큰을 쓴다.
-               #D9DCE2 → var(--line-2)      var(--grid) → var(--psum-grid)
-               #2F6BFF → var(--psum-c1)     #9DBAFF     → var(--psum-c2)
-               #5B7BC4 → var(--tx-2) -->
+               #DDE0E6 → var(--line-2)      var(--grid) → var(--psum-grid)
+               #3F4BA8 → var(--psum-c1)     #B3BCE3     → var(--psum-c2)
+               #6E77B5 → var(--tx-2) -->
         <svg width="100%" viewBox="0 0 400 200">
           <line x1="28" y1="160"   x2="392" y2="160"   stroke="var(--line-2)" stroke-width="1.5"/>
           <line x1="28" y1="105.6" x2="392" y2="105.6" stroke="var(--psum-grid)"/>
@@ -1235,17 +1252,78 @@ function init(D){
           <text class="psum-ylab" x="301" y="182" text-anchor="middle">2026</text>
         </svg>
        </div>
-       <div class="psum-side">
-        <div class="psum-tot-l">누적 확보금액</div>
-        <div class="psum-tot-v">11.2<span class="psum-u">억원</span></div>
-        <div class="psum-split">
-         <div class="psum-sp"><i style="background:var(--psum-c1)"></i>
-           <span class="psum-nm">정책자금·보증</span><span class="psum-vl">7.5억원</span></div>
-         <div class="psum-sp"><i style="background:var(--psum-c2)"></i>
-           <span class="psum-nm">정부지원사업</span><span class="psum-vl">3.7억원</span></div>
-        </div>
+       <div class="psum-lgs">
+        <div class="psum-sp"><i style="background:var(--psum-c1)"></i>
+          <span class="psum-nm">정책자금·보증</span><span class="psum-vl">7.5억원</span></div>
+        <div class="psum-sp"><i style="background:var(--psum-c2)"></i>
+          <span class="psum-nm">정부지원사업</span><span class="psum-vl">3.7억원</span></div>
        </div>
       </div>
+     </div>`;
+  }
+
+  /* 공지 요약 카드 — 조달현황 옆자리. 시안 company-2col-layout-v3 의 내용을
+     그대로 쓴다. 대시보드 원문에서 클라이언트가 골라낸 4개 항목이라
+     c/sample.json 의 notice(2개 섹션·전문)와는 다르다 — 조달현황 DATA 와
+     같은 방침으로 여기 하드코딩해 두고, 노션 속성이 정리되면 함께 옮긴다.
+     「전체 보기」는 전문(V.notice)으로 보낸다. 날짜만 데이터에서 가져온다. */
+  function noticeCard(){
+    return `<div class="p2c">
+      <div class="p2hd"><span class="p2hd-t">${esc(noticeLabel)}</span>
+        ${notice && notice.date ? `<span class="p2hd-d">${esc(notice.date)}</span>` : ''}
+        <a class="p2hd-a" href="#" data-go="notice">전체 보기 →</a></div>
+      <div class="p2pad"><div class="p2nt">
+
+       <details>
+        <summary>2507 연구소 변경 신고</summary>
+        <div class="p2nt-b"><ul class="p2l1">
+         <li>연구소장 이○○님 퇴사</li>
+         <li>현 디자인팀으로 인력변경 (김○○님, 이○○님, 주○○님)</li>
+         <li>디자인팀 자리배치 요건 확인</li>
+        </ul></div>
+       </details>
+
+       <details>
+        <summary>R&amp;D</summary>
+        <div class="p2nt-b"><ul class="p2l1">
+         <li>기술이전 → 상용화 이슈
+          <ul class="p2l2">
+           <li>경쟁사 → 나노버블, 마이크로버블 등 특허 마케팅</li>
+           <li>버블 관련 특허 → 선행 기술조사 필요</li>
+          </ul>
+         </li>
+        </ul></div>
+       </details>
+
+       <details>
+        <summary>지식재산권</summary>
+        <div class="p2nt-b"><ul class="p2l1">
+         <li>(상표권) 개인 등록 5건 → 법인</li>
+         <li>(신규특허) 기술등급 높은 특허 출원 필요</li>
+        </ul></div>
+       </details>
+
+       <details>
+        <summary>PSST 사업계획서</summary>
+        <div class="p2nt-b"><ul class="p2l1">
+         <li>마케팅 &amp; 판로 현황에 대한 자료
+          <ul class="p2l2">
+           <li>해외 영업팀 최신 자료(브랜드 소개) 회신</li>
+           <li>2026년 마일스톤 (자료, 링크 연결)</li>
+           <li>사업 추진 일정 수립 (신제품 수립, GTM 등 타임라인) → 스프레드시트 공유</li>
+          </ul>
+         </li>
+         <li>전시회 참가 레퍼런스
+          <ul class="p2l2">
+           <li>2025 코스모프로프 볼로냐 참가</li>
+           <li>2025 코스모프로프 라스베거스 참가 → 코스모트렌드 파이널리스트 선정</li>
+           <li>KCON LA 2025 참가 → CJ올리브영 ‘K-슈퍼루키 위드 영’ 최종 선정</li>
+          </ul>
+         </li>
+        </ul></div>
+       </details>
+
+      </div></div>
      </div>`;
   }
 
