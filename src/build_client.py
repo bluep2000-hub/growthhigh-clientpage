@@ -451,6 +451,26 @@ def split_log(raw: str) -> tuple[str, str]:
     return f"{m.group(1)}-{m.group(2)}-{m.group(3)}", m.group(4)
 
 
+# 인증 펼침에 넣는 기업별 값. 「항목: 값」 을 줄바꿈으로 나열한 rich_text 다
+INFO_SEP_RE = re.compile(r"\s*[:：]\s*")
+
+
+def parse_info(raw: str) -> list[dict]:
+    """「텍스트」 속성을 [{k, v}] 로 가른다. 콜론이 없는 줄은 버린다."""
+    out = []
+    for line in (raw or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = INFO_SEP_RE.split(line, 1)
+        if len(parts) != 2:
+            continue
+        k, v = parts[0].strip(), parts[1].strip()
+        if k and v:
+            out.append({"k": k, "v": v})
+    return out
+
+
 def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
     rows = nt.query_all(PROJECT_DB_ID, {
         "filter": {"property": "고객사 정보",
@@ -511,6 +531,9 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
             "valid": [v_start, v_end] if (v_start or v_end) else None,
             # 조달현황 범례용. 정책자금만 fund 고 나머지 지원사업은 전부 gov 다
             "ptype": "fund" if POLICY_FUND_TYPE in types else "gov",
+            # 인증 펼침의 기업별 값. 기업인증 행에서만 읽는다 — 다른 유형의
+            # 내부 메모가 payload 로 새 나가지 않게 한다
+            "info": parse_info(p_text(props, "텍스트")) if cat == "cert" else [],
         })
 
     # 시작일 내림차순 — 노션 화면 순서와 같게 최근 건이 위로 온다
