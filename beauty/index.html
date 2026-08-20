@@ -612,7 +612,8 @@ body.locked #gate{display:grid}
 .perf-lg i{width:9px;height:9px;border-radius:3px;display:inline-block;flex:none}
 /* 분류 필터 — 조달현황 화면 전용. 칩 모양은 소통 내역 탭과 같은 것을 쓴다.
    구분은 하나만, 연도는 여러 개 고를 수 있다 */
-.perf-filters{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+/* 필터는 분야별 조달 현황 카드 안, 머리글 바로 밑이다 */
+.perf-filters{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin:-6px 0 16px}
 .perf-fgrp{display:flex;align-items:center;gap:8px;min-width:0}
 .perf-flbl{font-size:11.5px;font-weight:600;color:var(--tx-3);flex:none}
 .perf-filters .chips{margin-bottom:0}
@@ -1640,20 +1641,18 @@ function init(D){
         <div class="perf-n-lbl">취득 인증</div></div>
      </div>
     </div>
-    <div class="perf-filters">
-     <div class="perf-fgrp"><span class="perf-flbl">구분</span>
-       <div class="chips" id="perfFType"></div></div>
-     <div class="perf-fgrp"><span class="perf-flbl">연도</span>
-       <div class="chips" id="perfFYear"></div></div>
-    </div>
     <div class="perf-card">
      <div class="pv-hd">
       <span class="perf-blk-t">분야별 조달 현황</span>
       <span class="pv-hd-s">항목을 누르면 사업이 펼쳐집니다</span>
       <span class="pv-seg" id="pvSeg">
-       <button data-pv="ratio">비중</button>
        <button class="on" data-pv="bar">규모</button>
+       <button data-pv="ratio">비중</button>
       </span>
+     </div>
+     <div class="perf-filters">
+      <div class="perf-fgrp"><span class="perf-flbl">연도</span>
+        <div class="chips" id="perfFYear"></div></div>
      </div>
      <div id="pvBody"></div>
     </div>
