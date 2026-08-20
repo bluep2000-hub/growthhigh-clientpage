@@ -610,6 +610,12 @@ body.locked #gate{display:grid}
 .perf-legend{display:flex;gap:14px;justify-content:center;margin-top:6px;flex-wrap:wrap}
 .perf-lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tx-2)}
 .perf-lg i{width:9px;height:9px;border-radius:3px;display:inline-block;flex:none}
+/* 분류 필터 — 조달현황 화면 전용. 칩 모양은 소통 내역 탭과 같은 것을 쓴다.
+   구분은 하나만, 연도는 여러 개 고를 수 있다 */
+.perf-filters{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.perf-fgrp{display:flex;align-items:center;gap:8px;min-width:0}
+.perf-flbl{font-size:11.5px;font-weight:600;color:var(--tx-3);flex:none}
+.perf-filters .chips{margin-bottom:0}
 .perf-grp{margin-bottom:16px}
 .perf-grp:last-child{margin-bottom:0}
 .perf-grp-head{display:flex;align-items:baseline;padding-bottom:6px;
@@ -1594,16 +1600,19 @@ function init(D){
         <div class="perf-n-lbl">취득 인증</div></div>
      </div>
     </div>
+    <div class="perf-filters">
+     <div class="perf-fgrp"><span class="perf-flbl">구분</span>
+       <div class="chips" id="perfFType"></div></div>
+     <div class="perf-fgrp"><span class="perf-flbl">연도</span>
+       <div class="chips" id="perfFYear"></div></div>
+    </div>
     <div class="perf-card">
      <div class="perf-two">
       <div class="perf-col-l">
        <div class="perf-blk-t">연도별 확보금액</div>
        <div class="perf-blk-s">단위 억원</div>
        <div id="perfChart"></div>
-       <div class="perf-legend">
-        <span class="perf-lg"><i style="background:var(--perf-c1)"></i>정책자금·보증</span>
-        <span class="perf-lg"><i style="background:var(--perf-c2)"></i>정부지원사업</span>
-       </div>
+       <div class="perf-legend" id="perfLegend"></div>
       </div>
       <div class="perf-col-r">
        <div class="perf-blk-t">사업별 확보 내역</div>
@@ -1974,7 +1983,18 @@ document.getElementById('tgl').onclick=()=>{
      먼저 파싱되므로 값을 여기서 붙잡아 두면 안 된다 — 화면을 그릴 때
      (mount) 읽어서 아래 파생값을 다시 만든다. */
   let DATA = { programs: [], certs: [] };
-  let years = [], byYear = [], grand = 0;
+  let years = [], byYear = [], grand = 0, shown = [], certs = [];
+
+  /* 분류 필터. 화면을 다시 그려도 고른 것이 남도록 모듈 변수로 둔다.
+     구분은 하나만 고른다(all|fund|gov). 연도는 여러 개 고를 수 있고
+     빈 집합이 「전체」다 — 데이터에 새 연도가 생겨도 저절로 포함된다.
+     기본값은 둘 다 전체다. 연도 기본값을 자문 계약 기간에 맞출지는
+     아직 정하지 않았다 — 정해지면 여기 두 줄만 바꾸면 된다. */
+  const TYPE_NM = { fund:'정책자금·보증', gov:'정부지원사업' };
+  let fType = 'all';
+  let fYears = new Set();
+  const typesOn = () => fType === 'all' ? ['fund','gov'] : [fType];
+  const yearOn = y => fYears.size === 0 || fYears.has(y);
 
   /* 색은 셸 토큰을 그대로 쓴다. SVG fill 에도 var() 가 통한다 */
   const C = { fund:'var(--perf-c1)', gov:'var(--perf-c2)' };
@@ -2009,28 +2029,86 @@ document.getElementById('tgl').onclick=()=>{
   function prep(){
     DATA = window.__PERF__ || { programs: [], certs: [] };
     years = [...new Set(DATA.programs.map(p => p.year))].sort();
-    byYear = years.map(y => {
-      const rows = DATA.programs.filter(p => p.year===y).sort((a,b) => b.amount-a.amount);
+    /* 필터를 지난 것만 아래 화면 전부가 쓴다. 연도는 화면 전체에 걸리고
+       구분은 사업(금액·건수·차트·목록)에만 걸린다 — 인증에는 구분이 없다 */
+    const on = typesOn();
+    shown = DATA.programs.filter(p => yearOn(p.year) && on.includes(p.type));
+    byYear = years.filter(yearOn).map(y => {
+      const rows = shown.filter(p => p.year===y).sort((a,b) => b.amount-a.amount);
       const fund = rows.filter(r => r.type==='fund').reduce((s,r) => s+r.amount, 0);
       const gov  = rows.filter(r => r.type==='gov' ).reduce((s,r) => s+r.amount, 0);
       return { year:y, rows, fund, gov, total:fund+gov };
+    }).filter(y => y.rows.length);
+    /* 날짜 없는 인증은 연도로 거를 수 없다. 빼지 말고 그대로 둔다 */
+    certs = DATA.certs.filter(c => {
+      const m = /^\d{4}/.exec(String(c.date || ''));
+      return !m || yearOn(+m[0]);
     });
     grand = byYear.reduce((s,y) => s+y.total, 0);
+  }
+
+  /* 칩은 소통 내역 탭과 같은 서식이다. 구분 칩에는 건수를 함께 낸다 */
+  const chip = (on, label, attr, extra) =>
+    `<button class="chip${on?' on':''}" ${attr}>${label}${extra||''}</button>`;
+
+  function renderFilters(){
+    const ft = document.getElementById('perfFType');
+    const fy = document.getElementById('perfFYear');
+    if (!ft || !fy) return;
+    /* 건수는 지금 고른 연도 안에서 센다 — 구분을 바꾸기 전에 몇 건인지 보인다 */
+    const cnt = k => DATA.programs.filter(p =>
+      yearOn(p.year) && (k === 'all' || p.type === k)).length;
+    ft.innerHTML = [['all','전체'],['fund',TYPE_NM.fund],['gov',TYPE_NM.gov]]
+      .map(([k,nm]) => chip(fType===k, nm, `data-ptype="${k}"`,
+        `<span>${cnt(k)}</span>`)).join('');
+    fy.innerHTML = chip(fYears.size===0, '전체', 'data-pyear="all"')
+      + years.map(y => chip(fYears.has(y), y, `data-pyear="${y}"`)).join('');
+    /* 연도가 하나뿐이면 고를 것이 없다. 누를 수 없는 칸을 두지 않는다 */
+    fy.parentElement.hidden = years.length < 2;
+  }
+
+  function bindFilters(){
+    const ft = document.getElementById('perfFType');
+    const fy = document.getElementById('perfFYear');
+    /* 컨테이너는 go() 가 화면을 새로 그릴 때만 바뀐다. 그 안의 칩은
+       innerHTML 로 갈아 끼우므로 위임해 두면 한 번만 걸면 된다 */
+    if (!ft || !fy || ft.dataset.bound) return;
+    ft.dataset.bound = fy.dataset.bound = '1';
+    ft.onclick = e => {
+      const b = e.target.closest('[data-ptype]');
+      if (b){ fType = b.dataset.ptype; mount(); }
+    };
+    fy.onclick = e => {
+      const b = e.target.closest('[data-pyear]');
+      if (!b) return;
+      if (b.dataset.pyear === 'all') fYears.clear();
+      else {
+        const y = +b.dataset.pyear;
+        fYears.has(y) ? fYears.delete(y) : fYears.add(y);
+        /* 다 고른 것은 전체와 같다. 「전체」에 불이 들어오도록 비운다 */
+        if (fYears.size === years.length) fYears.clear();
+      }
+      mount();
+    };
   }
 
   function renderChart(){
     const box = document.getElementById('perfChart');
     if (!box) return;
     const n = byYear.length;
-    const stacked = n >= 5;
+    if (!n){ box.innerHTML = `<p class="empty">고른 조건에 맞는 사업이 없습니다.</p>`; return; }
+    const act = typesOn();
+    /* 한 종류만 볼 때는 쌓을 것이 없다. 막대 하나를 가운데 세운다 */
+    const stacked = n >= 5 && act.length === 2;
     const peak = stacked
       ? Math.max(...byYear.map(y => eok(y.total)))
-      : Math.max(...byYear.map(y => Math.max(eok(y.fund), eok(y.gov))));
+      : Math.max(...byYear.map(y => Math.max(...act.map(t => eok(y[t])))));
     const max = niceMax(peak);
 
     const L=40, R=CW-14, TOP=26, BOT=CH-46;
     const gw = (R-L)/n;
-    const barW = stacked ? Math.min(72, gw*0.46) : Math.min(62, gw*0.30);
+    const barW = stacked ? Math.min(72, gw*0.46)
+               : act.length === 1 ? Math.min(72, gw*0.34) : Math.min(62, gw*0.30);
     const gap  = stacked ? 0 : Math.max(6, barW*0.18);
     const yOf = v => BOT - (v/max)*(BOT-TOP);
     const showVal = barW >= 30;
@@ -2045,24 +2123,25 @@ document.getElementById('tgl').onclick=()=>{
     });
     byYear.forEach((y,i) => {
       const cx = L + gw*i + gw/2;
-      const f = eok(y.fund), g = eok(y.gov);
-      const hF = (f/max)*(BOT-TOP), hG = (g/max)*(BOT-TOP);
       if (stacked){
+        const hF = (eok(y.fund)/max)*(BOT-TOP), hG = (eok(y.gov)/max)*(BOT-TOP);
         const x = cx - barW/2;
         s += `<rect x="${x}" y="${BOT-hF-hG}" width="${barW}" height="${hG}" rx="4" fill="${C.gov}"/>`;
         s += `<rect x="${x}" y="${BOT-hF}"    width="${barW}" height="${hF}" rx="4" fill="${C.fund}"/>`;
         s += `<text class="perf-bval" x="${cx}" y="${BOT-hF-hG-9}" text-anchor="middle" `
            + `font-size="${fs}" fill="var(--tx)">${eok(y.total)}</text>`;
       } else {
-        const x1 = cx-barW-gap/2, x2 = cx+gap/2;
-        s += `<rect x="${x1}" y="${BOT-hF}" width="${barW}" height="${hF}" rx="5" fill="${C.fund}"/>`;
-        s += `<rect x="${x2}" y="${BOT-hG}" width="${barW}" height="${hG}" rx="5" fill="${C.gov}"/>`;
-        if (showVal){
-          s += `<text class="perf-bval" x="${x1+barW/2}" y="${BOT-hF-9}" text-anchor="middle" `
-             + `font-size="${fs}" fill="var(--perf-c1)">${f}</text>`;
-          s += `<text class="perf-bval" x="${x2+barW/2}" y="${BOT-hG-9}" text-anchor="middle" `
-             + `font-size="${fs}" fill="var(--tx-2)">${g}</text>`;
-        }
+        /* 고른 구분만큼만 세운다. 둘이면 예전과 같은 자리에 오고,
+           하나면 그 하나가 가운데에 선다 */
+        const span = act.length*barW + (act.length-1)*gap;
+        act.forEach((t,ti) => {
+          const v = eok(y[t]), h = (v/max)*(BOT-TOP);
+          const x = cx - span/2 + ti*(barW+gap);
+          s += `<rect x="${x}" y="${BOT-h}" width="${barW}" height="${h}" rx="5" fill="${C[t]}"/>`;
+          if (showVal)
+            s += `<text class="perf-bval" x="${x+barW/2}" y="${BOT-h-9}" text-anchor="middle" `
+               + `font-size="${fs}" fill="${t==='fund'?'var(--perf-c1)':'var(--tx-2)'}">${v}</text>`;
+        });
       }
       s += `<text class="perf-ylab" x="${cx}" y="${BOT+26}" text-anchor="middle" `
          + `font-size="${n>6?11:13}">${y.year}</text>`;
@@ -2093,13 +2172,19 @@ document.getElementById('tgl').onclick=()=>{
     const amt = document.getElementById('perfKpiAmt');
     if (!amt) return;                       /* 조달현황 화면이 아니다 */
     prep();                                 /* 값은 그릴 때마다 새로 읽는다 */
+    renderFilters(); bindFilters();
     amt.innerHTML = eok(grand) + '<span class="perf-u">억원</span>';
     document.getElementById('perfKpiCnt').innerHTML =
-      DATA.programs.length + '<span class="perf-u">건</span>';
+      shown.length + '<span class="perf-u">건</span>';
     document.getElementById('perfKpiCert').innerHTML =
-      DATA.certs.length + '<span class="perf-u">건</span>';
+      certs.length + '<span class="perf-u">건</span>';
+    /* 범례도 고른 구분만 낸다 — 없는 색을 설명하고 있으면 안 된다 */
+    document.getElementById('perfLegend').innerHTML = typesOn().map(t =>
+      `<span class="perf-lg"><i style="background:${C[t]}"></i>${TYPE_NM[t]}</span>`).join('');
 
-    document.getElementById('perfList').innerHTML = byYear.map(y => `
+    document.getElementById('perfList').innerHTML = !byYear.length
+      ? `<p class="empty">고른 조건에 맞는 사업이 없습니다.</p>`
+      : byYear.map(y => `
       <div class="perf-grp">
         <div class="perf-grp-head"><span class="perf-grp-nm">${y.year}</span>
           <span class="perf-grp-sum">${won(y.total)}</span></div>
@@ -2109,7 +2194,7 @@ document.getElementById('tgl').onclick=()=>{
           <span class="perf-it-amt">${won(r.amount)}</span></div>`).join('')}
       </div>`).join('');
 
-    document.getElementById('perfTl').innerHTML = DATA.certs.map(c => `
+    document.getElementById('perfTl').innerHTML = certs.map(c => `
       <div class="perf-tl-i"><div class="perf-tl-dot"></div>
         <div class="perf-tl-nm">${esc(c.name)}</div>
         <div class="perf-tl-dt">${esc(c.date)}</div></div>`).join('');
