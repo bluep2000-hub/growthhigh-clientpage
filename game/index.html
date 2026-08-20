@@ -708,15 +708,15 @@ body.locked #gate{display:grid}
            --psum-c2:#B3BCE3;
            --psum-c2:color-mix(in srgb, var(--accent) 38%, var(--panel));
            --psum-grid:var(--line)}
-/* 도넛과 분야 목록. 시안 company-summary-donut 그대로다.
-   목록을 margin-top:auto 로 바닥에 붙여 옆 공지 카드와 아래를 맞춘다 */
-.psum-dn{display:flex;justify-content:center;padding:14px 0 4px}
-.psum-rows{margin-top:auto;padding-top:12px;border-top:1px solid var(--line)}
-.psum-r{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:5.5px 0}
-.psum-r i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
-.psum-nm{color:var(--tx-2);flex:1}
-.psum-ct{font-size:11px;color:var(--tx-3)}
-.psum-am{font-weight:700;letter-spacing:-.01em;color:var(--tx)}
+/* 요약 카드 — 시안 company-summary-v3. 도넛이 아니라 가로 막대다 */
+.psum-tot{display:flex;align-items:baseline;gap:9px}
+.psum-tot-v{font-size:30px;font-weight:800;letter-spacing:-.045em;
+  line-height:1;color:var(--psum-c1)}
+.psum-tot-v .psum-u{font-size:14px;font-weight:600;margin-left:1px}
+.psum-tot-l{font-size:11.5px;color:var(--tx-3)}
+.psum-ax{font-size:10.5px;fill:var(--tx-3)}
+.psum-bl{font-size:11.5px;font-weight:600;fill:var(--tx-2)}
+.psum-bv{font-size:11.5px;font-weight:800;letter-spacing:-.02em}
 
 /* 공지 — 섹션을 접는다. 기본은 전부 접힘.
    화살표는 ::before 로 직접 그리므로 브라우저 기본 마커를 반드시 지운다.
@@ -1507,6 +1507,14 @@ function init(D){
     { k:'마케팅&판로',   c:'#F59E0B', re:/혁신바우처|판로|마케팅|소공인|온라인|전시|홍보|브랜드/ },
     { k:'기타',         c:'#94A3B8' },
   ];
+  /* 눈금 상한 — 조달현황 화면과 같은 규칙이라 요약과 자세히 보기의
+     축이 어긋나지 않는다 */
+  function niceMax(v){
+    if (v <= 0) return 1;
+    const k = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const m of [1,2,2.5,4,5,6,8,10]) if (m*k >= v) return m*k;
+    return 10*k;
+  }
   const pcatOf = p => {
     if (p.type === 'fund') return '정책자금·보증';
     const hit = PCATS.find(c => c.re && c.re.test(String(p.name || '')));
@@ -1540,42 +1548,44 @@ function init(D){
     if(!hasPerf) return '';
     const cats = pcats(PERF.programs);
     const total = cats.reduce((s,c) => s + c.v, 0);
+    const cnt = PERF.programs.length;
     const won = v => v >= 1e8
       ? (Number.isInteger(v/1e8) ? v/1e8 : +(v/1e8).toFixed(2)) + '억원'
       : (v/10000).toLocaleString() + '만원';
-    /* 도넛 — 반지름 66, 굵기 26. 둘레는 2πr ≈ 415 다 (시안 값) */
-    const C = 414.7;
-    let off = 0;
-    const ring = cats.map(c => {
-      const len = c.v/total*C;
-      const s = `<circle cx="95" cy="95" r="66" fill="none" stroke="${c.c}" stroke-width="26"
-              stroke-dasharray="${Math.max(len-3,1)} ${C}" stroke-dashoffset="${-off}"/>`;
-      off += len; return s;
-    }).join('');
+    /* 시안 좌표 — 0 이 x=104, 눈금 끝이 x=408 이라 폭이 304px 다.
+       막대는 y=20 에서 40 씩 내려가고 높이는 22 다. 고치지 말 것 */
+    const X0 = 104, XW = 304, TOP = 20, STEP = 40, BH = 22;
+    const n = Math.max(cats.length, 1);
+    const gridB = TOP + n*STEP - 8;
+    const axY = gridB + 16, H = axY + 22;
+    const max = niceMax(cats.length ? cats[0].v/1e8 : 1);
+    const S = XW/max;
+    /* 값 글씨는 막대 색을 쓰되 노랑만 어둡게 — 흰 바탕에서 안 읽힌다 */
+    const vc = c => c === '#F59E0B' ? '#B7791F' : c;
+
+    let g = '';
+    [0,.25,.5,.75,1].forEach((f,i) => {
+      const x = X0 + XW*f, v = +(max*f).toFixed(2);
+      g += `<line x1="${x}" y1="14" x2="${x}" y2="${gridB}"
+              stroke="${i===0?'var(--line-2)':'var(--psum-grid)'}" stroke-width="${i===0?1.5:1}"/>
+            <text class="psum-ax" x="${x}" y="${axY}" text-anchor="middle">${v.toLocaleString()}</text>`;
+    });
+    g += `<text class="psum-ax" x="${X0+XW+20}" y="${axY}">억원</text>`;
+    cats.forEach((c,i) => {
+      const y = TOP + i*STEP, w = Math.max(c.v/1e8*S, 3);
+      g += `<text class="psum-bl" x="${X0-10}" y="${y+14}" text-anchor="end">${esc(c.k)}</text>
+            <rect x="${X0}" y="${y}" width="${w}" height="${BH}" rx="4" fill="${c.c}"/>
+            <text class="psum-bv" x="${X0+w+10}" y="${y+16}" fill="${vc(c.c)}">${won(c.v)}</text>`;
+    });
 
     return `<div class="p2c psum-card">
       <div class="p2hd"><span class="p2hd-t">조달현황</span>
         <a class="p2hd-a" href="#" data-go="perf">자세히 보기 →</a></div>
       <div class="p2pad">
-       <div class="psum-dn">
-        <svg width="176" height="176" viewBox="0 0 190 190">
-         <g transform="rotate(-90 95 95)">
-          <circle cx="95" cy="95" r="66" fill="none" stroke="var(--panel-2)" stroke-width="26"/>
-          ${ring}
-         </g>
-         <text x="95" y="94" text-anchor="middle" font-size="26" font-weight="800"
-               letter-spacing="-.04em" fill="var(--tx)">${+(total/1e8).toFixed(2)}<tspan
-               font-size="12.5" font-weight="600" fill="var(--tx-3)" dx="2">억원</tspan></text>
-         <text x="95" y="113" text-anchor="middle" font-size="11"
-               fill="var(--tx-3)">누적 확보금액</text>
-        </svg>
-       </div>
-       <div class="psum-rows">
-        ${cats.map(c => `<div class="psum-r"><i style="background:${c.c}"></i>
-          <span class="psum-nm">${esc(c.k)}</span>
-          <span class="psum-ct">${c.items.length}건</span>
-          <span class="psum-am">${won(c.v)}</span></div>`).join('')}
-       </div>
+       <div class="psum-tot">
+        <span class="psum-tot-v">${+(total/1e8).toFixed(2)}<span class="psum-u">억원</span></span>
+        <span class="psum-tot-l">누적 확보금액 · ${cnt}건</span></div>
+       <svg width="100%" viewBox="0 0 460 ${H}" style="margin-top:14px">${g}</svg>
       </div>
      </div>`;
   }
