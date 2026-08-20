@@ -586,19 +586,19 @@ body.locked #gate{display:grid}
    (.card .item .grp .two .legend .axis .n .lg .dot) 전부 .perf- 로 갈랐다.
    색은 셸 토큰을 그대로 쓴다 — 다크 모드도 같이 따라간다.
    body·.wrap·.page-title 은 옮기지 않는다. 셸 레이아웃이 깨진다. */
-.perf{--perf-c1:var(--accent);
+.perf{--perf-c1:#2563EB;
       --perf-c2:#9DBAFF;
       --perf-c2:color-mix(in srgb, var(--accent) 38%, var(--panel));
       --perf-grid:var(--line)}
 .perf-card{background:var(--panel);border:1px solid var(--line);
-  border-radius:var(--r);padding:22px 24px;margin-bottom:12px}
+  border-radius:14px;padding:26px 28px;margin-bottom:12px}
 .perf-nums{display:grid;grid-template-columns:repeat(3,1fr)}
-.perf-n{padding:0 22px;border-left:1px solid var(--line)}
+.perf-n{padding:0 24px;border-left:1px solid var(--line)}
 .perf-n:first-child{padding-left:0;border-left:none}
-.perf-n-val{font-size:30px;font-weight:700;letter-spacing:-.04em;
+.perf-n-val{font-size:32px;font-weight:800;letter-spacing:-.04em;
   line-height:1.05;color:var(--tx)}
 .perf-n-val .perf-u{font-size:14px;font-weight:600;margin-left:1px}
-.perf-n-lbl{font-size:11.5px;color:var(--tx-3);margin-top:7px}
+.perf-n-lbl{font-size:12px;color:var(--tx-3);margin-top:7px}
 .perf-n:first-child .perf-n-val{color:var(--perf-c1)}
 .perf-blk-t{font-size:13px;font-weight:600;color:var(--tx)}
 .perf-blk-s{font-size:11px;color:var(--tx-3);margin-top:2px;margin-bottom:14px}
@@ -616,6 +616,43 @@ body.locked #gate{display:grid}
 .perf-fgrp{display:flex;align-items:center;gap:8px;min-width:0}
 .perf-flbl{font-size:11.5px;font-weight:600;color:var(--tx-3);flex:none}
 .perf-filters .chips{margin-bottom:0}
+/* 분야별 조달 현황 — 시안 procurement-rev3 에서 옮겼다. 셸과 겹치는 이름이
+   많아(.card .hd .split .rw .unit .sub .si .axis) 전부 .pv- 로 갈랐다.
+   분야 색만 고정값이다 — 같은 분야가 두 테마에서 같은 색이어야 읽힌다 */
+.pv-hd{display:flex;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:6px}
+.pv-hd-s{font-size:11.5px;color:var(--tx-3);margin-left:8px}
+.pv-seg{margin-left:auto;display:inline-flex;background:var(--panel-2);border-radius:9px;padding:3px}
+.pv-seg button{border:none;background:none;font-family:inherit;cursor:pointer;font-size:12px;
+  font-weight:600;color:var(--tx-3);padding:6px 15px;border-radius:7px;transition:all .14s}
+.pv-seg button.on{background:var(--panel);color:var(--tx);box-shadow:0 1px 3px rgba(20,24,35,.10)}
+.pv-split{display:grid;grid-template-columns:300px 1fr;gap:34px;align-items:center}
+.pv-viz{display:flex;justify-content:center}
+.pv-axis{font-size:11px;fill:var(--tx-3)}
+.pv-blab{font-size:12.5px;font-weight:600;fill:var(--tx-2)}
+.pv-bval{font-size:12.5px;font-weight:800;letter-spacing:-.02em}
+.pv-rw{display:flex;align-items:center;gap:11px;width:100%;padding:11px 0 10px;border:none;
+  background:none;font-family:inherit;text-align:left;cursor:pointer;transition:opacity .12s}
+.pv-rw:hover{opacity:.66}
+.pv-rw.off,.pv-rw.off:hover{cursor:default;opacity:1}
+.pv-rw i{width:10px;height:10px;border-radius:3px;flex:none;display:inline-block}
+.pv-rw .pv-nm{font-size:13px;color:var(--tx-2);flex:1;font-weight:500}
+.pv-rw .pv-ct{font-size:11px;color:var(--tx-3)}
+.pv-rw .pv-am{font-size:13.5px;font-weight:800;letter-spacing:-.02em;color:var(--tx)}
+.pv-cv{width:0;height:0;flex:none;margin-left:4px;border-left:5px solid var(--tx-3);
+  border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+.pv-rw.on .pv-cv{transform:rotate(90deg)}
+.pv-rw.on .pv-nm{font-weight:700;color:var(--tx)}
+.pv-rw.off .pv-nm,.pv-rw.off .pv-am{color:var(--tx-3)}
+.pv-rw.off .pv-cv{display:none}
+.pv-unit{border-bottom:1px solid var(--line)}
+.pv-unit:last-child{border-bottom:none}
+.pv-sub{padding:2px 0 14px 21px}
+.pv-si{display:flex;align-items:center;gap:10px;padding:6px 0}
+.pv-yr{font-size:10.5px;color:var(--tx-3);width:34px;flex:none;font-variant-numeric:tabular-nums}
+.pv-si .pv-nm{font-size:12.5px;color:var(--tx-2);flex:1}
+.pv-si .pv-am{font-size:12.5px;font-weight:700;color:var(--tx)}
+.pv-list{margin-top:18px;padding-top:4px;border-top:1px solid var(--line)}
+@media(max-width:760px){ .pv-split{grid-template-columns:1fr;gap:18px} }
 .perf-grp{margin-bottom:16px}
 .perf-grp:last-child{margin-bottom:0}
 .perf-grp-head{display:flex;align-items:baseline;padding-bottom:6px;
@@ -631,7 +668,7 @@ body.locked #gate{display:grid}
 .perf-tl-line{position:absolute;left:0;right:0;top:18px;height:2px;background:var(--line)}
 .perf-tl-row{display:flex;position:relative;min-width:100%}
 .perf-tl-i{text-align:center;flex:1 0 96px}
-.perf-tl-dot{width:12px;height:12px;border-radius:50%;background:var(--perf-c1);
+.perf-tl-dot{width:13px;height:13px;border-radius:50%;background:var(--perf-c1);
   border:3px solid var(--panel);box-shadow:0 0 0 1.5px var(--perf-c1);margin:6px auto 12px}
 .perf-tl-nm{font-size:11px;font-weight:600;color:var(--tx-2);line-height:1.3;padding:0 4px}
 .perf-tl-dt{font-size:10.5px;color:var(--tx-3);margin-top:3px}
@@ -1607,19 +1644,15 @@ function init(D){
        <div class="chips" id="perfFYear"></div></div>
     </div>
     <div class="perf-card">
-     <div class="perf-two">
-      <div class="perf-col-l">
-       <div class="perf-blk-t">연도별 확보금액</div>
-       <div class="perf-blk-s">단위 억원</div>
-       <div id="perfChart"></div>
-       <div class="perf-legend" id="perfLegend"></div>
-      </div>
-      <div class="perf-col-r">
-       <div class="perf-blk-t">사업별 확보 내역</div>
-       <div class="perf-blk-s">연도별 · 확보금액 순</div>
-       <div id="perfList"></div>
-      </div>
+     <div class="pv-hd">
+      <span class="perf-blk-t">분야별 조달 현황</span>
+      <span class="pv-hd-s">항목을 누르면 사업이 펼쳐집니다</span>
+      <span class="pv-seg" id="pvSeg">
+       <button data-pv="ratio">비중</button>
+       <button class="on" data-pv="bar">규모</button>
+      </span>
      </div>
+     <div id="pvBody"></div>
     </div>
     <div class="perf-card">
      <div class="perf-blk-t">인증 취득 경과</div>
@@ -1962,121 +1995,211 @@ document.getElementById('tgl').onclick=()=>{
 </script>
 <script>
 /* ══════════════════════════════════════════════════════════════════
-   조달현황 화면
+   조달현황 화면 (샘플 전용)
 
-   시안 kcos-performance-v8 의 스크립트를 옮겼다. 셸에도 DATA·C·fit 같은
-   흔한 이름을 쓰는 코드가 늘 수 있어 통째로 감싸 전역을 하나만 남긴다
-   — window.__perfMount.
-
-   go() 가 화면을 다시 그릴 때마다 __perfMount 를 부른다. 화면이 숨은
-   상태에서 재면 폭이 0 이라 차트 높이 계산이 틀어지기 때문이다.
+   시안 procurement-rev4 와 같은 화면이다. 보기가 둘 —
+     규모  가로 막대 (기본)
+     비중  도넛
+   분야 행을 누르면 그 분야의 사업으로 갈라진다. 다시 누르면 돌아온다.
+   연도 칩은 이 카드에만 걸린다 — 위 요약과 아래 인증은 늘 전체다.
 
    값은 payload.perf 에서 온다. build_client.py 가 진행내역에서 만든다 —
    이 파일에 숫자를 적지 말 것.
+
+   분야는 노션에 없다. 「프로젝트 유형」이 (런웨이)지원사업 하나로 뭉쳐
+   있어 수출·마케팅·창업이 갈리지 않는다. 그래서 사업명 규칙으로 나눈다.
+   유형이 분명한 정책자금은 유형이 이긴다.
    ══════════════════════════════════════════════════════════════════ */
 (function(){
-  /* 값은 payload 의 perf 하나에서 온다 — 기업 정보의 요약 카드와 이
-     화면이 같은 값을 봐야 한다. 셸이 데이터를 푼 뒤 window.__PERF__ 에
-     얹어 둔다. 비어 있으면 아래 mount() 가 첫 줄에서 되돌아 나가고,
-     좌측 메뉴에도 조달현황이 뜨지 않는다. */
-  /* 셸이 데이터를 받은 뒤에야 __PERF__ 가 생긴다. 이 스크립트는 그보다
-     먼저 파싱되므로 값을 여기서 붙잡아 두면 안 된다 — 화면을 그릴 때
-     (mount) 읽어서 아래 파생값을 다시 만든다. */
   let DATA = { programs: [], certs: [] };
-  let years = [], byYear = [], grand = 0, shown = [], certs = [];
+  let years = [], VIEW = [], TOTAL = 0;
 
-  /* 분류 필터. 화면을 다시 그려도 고른 것이 남도록 모듈 변수로 둔다.
-     구분은 하나만 고른다(all|fund|gov). 연도는 여러 개 고를 수 있고
-     빈 집합이 「전체」다 — 데이터에 새 연도가 생겨도 저절로 포함된다.
-     기본값은 둘 다 전체다. 연도 기본값을 자문 계약 기간에 맞출지는
-     아직 정하지 않았다 — 정해지면 여기 두 줄만 바꾸면 된다. */
-  const TYPE_NM = { fund:'정책자금·보증', gov:'정부지원사업' };
-  let fType = 'all';
-  let fYears = new Set();
-  const typesOn = () => fType === 'all' ? ['fund','gov'] : [fType];
-  const yearOn = y => fYears.size === 0 || fYears.has(y);
+  /* 분야 — 색은 시안 고정값이다. 순서가 곧 규칙 우선순위다.
+     「해외규격인증」이 수출로 새지 않게 인증·규격을 수출보다 먼저 본다 */
+  const CATS = [
+    { k:'정책자금·보증', c:'#2563EB', fund:true },
+    { k:'인증&인허가',   c:'#A855F7', re:/인증|규격|특허|상표|인허가/ },
+    { k:'R&D과제',      c:'#EC4899', re:/R&D|기술혁신|디딤돌|연구개발|정책과제/i },
+    { k:'고용',         c:'#0EA5E9', re:/고용|일자리|장려금|직업능력|훈련/ },
+    { k:'창업사업화',    c:'#F43F5E', re:/창업/ },
+    { k:'수출',         c:'#10B981', re:/수출|해외|글로벌|물류/ },
+    { k:'마케팅&판로',   c:'#F59E0B', re:/혁신바우처|판로|마케팅|소공인|온라인|전시|홍보|브랜드/ },
+    { k:'기타',         c:'#94A3B8' },
+  ];
+  const catOf = p => {
+    if (p.type === 'fund') return '정책자금·보증';
+    const nm = String(p.name || '');
+    const hit = CATS.find(c => c.re && c.re.test(nm));
+    return hit ? hit.k : '기타';
+  };
 
-  /* 색은 셸 토큰을 그대로 쓴다. SVG fill 에도 var() 가 통한다 */
-  const C = { fund:'var(--perf-c1)', gov:'var(--perf-c2)' };
+  let fYears = new Set(), view = 'bar', openK = null;
+  const yOn = y => fYears.size === 0 || fYears.has(y);
+
   const EOK = 100000000;
-  const CW = 420;
-  let CH = 300;
-
   const esc = s => String(s ?? '').replace(/[&<>"']/g,
     c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
+  const eok = v => +(v/EOK).toFixed(2);
   function won(v){
     if (v >= EOK){ const e = v/EOK; return (Number.isInteger(e) ? e : +e.toFixed(2)) + '억원'; }
     return (v/10000).toLocaleString() + '만원';
   }
-  function eok(v){ return +(v/EOK).toFixed(2); }
-
   function niceMax(v){
     if (v <= 0) return 1;
     const k = Math.pow(10, Math.floor(Math.log10(v)));
-    for (const m of [1,2,2.5,5,10]) if (m*k >= v) return m*k;
+    for (const m of [1,2,2.5,4,5,6,8,10]) if (m*k >= v) return m*k;
     return 10*k;
-  }
-  function ticks(max){
-    const base = Math.pow(10, Math.floor(Math.log10(max))-1);
-    const cand = [1,2,2.5,5,10,20,25,50].map(m => m*base);
-    let step = cand.find(s => max/s <= 6) || max/5;
-    if (max/step < 3) step /= 2;
-    const out = []; for (let v=0; v<=max+1e-9; v+=step) out.push(+v.toFixed(4));
-    return out;
   }
 
   function prep(){
     DATA = window.__PERF__ || { programs: [], certs: [] };
     years = [...new Set(DATA.programs.map(p => p.year))].sort();
-    /* 필터를 지난 것만 아래 화면 전부가 쓴다. 연도는 화면 전체에 걸리고
-       구분은 사업(금액·건수·차트·목록)에만 걸린다 — 인증에는 구분이 없다 */
-    const on = typesOn();
-    shown = DATA.programs.filter(p => yearOn(p.year) && on.includes(p.type));
-    byYear = years.filter(yearOn).map(y => {
-      const rows = shown.filter(p => p.year===y).sort((a,b) => b.amount-a.amount);
-      const fund = rows.filter(r => r.type==='fund').reduce((s,r) => s+r.amount, 0);
-      const gov  = rows.filter(r => r.type==='gov' ).reduce((s,r) => s+r.amount, 0);
-      return { year:y, rows, fund, gov, total:fund+gov };
-    }).filter(y => y.rows.length);
-    /* 날짜 없는 인증은 연도로 거를 수 없다. 빼지 말고 그대로 둔다 */
-    certs = DATA.certs.filter(c => {
-      const m = /^\d{4}/.exec(String(c.date || ''));
-      return !m || yearOn(+m[0]);
-    });
-    grand = byYear.reduce((s,y) => s+y.total, 0);
+    VIEW = CATS.map(c => {
+      const items = DATA.programs
+        .filter(p => catOf(p) === c.k && yOn(p.year))
+        .sort((a,b) => b.amount - a.amount || a.year - b.year);
+      return { k:c.k, c:c.c, items, v: items.reduce((s,p) => s + p.amount, 0) };
+    }).filter(c => c.k !== '기타' || c.items.length)
+      .sort((a,b) => b.v - a.v);
+    TOTAL = VIEW.reduce((s,c) => s + c.v, 0);
+    if (openK && !VIEW.some(c => c.k === openK && c.v > 0)) openK = null;
   }
 
-  /* 칩은 소통 내역 탭과 같은 서식이다. 구분 칩에는 건수를 함께 낸다 */
-  const chip = (on, label, attr, extra) =>
-    `<button class="chip${on?' on':''}" ${attr}>${label}${extra||''}</button>`;
+  /* 분야 행을 누르면 그 안의 사업으로 갈라 본다 */
+  const cur = () => VIEW.find(c => c.k === openK);
+  const drill = () => !!(openK && cur() && cur().v > 0);
+  /* 파고들면 같은 분야라 색이 하나다. 옅게 단계를 준다 */
+  function tint(hex, f){
+    const n = parseInt(hex.slice(1),16), m = v => Math.round(v + (255-v)*f);
+    return `rgb(${m(n>>16)},${m((n>>8)&255)},${m(n&255)})`;
+  }
+  function bars(){
+    if (!drill()) return VIEW.filter(c => c.v > 0);
+    const c = cur();
+    return c.items.map((it,i) =>
+      ({ k:it.name, v:it.amount, c:tint(c.c, Math.min(i*.17,.55)) }));
+  }
+
+  /* ── 비중 : 도넛 ── */
+  function donut(){
+    const C = 502.7;
+    const part = bars(), sum = part.reduce((a,c) => a + c.v, 0) || 1;
+    let off = 0, s = '';
+    part.forEach(c => {
+      const len = c.v/sum*C;
+      s += `<circle cx="122" cy="122" r="80" fill="none" stroke="${c.c}" stroke-width="32"
+              stroke-dasharray="${Math.max(len-3,1)} ${C}" stroke-dashoffset="${-off}"/>`;
+      off += len;
+    });
+    return `<svg width="252" height="252" viewBox="0 0 244 244">
+      <g transform="rotate(-90 122 122)">
+        <circle cx="122" cy="122" r="80" fill="none" stroke="var(--panel-2)" stroke-width="32"/>${s}
+      </g>
+      <text x="122" y="124" text-anchor="middle" font-size="33" font-weight="800"
+            letter-spacing="-.04em" fill="var(--tx)">${eok(sum)}<tspan font-size="15"
+            font-weight="600" fill="var(--tx-3)" dx="3">억원</tspan></text>
+      <text x="122" y="146" text-anchor="middle" font-size="11.5"
+            fill="var(--tx-3)">누적 확보금액</text>
+    </svg>`;
+  }
+
+  /* ── 규모 : 가로 막대 ── */
+  function hbars(){
+    const act = bars();
+    if (!act.length) return `<p class="empty">고른 연도에 맞는 사업이 없습니다.</p>`;
+    const W = 800, rowH = 46, top = 34, H = top + act.length*rowH + 26;
+    /* 다 1억 밑이면 억 눈금이 0.13 처럼 나온다. 그럴 때는 만원으로 센다 */
+    const U = act[0].v < EOK ? 1e4 : EOK, UN = U === 1e4 ? '만원' : '억원';
+    /* 사업명은 분야명보다 길다. 파고든 상태에서는 이름칸을 넓힌다 */
+    const L = drill() ? 232 : 112, R = W - 70;
+    const max = niceMax(act[0].v/U), S = (R-L)/max;
+    let s = `<svg width="100%" viewBox="0 0 ${W} ${H}">`;
+    [0,.25,.5,.75,1].map(f => +(max*f).toFixed(2)).forEach(v => {
+      const x = L + v*S;
+      s += `<line x1="${x}" y1="${top-12}" x2="${x}" y2="${top+act.length*rowH-6}"
+              stroke="${v===0?'var(--line-2)':'var(--perf-grid)'}" stroke-width="${v===0?1.5:1}"/>
+            <text class="pv-axis" x="${x}" y="${top+act.length*rowH+12}"
+              text-anchor="middle">${v.toLocaleString()}</text>`;
+    });
+    s += `<text class="pv-axis" x="${R+14}" y="${top+act.length*rowH+12}">${UN}</text>`;
+    act.forEach((c,i) => {
+      const cy = top + i*rowH + 12, w = (c.v/U)*S;
+      s += `<text class="pv-blab" x="${L-14}" y="${cy+17}" text-anchor="end">${esc(c.k)}</text>
+            <rect x="${L}" y="${cy}" width="${Math.max(w,3)}" height="24" rx="4" fill="${c.c}"/>
+            <text class="pv-bval" x="${L+w+10}" y="${cy+17}" fill="${c.c}">${won(c.v)}</text>`;
+    });
+    return s + `</svg>`;
+  }
+
+  /* ── 분야 목록. 파고들면 고른 줄만 남긴다 (다시 누르면 되돌아간다) ── */
+  function rows(){
+    return (drill() ? [cur()] : VIEW).map(c => {
+      const off = c.v === 0;
+      return `<div class="pv-unit">
+        <button class="pv-rw${off?' off':''}${openK===c.k?' on':''}"${off?' disabled':''}
+          data-pvk="${esc(c.k)}">
+          <i style="background:${off?'var(--line-2)':c.c}"></i>
+          <span class="pv-nm">${esc(c.k)}</span>
+          <span class="pv-ct">${c.items.length}건</span>
+          <span class="pv-am">${off?'―':won(c.v)}</span>
+          <span class="pv-cv"></span>
+        </button></div>`;
+    }).join('');
+  }
+
+  /* 비중 보기에서 도넛 옆에 세우는 사업 목록. 도넛의 범례 노릇을 한다 */
+  function items(){
+    const c = cur();
+    return c.items.map((it,i) => `
+      <div class="pv-unit"><div class="pv-rw" style="cursor:default">
+        <i style="background:${tint(c.c, Math.min(i*.17,.55))}"></i>
+        <span class="pv-nm">${esc(it.name)}</span>
+        <span class="pv-ct">${it.year}</span>
+        <span class="pv-am">${won(it.amount)}</span>
+      </div></div>`).join('');
+  }
+
+  const chip = (on, label, attr) => `<button class="chip${on?' on':''}" ${attr}>${label}</button>`;
 
   function renderFilters(){
-    const ft = document.getElementById('perfFType');
     const fy = document.getElementById('perfFYear');
-    if (!ft || !fy) return;
-    /* 건수는 지금 고른 연도 안에서 센다 — 구분을 바꾸기 전에 몇 건인지 보인다 */
-    const cnt = k => DATA.programs.filter(p =>
-      yearOn(p.year) && (k === 'all' || p.type === k)).length;
-    ft.innerHTML = [['all','전체'],['fund',TYPE_NM.fund],['gov',TYPE_NM.gov]]
-      .map(([k,nm]) => chip(fType===k, nm, `data-ptype="${k}"`,
-        `<span>${cnt(k)}</span>`)).join('');
+    if (!fy) return;
     fy.innerHTML = chip(fYears.size===0, '전체', 'data-pyear="all"')
       + years.map(y => chip(fYears.has(y), y, `data-pyear="${y}"`)).join('');
-    /* 연도가 하나뿐이면 고를 것이 없다. 누를 수 없는 칸을 두지 않는다 */
+    /* 연도가 하나뿐이면 고를 것이 없다 */
     fy.parentElement.hidden = years.length < 2;
   }
 
-  function bindFilters(){
-    const ft = document.getElementById('perfFType');
+  function renderBody(){
+    const el = document.getElementById('pvBody');
+    if (!el) return;
+    el.innerHTML = view === 'ratio'
+      ? `<div class="pv-split"><div class="pv-viz">${donut()}</div>`
+        + `<div>${rows()}${drill()?items():''}</div></div>`
+      : `${hbars()}<div class="pv-list">${rows()}</div>`;
+  }
+
+  function bind(){
+    const seg = document.getElementById('pvSeg');
+    const body = document.getElementById('pvBody');
     const fy = document.getElementById('perfFYear');
-    /* 컨테이너는 go() 가 화면을 새로 그릴 때만 바뀐다. 그 안의 칩은
-       innerHTML 로 갈아 끼우므로 위임해 두면 한 번만 걸면 된다 */
-    if (!ft || !fy || ft.dataset.bound) return;
-    ft.dataset.bound = fy.dataset.bound = '1';
-    ft.onclick = e => {
-      const b = e.target.closest('[data-ptype]');
-      if (b){ fType = b.dataset.ptype; mount(); }
+    /* 컨테이너는 go() 가 화면을 새로 그릴 때만 바뀐다. 안쪽은 innerHTML 로
+       갈아 끼우므로 위임해 두면 한 번만 걸면 된다 */
+    if (!seg || !body || !fy || seg.dataset.bound) return;
+    seg.dataset.bound = '1';
+    seg.onclick = e => {
+      const b = e.target.closest('[data-pv]');
+      if (!b) return;
+      seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      view = b.dataset.pv; renderBody();
+    };
+    body.onclick = e => {
+      const b = e.target.closest('.pv-rw');
+      if (!b || b.disabled || !b.dataset.pvk) return;
+      const k = b.dataset.pvk;
+      openK = openK === k ? null : k;
+      renderBody();
     };
     fy.onclick = e => {
       const b = e.target.closest('[data-pyear]');
@@ -2085,134 +2208,37 @@ document.getElementById('tgl').onclick=()=>{
       else {
         const y = +b.dataset.pyear;
         fYears.has(y) ? fYears.delete(y) : fYears.add(y);
-        /* 다 고른 것은 전체와 같다. 「전체」에 불이 들어오도록 비운다 */
+        /* 다 고른 것은 전체와 같다 */
         if (fYears.size === years.length) fYears.clear();
       }
       mount();
     };
   }
 
-  function renderChart(){
-    const box = document.getElementById('perfChart');
-    if (!box) return;
-    const n = byYear.length;
-    if (!n){ box.innerHTML = `<p class="empty">고른 조건에 맞는 사업이 없습니다.</p>`; return; }
-    const act = typesOn();
-    /* 한 종류만 볼 때는 쌓을 것이 없다. 막대 하나를 가운데 세운다 */
-    const stacked = n >= 5 && act.length === 2;
-    const peak = stacked
-      ? Math.max(...byYear.map(y => eok(y.total)))
-      : Math.max(...byYear.map(y => Math.max(...act.map(t => eok(y[t])))));
-    const max = niceMax(peak);
-
-    const L=40, R=CW-14, TOP=26, BOT=CH-46;
-    const gw = (R-L)/n;
-    const barW = stacked ? Math.min(72, gw*0.46)
-               : act.length === 1 ? Math.min(72, gw*0.34) : Math.min(62, gw*0.30);
-    const gap  = stacked ? 0 : Math.max(6, barW*0.18);
-    const yOf = v => BOT - (v/max)*(BOT-TOP);
-    const showVal = barW >= 30;
-    const fs = barW >= 46 ? 13 : 11;
-
-    let s = `<svg width="100%" viewBox="0 0 ${CW} ${CH}">`;
-    ticks(max).forEach(t => {
-      const y = yOf(t);
-      s += `<line x1="${L-4}" y1="${y}" x2="${R}" y2="${y}" stroke="${
-        t===0 ? 'var(--line-2)' : 'var(--perf-grid)'}" stroke-width="${t===0?1.5:1}"/>`;
-      s += `<text class="perf-axis" x="${L-10}" y="${y+4}" text-anchor="end">${+t.toFixed(2)}</text>`;
-    });
-    byYear.forEach((y,i) => {
-      const cx = L + gw*i + gw/2;
-      if (stacked){
-        const hF = (eok(y.fund)/max)*(BOT-TOP), hG = (eok(y.gov)/max)*(BOT-TOP);
-        const x = cx - barW/2;
-        s += `<rect x="${x}" y="${BOT-hF-hG}" width="${barW}" height="${hG}" rx="4" fill="${C.gov}"/>`;
-        s += `<rect x="${x}" y="${BOT-hF}"    width="${barW}" height="${hF}" rx="4" fill="${C.fund}"/>`;
-        s += `<text class="perf-bval" x="${cx}" y="${BOT-hF-hG-9}" text-anchor="middle" `
-           + `font-size="${fs}" fill="var(--tx)">${eok(y.total)}</text>`;
-      } else {
-        /* 고른 구분만큼만 세운다. 둘이면 예전과 같은 자리에 오고,
-           하나면 그 하나가 가운데에 선다 */
-        const span = act.length*barW + (act.length-1)*gap;
-        act.forEach((t,ti) => {
-          const v = eok(y[t]), h = (v/max)*(BOT-TOP);
-          const x = cx - span/2 + ti*(barW+gap);
-          s += `<rect x="${x}" y="${BOT-h}" width="${barW}" height="${h}" rx="5" fill="${C[t]}"/>`;
-          if (showVal)
-            s += `<text class="perf-bval" x="${x+barW/2}" y="${BOT-h-9}" text-anchor="middle" `
-               + `font-size="${fs}" fill="${t==='fund'?'var(--perf-c1)':'var(--tx-2)'}">${v}</text>`;
-        });
-      }
-      s += `<text class="perf-ylab" x="${cx}" y="${BOT+26}" text-anchor="middle" `
-         + `font-size="${n>6?11:13}">${y.year}</text>`;
-    });
-    s += `</svg>`;
-    box.innerHTML = s;
-  }
-
-  /* 좌우 높이 맞춤 — 차트를 늘려 하단 공백을 없앤다 */
-  function fit(){
-    CH = 300; renderChart();
-    if (window.innerWidth <= 800) return;
-    const l = document.querySelector('.perf-col-l');
-    const r = document.querySelector('.perf-col-r');
-    const box = document.getElementById('perfChart');
-    if (!l || !r || !box) return;
-    for (let i=0; i<6; i++){
-      const diff = r.offsetHeight - l.offsetHeight;
-      if (diff < 14) break;
-      const pxPerUnit = box.clientWidth / CW;
-      if (!pxPerUnit) break;
-      CH = Math.min(CH + diff/pxPerUnit, 900);
-      renderChart();
-    }
-  }
-
   function mount(){
     const amt = document.getElementById('perfKpiAmt');
     if (!amt) return;                       /* 조달현황 화면이 아니다 */
-    prep();                                 /* 값은 그릴 때마다 새로 읽는다 */
-    renderFilters(); bindFilters();
+    prep();
+    renderFilters();
+    /* 위 요약과 아래 인증은 늘 전체다. 연도 필터는 가운데 카드에만 건다 */
+    const all = (window.__PERF__ || {programs:[],certs:[]});
+    const grand = all.programs.reduce((s,p) => s + (+p.amount||0), 0);
     amt.innerHTML = eok(grand) + '<span class="perf-u">억원</span>';
     document.getElementById('perfKpiCnt').innerHTML =
-      shown.length + '<span class="perf-u">건</span>';
+      all.programs.length + '<span class="perf-u">건</span>';
     document.getElementById('perfKpiCert').innerHTML =
-      certs.length + '<span class="perf-u">건</span>';
-    /* 범례도 고른 구분만 낸다 — 없는 색을 설명하고 있으면 안 된다 */
-    document.getElementById('perfLegend').innerHTML = typesOn().map(t =>
-      `<span class="perf-lg"><i style="background:${C[t]}"></i>${TYPE_NM[t]}</span>`).join('');
-
-    document.getElementById('perfList').innerHTML = !byYear.length
-      ? `<p class="empty">고른 조건에 맞는 사업이 없습니다.</p>`
-      : byYear.map(y => `
-      <div class="perf-grp">
-        <div class="perf-grp-head"><span class="perf-grp-nm">${y.year}</span>
-          <span class="perf-grp-sum">${won(y.total)}</span></div>
-        ${y.rows.map(r => `<div class="perf-item">
-          <span class="perf-it-dot" style="background:${C[r.type]}"></span>
-          <span class="perf-it-nm">${esc(r.name)}</span>
-          <span class="perf-it-amt">${won(r.amount)}</span></div>`).join('')}
-      </div>`).join('');
-
-    document.getElementById('perfTl').innerHTML = certs.map(c => `
+      all.certs.length + '<span class="perf-u">건</span>';
+    document.getElementById('perfTl').innerHTML = all.certs.map(c => `
       <div class="perf-tl-i"><div class="perf-tl-dot"></div>
         <div class="perf-tl-nm">${esc(c.name)}</div>
         <div class="perf-tl-dt">${esc(c.date)}</div></div>`).join('');
-
-    fit();
+    renderBody();
+    bind();
   }
 
-  /* 화면이 보이게 된 뒤에 셸이 부른다. 값 채우기와 높이 맞춤을 함께 한다 —
-     go() 가 화면을 다시 그릴 때마다 DOM 이 새것이라 둘 다 필요하다. */
+  /* 화면이 보이게 된 뒤에 셸이 부른다 */
   window.perfFit = mount;
   window.__perfMount = mount;          /* 옛 이름 — 쓰던 곳이 있으면 그대로 돈다 */
-
-  /* 창 크기가 바뀌면 다시 잰다. 성과 화면이 떠 있을 때만 움직인다 */
-  let t;
-  addEventListener('resize', () => {
-    clearTimeout(t);
-    t = setTimeout(() => { if (document.getElementById('perfChart')) fit(); }, 150);
-  });
 })();
 </script>
 
