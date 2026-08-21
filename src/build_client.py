@@ -613,6 +613,8 @@ DROP_LOG_RE = re.compile(r"미선정|탈락|미신청")
 # 취득 인증 타임라인에 남길 인증. index.html 의 CERT_LIB 과 같은 4종이고
 # 거르는 방식(공백 제거 후 부분일치)도 같다. 한쪽만 고치지 말 것.
 CERT_KINDS = ("기업부설연구소", "벤처기업인증", "벤처기업확인", "이노비즈", "메인비즈")
+# 같은 인증을 손보는 후속 과업. 취득 경과에는 넣지 않는다
+NOT_ACQUIRED_RE = re.compile(r"현장실사|변경신고|실사|신고")
 
 
 def parse_amount(raw: str | None) -> int | None:
@@ -692,6 +694,10 @@ def build_perf(progress: list[dict]) -> tuple[dict | None, list[tuple[str, str]]
         if r.get("cat") != "cert" or r.get("badge") != "ok":
             continue
         name = (r.get("title") or "")
+        # 현장실사·변경신고는 취득이 아니다. 이름에 인증명이 들어 있어
+        # 그대로 두면 같은 인증이 두 번 잡힌다
+        if NOT_ACQUIRED_RE.search(name):
+            continue
         if not any(k in name.replace(" ", "") for k in CERT_KINDS):
             continue
         d = r.get("log_date") or ""
