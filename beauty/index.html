@@ -821,7 +821,7 @@ const CLIENT = clean(window.__SLUG__) || clean(Q.get('c') || Q.get('client')) ||
    봉투가 enc:false 라 아래 boot() 에서 비밀번호 게이트를 그냥 지나간다.
    그 밖의 슬러그는 지금까지처럼 .enc + 게이트다.
    샘플을 늘리면 여기에 슬러그를 더한다 — 빠뜨리면 게이트가 뜨고 .enc 를 찾는다. */
-const SAMPLES = ['sample', 'game'];
+const SAMPLES = ['sample', 'game', 'it'];
 const SAMPLE = SAMPLES.includes(CLIENT);
 const SRC  = CLIENT ? `${BASE}c/${CLIENT}${SAMPLE ? '.json' : '.enc'}` : null;
 const SKEY = CLIENT ? `gh:client:${CLIENT}` : null;

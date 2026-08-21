@@ -3,5 +3,7 @@ Disallow: /
 Disallow: /sample
 Disallow: /beauty
 Disallow: /game
+Disallow: /it
 Disallow: /c/sample.json
 Disallow: /c/game.json
+Disallow: /c/it.json
