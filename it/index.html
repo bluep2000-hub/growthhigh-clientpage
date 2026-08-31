@@ -1968,7 +1968,7 @@ document.getElementById('tgl').onclick=()=>{
   const CAT = () => window.__PERFCAT__ || { PCATS:[], pcatOf:()=>'기타' };
   const catOf = p => CAT().pcatOf(p);
 
-  let fYears = new Set(), view = 'bar', openK = null;
+  let fYears = new Set(), view = 'bar', openKs = new Set();
   const yOn = y => fYears.size === 0 || fYears.has(y);
 
   const EOK = 100000000;
@@ -1997,12 +1997,12 @@ document.getElementById('tgl').onclick=()=>{
     }).filter(c => c.k !== '기타' || c.items.length)
       .sort((a,b) => b.v - a.v);
     TOTAL = VIEW.reduce((s,c) => s + c.v, 0);
-    if (openK && !VIEW.some(c => c.k === openK && c.v > 0)) openK = null;
+    [...openKs].forEach(k => { if (!VIEW.some(c => c.k === k && c.v > 0)) openKs.delete(k); });
   }
 
   /* 분야 행을 누르면 그 아래로 사업이 펼쳐진다. 그래프는 늘 분야 전체를
-     그린다 — 펼침은 목록에서만 일어난다 */
-  const cur = () => VIEW.find(c => c.k === openK);
+     그린다 — 펼침은 목록에서만 일어난다. 분야는 여러 개를 함께 펼쳐 둘 수 있다 */
+  const isOpen = k => openKs.has(k);
   const bars = () => VIEW.filter(c => c.v > 0);
 
   /* ── 비중 : 도넛 ── */
@@ -2058,7 +2058,7 @@ document.getElementById('tgl').onclick=()=>{
   /* ── 분야 목록. 누르면 그 아래로 사업이 펼쳐진다 ── */
   function rows(){
     return VIEW.map(c => {
-      const off = c.v === 0, on = openK === c.k;
+      const off = c.v === 0, on = isOpen(c.k);
       const sub = on ? `<div class="pv-sub">${c.items.map(it => `
           <div class="pv-si"><span class="pv-yr">${it.year}</span>
             <span class="pv-nm">${esc(it.name)}</span>
@@ -2114,7 +2114,7 @@ document.getElementById('tgl').onclick=()=>{
       const b = e.target.closest('.pv-rw');
       if (!b || b.disabled || !b.dataset.pvk) return;
       const k = b.dataset.pvk;
-      openK = openK === k ? null : k;
+      openKs.has(k) ? openKs.delete(k) : openKs.add(k);
       renderBody();
     };
     fy.onclick = e => {
