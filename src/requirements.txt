@@ -3,3 +3,4 @@ python-dotenv>=1.0
 cryptography>=42.0
 icalendar>=6.0            # CALENDAR_ICS_URL 을 쓸 때만 필요하다
 recurring-ical-events>=3.0  # 반복 일정(RRULE) 전개
+google-genai>=2.0            # 녹음본 전사(transcribe_drive.py)
