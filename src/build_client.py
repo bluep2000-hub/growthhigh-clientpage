@@ -387,7 +387,7 @@ def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
             "notice_db_url": p_url(props, "공지 DB"),
             "drive_url": p_url(props, "드라이브 URL"),
             "bizplan_url": p_url(props, "사업계획서 URL"),
-            "password": p_text(props, "비밀번호_해시"),   # 이름과 달리 평문이다
+            "password": p_text(props, "접속 비밀번호"),   # 이름과 달리 평문이다
             "extra_links": parse_extra_links(p_text(props, "추가 링크")),
             "tags": p_multi(props, "업종"),
             "icon": row.get("icon"),
@@ -2550,7 +2550,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     # 실수로 나가지 않게 기본은 막고, 명시적으로 허용할 때만 쓴다.
     if not password and not allow_plaintext:
         warn(f"{slug} — 비밀번호 없음. 평문이 되므로 파일을 쓰지 않았습니다.")
-        log("     노션 공유페이지 DB 의 「비밀번호_해시」가 비어 있습니다.")
+        log("     노션 공유페이지 DB 의 「접속 비밀번호」가 비어 있습니다.")
         log("     의도한 것이면 --allow-plaintext 를 붙여 다시 실행하세요.")
         return {"slug": slug, "encrypted": False, "blocked": True, "payload": payload}
 
@@ -2610,7 +2610,7 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
         log(f"■ 평문이 될 {len(blocked)}건은 쓰지 않았습니다 — 비밀번호가 비어 있습니다.")
         for s in blocked:
             log(f"    · {s}")
-        log("  노션 「비밀번호_해시」를 채우거나, 평문이 의도한 것이면")
+        log("  노션 「접속 비밀번호」를 채우거나, 평문이 의도한 것이면")
         log("  --allow-plaintext 를 붙여 다시 실행하세요.")
     if plaintext:
         log(f"⚠ 평문으로 저장된 {len(plaintext)}건 — 비밀번호 없이 열립니다.")
