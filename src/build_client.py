@@ -693,6 +693,10 @@ def build_perf(progress: list[dict]) -> tuple[dict | None, list[tuple[str, str]]
     for r in progress:
         if r.get("cat") != "cert" or r.get("badge") != "ok":
             continue
+        # 선정되지 않은 건은 취득이 아니다. 프로젝트가 완료로 끝나도
+        # 최신로그에 미선정이 남는다 — 조달현황과 같은 표로 거른다
+        if DROP_LOG_RE.search(r.get("log_text") or ""):
+            continue
         name = (r.get("title") or "")
         # 현장실사·변경신고는 취득이 아니다. 이름에 인증명이 들어 있어
         # 그대로 두면 같은 인증이 두 번 잡힌다

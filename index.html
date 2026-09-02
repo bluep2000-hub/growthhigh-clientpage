@@ -1189,8 +1189,13 @@ function init(D){
   const SOON = 60;                                   /* 이 안에 들면 갱신 알림 */
   /* 취득한 인증만 유효 상태를 따진다. 진행 중·보류 건은 진행 상태를 그대로
      둔다 — 아직 받지도 않은 인증을 「기한 없음」이라 부를 수는 없다 */
+  /* 선정되지 않은 건은 인증이 아니다. 프로젝트 상태가 완료여도 최신로그에
+     미선정이 남는다. build_client.py 의 DROP_LOG_RE 와 같은 표이고
+     조달현황도 이 규칙으로 거른다 — 한쪽만 고치지 말 것 */
+  const DROP_LOG = /미선정|탈락|미신청/;
   function certTag(r){
     if(r.badge !== 'ok') return tag(r);
+    if(DROP_LOG.test(r.log_text || '')) return `<span class="tag g-no">미선정</span>`;
     const end = (r.valid || [])[1] || '';
     if(!end) return `<span class="tag g-none">기한 없음</span>`;
     const d = dleft(end);
