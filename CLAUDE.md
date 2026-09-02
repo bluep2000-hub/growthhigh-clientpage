@@ -103,3 +103,17 @@ git add -A && git commit -m "새슬러그 추가" && git push
 | 공지 | `일자` + 제목(title 타입으로 찾으므로 이름은 상관없다) |
 
 `인증ㅣ특허` 의 가운데 글자는 세로줄(`|`)이 아니라 한글 모음 `ㅣ` 이다.
+
+## Agent skills
+
+### Issue tracker
+
+이슈는 이 레포의 GitHub Issues 에서 추적한다 (`gh` CLI). `docs/agents/issue-tracker.md` 참고.
+
+### Triage labels
+
+기본 5개 라벨을 그대로 쓴다 — `needs-triage` `needs-info` `ready-for-agent` `ready-for-human` `wontfix`. `docs/agents/triage-labels.md` 참고.
+
+### Domain docs
+
+single-context — 루트에 `CONTEXT.md` 하나, `docs/adr/` 하나. `docs/agents/domain.md` 참고.
