@@ -22,3 +22,5 @@ venv/
 
 # 어떤 녹음을 이미 받아썼는지 적어 두는 로컬 기록. 기계마다 다르다.
 .transcribed.json
+
+_verify/
