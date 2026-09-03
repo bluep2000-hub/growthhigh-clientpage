@@ -10,7 +10,7 @@
 이 명령은 순서대로 하고, 어디서든 걸리면 **배포까지 가지 않고 멈춘다.**
 
     1. git pull --rebase      충돌하면 멈춘다. 혼자 풀지 않는다
-    2. 사본 검사              check_copies.py — 원본과 갈라졌으면 멈춘다
+    2. 사본 검사              재빌드로 잃을 것이 있으면 멈춘다 (뒤처짐은 통과)
     3. 빌드                   build_client.py
     4. 평문 검사              「배포하지 마세요」면 멈춘다
     5. 내용 비교              바뀐 게 없으면 커밋하지 않는다
@@ -43,6 +43,19 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC   # noqa: E402
 
 # 빌드할 때마다 달라지는 값. 내용이 바뀌었는지 볼 때는 빼고 견준다.
 VOLATILE = ("generated_at",)
+
+# 사본 검사에서 배포를 멈춰야 하는 상태.
+#
+# 「뒤처짐」은 뺀다. 루트가 앞서 있다는 뜻이고, 이번 빌드가 사본을 다시 만들어
+# 맞춰 준다 — 빌드가 하려는 일 그 자체다. 이걸 막으면 루트 index.html 을
+# 고치는 순간부터 자동 배포가 멈추고, 그것을 푸는 유일한 방법인 재빌드로
+# 가는 길이 함께 막힌다.
+#
+# 남는 것은 재빌드로 해결되지 않는 것들이다. 「손댐」·「갈라짐」은 사본에만
+# 있는 내용이 있어 재빌드하면 잃는다. 「이름불일치」는 그 주소가 남의 기업
+# payload 를 읽는다는 뜻이고, 「확인불가」는 잃을 것이 있는지 자체를 모른다.
+BLOCKING = (check_copies.EDITED, check_copies.FORKED,
+            check_copies.MISMATCH, check_copies.UNKNOWN)
 
 
 def say(msg: str = "") -> None:
@@ -187,9 +200,14 @@ def main() -> int:
     if rc == 2:
         return 2
     check_copies.report(rows, quiet=False)
-    if rc:
-        say("\n■ 사본이 원본 템플릿과 맞지 않습니다. 배포하지 않습니다.")
+
+    if [r for r in rows if r["state"] in BLOCKING]:
+        say("\n■ 재빌드로 해결되지 않는 문제가 있습니다. 배포하지 않습니다.")
+        say("  위 줄의 안내대로 먼저 정리한 뒤 다시 실행하세요.")
         return 1
+
+    if [r for r in rows if r["state"] == check_copies.STALE]:
+        say("   루트가 앞서 있습니다 — 이번 빌드가 사본을 다시 만듭니다")
 
     # ── 3. 빌드 ─────────────────────────────────────────────────────
     say(f"\n③ 빌드")
