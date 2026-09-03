@@ -224,6 +224,9 @@ class Notion:
     def post(self, path: str, body: dict) -> dict:
         return self._request("POST", path, json=body)
 
+    def patch(self, path: str, body: dict) -> dict:
+        return self._request("PATCH", path, json=body)
+
     def query_all(self, database_id: str, body: dict | None = None) -> list[dict]:
         out: list[dict] = []
         cursor = None
@@ -387,7 +390,7 @@ def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
             "notice_db_url": p_url(props, "공지 DB"),
             "drive_url": p_url(props, "드라이브 URL"),
             "bizplan_url": p_url(props, "사업계획서 URL"),
-            "password": p_text(props, "비밀번호_해시"),   # 이름과 달리 평문이다
+            "password": p_text(props, "접속 비밀번호"),   # 이름과 달리 평문이다
             "extra_links": parse_extra_links(p_text(props, "추가 링크")),
             "tags": p_multi(props, "업종"),
             "icon": row.get("icon"),
@@ -2392,6 +2395,52 @@ def build_talks(nt: Notion, client: dict, company_name: str,
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# §10-1 빌드 상태 → 노션
+#
+# 빌드가 끝나면 공유페이지 항목에 결과를 적는다. 담당자가 터미널을 보지 않고
+# 노션에서 「내 클라이언트 페이지가 최신인가, 무엇이 비었나」를 보게 하려는 것이다.
+# 쓰는 속성 4개(마지막 빌드·빌드 결과·데이터 결손·페이지 주소)는 공유페이지 DB 에
+# 있어야 한다. 기록에 실패해도 산출물은 이미 나온 뒤라 빌드 결과에는 영향이 없다.
+# ══════════════════════════════════════════════════════════════════════════
+
+STATUS_OK, STATUS_WARN, STATUS_FAIL, STATUS_PLAIN = "정상", "경고", "실패", "평문"
+PAGES_FALLBACK = "https://bluep2000-hub.github.io/growthhigh-clientpage"
+
+
+def page_url(slug: str) -> str:
+    """배포 주소. CNAME 이 있으면 그 도메인, 없으면 GitHub Pages 기본 주소다."""
+    cname = ROOT / "CNAME"
+    host = cname.read_text(encoding="utf-8").strip() if cname.exists() else ""
+    return f"https://{host}/{slug}/" if host else f"{PAGES_FALLBACK}/{slug}/"
+
+
+def status_of(res: dict) -> str:
+    """평문이 경고보다 위다 — 배포 금지 신호가 묻히면 안 된다."""
+    if res.get("blocked") or not res.get("encrypted"):
+        return STATUS_PLAIN
+    return STATUS_WARN if res.get("warns") else STATUS_OK
+
+
+def report_status(nt: Notion, client: dict, status: str, missing: list[str],
+                  dry_run: bool) -> None:
+    text = " · ".join(missing)
+    props = {
+        "마지막 빌드": {"date": {"start": now_kst().replace(microsecond=0).isoformat()}},
+        "빌드 결과": {"select": {"name": status}},
+        "데이터 결손": {"rich_text": [{"text": {"content": text[:2000]}}] if text else []},
+        "페이지 주소": {"url": page_url(client["slug"])},
+    }
+    if dry_run:
+        log(f"  (dry-run) 노션 상태: {status} · {text or '결손 없음'}")
+        return
+    try:
+        nt.patch(f"/pages/{client['page_id']}", {"properties": props})
+        log(f"  노션 상태 기록: {status}" + (f" · {text}" if text else ""))
+    except ClientFailure as e:
+        warn(f"{client['slug']} — 노션 상태 기록 실패: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # §11 암호화 · 출력
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -2460,6 +2509,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     # 공지·회의록 안의 노션 이미지를 어디에 저장할지 알려 준다. 만료되는 S3 주소를
     # JSON 에 넣지 않기 위해서다. 클라이언트마다 갈아끼운다.
     _ASSET_CTX["slug"], _ASSET_CTX["dry_run"] = slug, dry_run
+    warn_base = len(WARNINGS)             # 이 클라이언트 몫의 경고만 세려고 기준을 잡는다
     _asset_cache.clear()
     _SKIPPED.clear()
 
@@ -2505,6 +2555,22 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     for t, why in perf_dropped:
         log(f"    빠짐: {t[:34]} — {why}")
 
+    # 노션 상태 기록용 결손 목록. 담당자가 무엇을 채워야 하는지 노션에서 보게 한다.
+    # 조달 미집계는 사업명을 그대로 적는다. 확보금액이 금액이 아닌 건(인증서 등)은
+    # 조달현황에 못 오르는데, 데이터 오류가 아니라 집계 방식의 한계다 — 고치라는
+    # 뜻이 아니라 「이 건은 그래프에 없다」는 안내다
+    missing: list[str] = []
+    if not notice:
+        missing.append("공지 없음")
+    if not recommend:
+        missing.append("추천 0건")
+    if not events:
+        missing.append("일정 0건")
+    if not perf:
+        missing.append("조달현황 없음")
+    missing += [f"조달 미집계: {t[:24]}" for t, why in perf_dropped
+                if why.startswith("금액 파싱 실패")]
+
     next_ev = next((e for e in events if not e["past"]), None)
     kpi = {
         "running": sum(1 for r in progress if r["badge"] == "run"),
@@ -2545,14 +2611,17 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     }
 
     password = client.get("password") or ""
+    if not password:
+        missing.append("비밀번호 없음")
 
     # 비밀번호가 없으면 봉투가 평문이 된다. 레포 루트는 통째로 웹에 서빙되므로
     # 실수로 나가지 않게 기본은 막고, 명시적으로 허용할 때만 쓴다.
     if not password and not allow_plaintext:
         warn(f"{slug} — 비밀번호 없음. 평문이 되므로 파일을 쓰지 않았습니다.")
-        log("     노션 공유페이지 DB 의 「비밀번호_해시」가 비어 있습니다.")
+        log("     노션 공유페이지 DB 의 「접속 비밀번호」가 비어 있습니다.")
         log("     의도한 것이면 --allow-plaintext 를 붙여 다시 실행하세요.")
-        return {"slug": slug, "encrypted": False, "blocked": True, "payload": payload}
+        return {"slug": slug, "encrypted": False, "blocked": True, "payload": payload,
+                "missing": missing, "warns": len(WARNINGS) - warn_base}
 
     envelope = encrypt(payload, password)
     blob = json.dumps(envelope, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -2569,7 +2638,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
         log(f"  c/{slug}.enc {len(blob):,}B · {slug}/index.html")
 
     return {"slug": slug, "encrypted": bool(password), "blocked": False,
-            "payload": payload}
+            "payload": payload, "missing": missing, "warns": len(WARNINGS) - warn_base}
 
 
 def build(only: str | None, include_expired: bool, dry_run: bool,
@@ -2596,12 +2665,15 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
                 blocked.append(res["slug"])
             elif not res["encrypted"]:
                 plaintext.append(res["slug"])
+            report_status(nt, c, status_of(res), res.get("missing") or [], dry_run)
         except ClientFailure as e:
             warn(f"[{c['slug']}] 실패 — 건너뜁니다: {e}")
             failed.append(c["slug"])
+            report_status(nt, c, STATUS_FAIL, [str(e)[:120]], dry_run)
         except Exception as e:                  # noqa: BLE001 — 한 곳이 죽어도 나머지는 계속
             warn(f"[{c['slug']}] 예기치 못한 실패 — 건너뜁니다: {type(e).__name__}: {e}")
             failed.append(c["slug"])
+            report_status(nt, c, STATUS_FAIL, [f"{type(e).__name__}: {e}"[:120]], dry_run)
 
     log("")
     if WARNINGS:
@@ -2610,7 +2682,7 @@ def build(only: str | None, include_expired: bool, dry_run: bool,
         log(f"■ 평문이 될 {len(blocked)}건은 쓰지 않았습니다 — 비밀번호가 비어 있습니다.")
         for s in blocked:
             log(f"    · {s}")
-        log("  노션 「비밀번호_해시」를 채우거나, 평문이 의도한 것이면")
+        log("  노션 「접속 비밀번호」를 채우거나, 평문이 의도한 것이면")
         log("  --allow-plaintext 를 붙여 다시 실행하세요.")
     if plaintext:
         log(f"⚠ 평문으로 저장된 {len(plaintext)}건 — 비밀번호 없이 열립니다.")
