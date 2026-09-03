@@ -41,6 +41,15 @@ from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from dotenv import load_dotenv
 
+# 윈도우 기본 콘솔은 cp949 라 경고 기호(⚠) 하나에 빌드 전체가 죽는다.
+# 출력 스트림만 UTF-8 로 돌린다. 파일 입출력은 이미 전부 encoding="utf-8" 이라
+# 여기서 손댈 것이 없다. 파이프로 넘길 때처럼 재설정이 막힌 스트림은 그냥 둔다.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # ══════════════════════════════════════════════════════════════════════════
 # 상수
 # ══════════════════════════════════════════════════════════════════════════
