@@ -26,6 +26,8 @@ beauty/index.html      데모 주소 /beauty/. 슬러그 sample 을 주입한 �
 logo/{슬러그}.png        노션 페이지 아이콘을 내려받은 것. 빌더가 만든다
 assets/                잠금 화면에 쓰는 그로스하이 로고
 
+docs/skills/           자동화 스킬 원본. ~/.claude/ 로 복사해 쓴다
+
 .env                   NOTION_TOKEN. 커밋하지 않는다
 .env.example           자리표시자
 ```
@@ -137,7 +139,7 @@ git add -A && git commit -m "새슬러그 추가" && git push
 
 ### 다른 컴퓨터에서 작업할 때
 
-레포에 없는 것은 `.env` 하나뿐이다.
+빌드에 필요한 것 중 레포에 없는 것은 `.env` 하나뿐이다.
 
 ```bash
 git clone https://github.com/bluep2000-hub/growthhigh-clientpage
@@ -149,6 +151,33 @@ cp .env.example .env      # NOTION_TOKEN 을 채운다
 `NOTION_TOKEN` 만 있으면 빌드가 끝까지 돈다. `CALENDAR_ICS_URL` 이 없으면 일정에서
 미팅이 빠지고, `IMAP_*` 이 없으면 `--skip-imap` 으로 우회한다. 이미 노션 소통 DB 에
 쌓인 내역은 메일 접속 정보 없이도 그대로 읽힌다.
+
+#### 자동화까지 옮기려면
+
+`git clone` 만으로는 하루 3회 자동 갱신이 따라오지 않는다. 예약 세션과 스킬은
+레포가 아니라 Claude 앱의 개인 폴더에 사는 파일이라 **손으로 복사해야 한다.**
+`docs/skills/` 쪽이 원본이고 `~/.claude/` 쪽이 사본이다 — 레포를 고쳤으면 다시
+복사한다. 루트 `index.html` 과 `{슬러그}/index.html` 의 관계와 같다.
+
+```bash
+cp docs/skills/talk-summary.md      ~/.claude/skills/talk-summary/SKILL.md
+cp docs/skills/clientpage-daily.md  ~/.claude/scheduled-tasks/clientpage-daily/SKILL.md
+```
+
+그다음 Claude 앱에서 예약 작업 `clientpage-daily` 를 `0 9,15,19 * * *` 로 새로
+등록한다. **예약은 기계마다 따로 건다** — 계정을 따라오지 않는다. 앱이 켜져 있는
+동안만 돌고, 놓친 회차는 다음 실행 때 한 번 몰아서 돈다.
+
+녹음 폴더 경로는 `G:\.shortcut-targets-by-id\...` 로 박혀 있다. 드라이브 문자가
+다른 PC 에서는 `.env` 에 한 줄 적어 덮는다.
+
+```
+TALKS_DIR=D:\내 드라이브\클라이언트 통화 미팅기록
+```
+
+**자동은 한 대에서만 돌린다.** 어떤 녹음을 이미 받아썼는지 적어 두는
+`.transcribed.json` 이 기계마다 따로라, 두 대에서 예약을 돌리면 같은 녹음을 두 번
+전사하고 빌드 산출물을 서로 커밋해 충돌한다.
 
 ### 주의할 점 둘
 
