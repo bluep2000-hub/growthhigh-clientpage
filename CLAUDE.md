@@ -22,11 +22,22 @@ cp .env.example .env
 ## 자주 쓰는 명령
 
 ```bash
-git pull                                          # 작업 전 반드시 먼저
-python src/build_client.py --skip-imap            # 조건을 갖춘 클라이언트 전부
-python src/build_client.py --client 슬러그 --skip-imap   # 한 곳만
-python src/build_client.py --client 슬러그 --dry-run     # 파일도 노션도 건드리지 않고 확인만
+python src/publish.py --client 슬러그              # pull→검사→빌드→배포. 평소엔 이것만 쓴다
+python src/publish.py --client 슬러그 --dry-run    # 빌드까지만. 커밋도 push 도 안 한다
+python src/check_copies.py                        # 사본이 지금 원본 템플릿에서 나온 것인가
 python -m http.server 8000 --bind 127.0.0.1       # 로컬 확인
+```
+
+`publish.py` 는 어디서든 걸리면 **배포까지 가지 않고 멈춘다** — pull 충돌, 사본 갈라짐,
+평문 경고, 산출물 아닌 파일이 바뀌어 있음. **내용이 안 바뀌었으면 커밋하지 않는다**
+(봉투의 salt·iv 가 매번 무작위라 파일 바이트만으로는 판단할 수 없어, 배포본을 풀어 견준다).
+
+빌더를 직접 부를 일도 있다.
+
+```bash
+git pull                                          # 직접 부를 때는 먼저
+python src/build_client.py --skip-imap            # 조건을 갖춘 클라이언트 전부
+python src/build_client.py --client 슬러그 --dry-run     # 파일도 노션도 건드리지 않고 확인만
 ```
 
 `--bind 127.0.0.1` 을 빼면 레포 루트가 같은 네트워크에 통째로 열린다.
@@ -61,16 +72,16 @@ python -m http.server 8000 --bind 127.0.0.1       # 로컬 확인
 ### 2. 빌드
 
 ```bash
-python src/build_client.py --client 새슬러그 --skip-imap
+python src/publish.py --client 새슬러그 --dry-run
 ```
 
-끝에 **`⚠ 배포하지 마세요` 경고가 없는지 확인한다.** 이 경고가 있으면
-비밀번호가 비어 데이터가 평문으로 나간 것이다. 노션에 비밀번호를 넣고 다시 빌드한다.
+무엇이 나올지 먼저 본다. 비밀번호가 비어 있으면 여기서 멈추고 알려 준다 —
+평문이 배포되는 일은 `publish.py` 가 막는다.
 
 ### 3. 배포
 
 ```bash
-git add -A && git commit -m "새슬러그 추가" && git push
+python src/publish.py --client 새슬러그
 ```
 
 1~2분 뒤 `https://bluep2000-hub.github.io/growthhigh-clientpage/{슬러그}/` 로 열린다.
