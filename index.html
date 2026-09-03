@@ -980,7 +980,7 @@ function init(D){
   const events = Array.isArray(D.events) ? D.events : [];
   const recommend = Array.isArray(D.recommend) ? D.recommend : [];
   /* 공백뿐인 본문은 없는 것으로 본다 — 아래 검사가 모두 이 값을 쓴다.
-     body 는 평문(메일), body_html 은 회의록 HTML(미팅·유선)이다. */
+     body 는 평문(메일), body_html 은 회의록 HTML(미팅·통화)이다. */
   const talks = (Array.isArray(D.talks) ? D.talks : [])
     .map(t => ({ ...t,
       body: (t.body || '').trim() || null,
@@ -1647,11 +1647,11 @@ function init(D){
      목록에는 일자·채널·제목만 두고, 본문은 행을 눌렀을 때 펼친다.
      body 가 null 이면 펼칠 것이 없으므로 표시도 하지 않는다. */
   /* 소통 내역 — 채널 탭으로 거른다. 좌측 메뉴는 「소통 내역」 하나로 둔다.
-     preview 는 미팅·유선(안건 목록)만 한 줄 보여준다. 메일 preview 는
+     preview 는 미팅·통화(안건 목록)만 한 줄 보여준다. 메일 preview 는
      본문 첫머리라 인사말·서명만 나와 목록에서 값을 못 한다. */
   const TALK_TABS = [{k:'all',nm:'전체'},{k:'메일',nm:'메일'},
-                     {k:'유선',nm:'유선'},{k:'미팅',nm:'미팅'}];
-  const TALK_BADGE = {'메일':'ch-mail','유선':'ch-call','미팅':'ch-meet'};
+                     {k:'통화',nm:'통화'},{k:'미팅',nm:'미팅'}];
+  const TALK_BADGE = {'메일':'ch-mail','통화':'ch-call','미팅':'ch-meet'};
   const talkCount = k => k==='all' ? talks.length : talks.filter(t=>t.channel===k).length;
   let talkTab = 'all';
 

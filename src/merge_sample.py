@@ -9,7 +9,7 @@
 가져오는 것은 셋이다.
     프로젝트   기업 DB 의 「고객사 정보」 릴레이션으로 찾는다
     메일       IMAP 폴더 Inbox.고객사.{기업명} 에서 직접 읽는다 (노션을 거치지 않는다)
-    미팅·유선   노션 소통 내역 DB 에서 「보류」가 아닌 것
+    미팅·통화   노션 소통 내역 DB 에서 「보류」가 아닌 것
 
 마스킹은 make_sample.py 의 규칙을 그대로 쓰고, 아래 MERGE_SOURCES 에
 클라이언트별 표기(사명·브랜드·도메인·인명)를 더한다.
@@ -190,7 +190,7 @@ def fetch_mails(name: str, days: int, exclude: str) -> list[dict]:
 
 
 def fetch_meetings(nt: B.Notion, client_page: str) -> list[dict]:
-    """노션 소통 DB 의 미팅·유선. 회의록은 페이지 본문에 있다."""
+    """노션 소통 DB 의 미팅·통화. 회의록은 페이지 본문에 있다."""
     rows = nt.query_all(B.TALKS_DB_ID, {
         "filter": {"property": "클라이언트", "relation": {"contains": client_page}}})
     out = []
@@ -245,7 +245,7 @@ def main() -> int:
 
     client_page = find_client_page(nt, args.company)
     meetings = fetch_meetings(nt, client_page) if client_page else []
-    print(f"  미팅·유선 {len(meetings)}건")
+    print(f"  미팅·통화 {len(meetings)}건")
 
     mails = fetch_mails(args.company, cfg.get("talks_days", 0),
                         cfg.get("exclude_title") or "")

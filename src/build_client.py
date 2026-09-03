@@ -1462,7 +1462,7 @@ TALK_STATUS_PUBLIC = "공개"
 TALK_STATUS_HIDDEN = "보류"     # 담당자가 의도적으로 숨긴 것. 읽기에서 뺀다
 TALK_CHANNEL_MAIL = "메일"
 # 이 채널들은 회의록이 페이지 본문에 들어간다 — 속성만 읽으면 안건 한 줄뿐이다
-TALK_CHANNELS_WITH_MINUTES = {"미팅", "유선"}
+TALK_CHANNELS_WITH_MINUTES = {"미팅", "통화"}
 
 # 사람이 손으로 분류해둔 고객사 폴더를 그대로 쓴다. 발신 도메인 추측보다 정확하다.
 TALKS_FOLDER_PREFIX = "Inbox.고객사."
@@ -2216,7 +2216,7 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
 
 
 # ── 회의록 본문: 페이지 블록 → HTML ──────────────────────────────────────
-# 미팅·유선 건은 회의록 전체가 페이지 본문에 들어간다. 「요약」 속성에는
+# 미팅·통화 건은 회의록 전체가 페이지 본문에 들어간다. 「요약」 속성에는
 # 안건 목록 한 줄뿐이라 속성만 읽으면 화면에 아무것도 나오지 않는다.
 # 서식 변환은 공지 파서의 runs_to_html / block_runs 를 그대로 쓴다.
 
@@ -2358,7 +2358,7 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
         channel = p_select(pr, "채널") or ""
         summary = p_text(pr, "요약")
 
-        # 미팅·유선은 회의록이 페이지 본문에 있다. 메일은 지금처럼 「요약」이 본문이다.
+        # 미팅·통화는 회의록이 페이지 본문에 있다. 메일은 지금처럼 「요약」이 본문이다.
         body = body_html = None
         if channel in TALK_CHANNELS_WITH_MINUTES:
             body_html = fetch_talk_body(nt, pg["id"], p_text(pr, "제목")) or None
