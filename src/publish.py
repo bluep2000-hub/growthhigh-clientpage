@@ -60,6 +60,33 @@ def git(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     return r
 
 
+def owns(path: str, slug: str) -> bool:
+    """이 클라이언트의 빌드 산출물인가.
+
+    자동 배포는 사람이 없는 데서 돈다. `git add -A` 로 작업 트리를 통째로
+    쓸어 담으면 담당자가 편집 중이던 파일까지 커밋해 push 한다. 실제로
+    한 번 그렇게 나갔다. 여기 해당하는 것만 담는다.
+    """
+    return (path == f"c/{slug}.enc"
+            or path.startswith(f"{slug}/")
+            or path.startswith(f"logo/{slug}.")
+            or path.startswith(f"assets/notice/{slug}-"))
+
+
+def changed_paths() -> list[str]:
+    """작업 트리에서 바뀐 경로. 이름 바꾸기는 새 이름 쪽을 쓴다."""
+    r = git("-c", "core.quotepath=false", "status", "--porcelain")
+    out = []
+    for line in r.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        path = line[3:]
+        if " -> " in path:                  # R  old -> new
+            path = path.split(" -> ", 1)[1]
+        out.append(path)
+    return out
+
+
 def decrypt(env: dict, password: str) -> dict | None:
     """봉투를 푼다. 비밀번호가 틀리거나 형식이 다르면 None — 「모른다」이다.
 
@@ -140,6 +167,20 @@ def main() -> int:
             return 1
         say(f"   {r.stdout.strip().splitlines()[-1] if r.stdout.strip() else '최신'}")
 
+    # ── 1-1. 작업 트리가 깨끗한가 ───────────────────────────────────
+    # 자동 배포가 남의 작업물을 커밋하지 않게 한다. 예약 세션은 사람이
+    # 안 볼 때 도니까, 편집 중인 파일이 있으면 손대지 말고 멈춰야 한다.
+    others = [p for p in changed_paths() if not owns(p, slug)]
+    if others and not args.dry_run:
+        say(f"\n■ {slug} 산출물이 아닌 파일 {len(others)}개가 바뀌어 있습니다.")
+        for p in others[:12]:
+            say(f"    {p}")
+        if len(others) > 12:
+            say(f"    … 외 {len(others) - 12}개")
+        say("\n  이것들까지 커밋하게 되므로 멈춥니다.")
+        say("  먼저 커밋하거나 되돌린 뒤 다시 실행하세요.")
+        return 1
+
     # ── 2. 사본이 원본과 맞는가 ─────────────────────────────────────
     say(f"\n② 사본 검사 — {slug}")
     rc, rows = check_copies.check(slug)
@@ -183,26 +224,27 @@ def main() -> int:
     elif old == new:
         # 봉투 바이트만 다르다. 되돌려 커밋거리를 만들지 않는다.
         git("checkout", "--", f"c/{slug}.enc")
-        left = git("status", "--porcelain").stdout.strip()
+        left = [p for p in changed_paths() if owns(p, slug)]
         if not left:
             say("   바뀐 내용이 없습니다 — 커밋하지 않았습니다.")
             say(f"\n갱신 없음 / 배포 0곳 / {slug}")
             return 0
-        say("   payload 는 그대로인데 다른 파일이 바뀌었습니다:")
-        for line in left.splitlines()[:10]:
-            say(f"     {line}")
-        changes = ["파일 변경"]
+        say("   payload 는 그대로인데 산출물이 바뀌었습니다:")
+        for p in left[:10]:
+            say(f"     {p}")
+        changes = ["화면 · 자산 변경"]
     else:
         changes = section_diff(old, new) or ["내용 변경"]
         say("   " + " · ".join(changes))
 
     # ── 6. 배포 ─────────────────────────────────────────────────────
-    if not git("status", "--porcelain").stdout.strip():
+    mine = [p for p in changed_paths() if owns(p, slug)]
+    if not mine:
         say("\n커밋할 것이 없습니다.")
         return 0
 
     say("\n⑤ 배포")
-    git("add", "-A")
+    git("add", "--", *mine)
     git("commit", "-m", f"{slug} 갱신 — {' · '.join(changes)}")
     git("pull", "--rebase")
     git("push")
