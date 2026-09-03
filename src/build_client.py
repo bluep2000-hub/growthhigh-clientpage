@@ -580,9 +580,9 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
             "end": end,
             "log_date": log_date,
             "log_text": log_text,
-            # 「확보금액」은 number 가 아니라 rich_text 다. 금액만이 아니라
+            # 「확보 성과」는 number 가 아니라 rich_text 다. 금액만이 아니라
             # 「하이서울기업 인증서」 같은 산출물도 들어 있어 원문을 그대로 넘긴다.
-            "amount": p_text(props, "확보금액").strip() or None,
+            "amount": p_text(props, "확보 성과").strip() or None,
             # 비어 있으면 키 자체를 null 로 둔다 — 화면이 「기한 없음」을 그린다
             "valid": [v_start, v_end] if (v_start or v_end) else None,
             # 조달현황 범례용. 정책자금만 fund 고 나머지 지원사업은 전부 gov 다
@@ -601,7 +601,7 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
 # §6-1 조달현황
 # ══════════════════════════════════════════════════════════════════════════
 #
-# 「확보금액」은 rich_text 라 표기가 제각각이다. 「300,000,000원」·「3억」·
+# 「확보 성과」는 rich_text 라 표기가 제각각이다. 「300,000,000원」·「3억」·
 # 「2억원(기표완료)」·「하이서울기업 인증서」가 한 속성에 섞여 있다.
 # 숫자로 읽히는 것만 쓰고, 읽지 못한 것은 그 항목째 뺀다 — 0원으로 세면
 # 막대가 없는 사업이 있는 것처럼 보인다.
@@ -611,7 +611,7 @@ EOK_RE = re.compile(AMOUNT_NUM + r"\s*억")
 MAN_RE = re.compile(AMOUNT_NUM + r"\s*만")
 WON_RE = re.compile(AMOUNT_NUM + r"\s*원")
 BARE_AMOUNT_RE = re.compile(r"^\s*" + AMOUNT_NUM + r"\s*$")
-# 선정되지 않은 건은 확보금액이 아니다. 노션에는 신청액이 그대로 남아 있다
+# 선정되지 않은 건은 확보 성과가 아니다. 노션에는 신청액이 그대로 남아 있다
 DROP_LOG_RE = re.compile(r"미선정|탈락|미신청")
 # 취득 인증 타임라인에 남길 인증. index.html 의 CERT_LIB 과 같은 4종이고
 # 거르는 방식(공백 제거 후 부분일치)도 같다. 한쪽만 고치지 말 것.
@@ -621,7 +621,7 @@ NOT_ACQUIRED_RE = re.compile(r"현장실사|변경신고|실사|신고")
 
 
 def parse_amount(raw: str | None) -> int | None:
-    """확보금액 원문에서 원 단위 정수를 뽑는다. 못 읽으면 None."""
+    """확보 성과 원문에서 원 단위 정수를 뽑는다. 못 읽으면 None."""
     s = (raw or "").strip()
     if not s:
         return None
@@ -2556,7 +2556,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
         log(f"    빠짐: {t[:34]} — {why}")
 
     # 노션 상태 기록용 결손 목록. 담당자가 무엇을 채워야 하는지 노션에서 보게 한다.
-    # 조달 미집계는 사업명을 그대로 적는다. 확보금액이 금액이 아닌 건(인증서 등)은
+    # 조달 미집계는 사업명을 그대로 적는다. 확보 성과가 금액이 아닌 건(인증서 등)은
     # 조달현황에 못 오르는데, 데이터 오류가 아니라 집계 방식의 한계다 — 고치라는
     # 뜻이 아니라 「이 건은 그래프에 없다」는 안내다
     missing: list[str] = []
