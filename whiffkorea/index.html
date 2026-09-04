@@ -200,7 +200,39 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ck li.tg{padding-left:0}
 .ck{list-style:none}
 .ck>li{padding:3px 0 3px 22px;position:relative;font-size:13px;line-height:1.65}
-.ck>li>b{font-weight:600}
+.ck>li>b,.ck>li>.nx>b{font-weight:600}
+
+/* ── 편집 모드 ──
+   담당자에게만 켜진다. 클라이언트 화면에는 아래 어느 것도 나타나지 않는다.
+   .nx 는 항목 자기 글만 감싸는 껍데기다 — 하위 항목까지 삼키면 한 줄을 고칠 때
+   아래 줄들이 통째로 사라진다. 편집 모드일 때만 씌워 평소 DOM 은 건드리지 않는다 */
+.edt{display:inline-flex;align-items:center;gap:6px}
+.edt-b{font-size:11px;color:var(--tx-3);border:1px solid var(--line-2);border-radius:5px;
+  padding:2px 8px;line-height:1.5}
+.edt-b:hover{color:var(--tx);border-color:var(--tx-3)}
+.edt-on{font-size:10.5px;font-weight:600;letter-spacing:.02em;color:#fff;background:var(--accent);
+  border-radius:9px;padding:2px 9px}
+.edt input{font-family:inherit;font-size:12px;width:150px;padding:3px 8px;color:var(--tx);
+  background:var(--panel-2);border:1px solid var(--line-2);border-radius:5px}
+.edt .err{font-size:11px;color:var(--no)}
+
+/* 자손 선택자다. `.ck>li` 로 쓰면 중첩된 항목이 통째로 빠진다 —
+   공지는 4단까지 들어가고, 실제로 고칠 줄은 대부분 안쪽에 있다 */
+.ck li[data-nid]>.nx,.ck li[data-nid]>.tgh>.nx{border-radius:3px;cursor:text}
+.ck li[data-nid]>.nx:hover,.ck li[data-nid]>.tgh>.nx:hover{background:var(--accent-bg)}
+/* 잠긴 항목 — 왜 못 고치는지 그 자리에서 말해 준다 */
+.ck li[data-lock]>.nx{opacity:.62}
+.ck li[data-lock]>.nx::after{content:"🔒 " attr(data-lock);font-size:10.5px;color:var(--tx-3);
+  margin-left:7px;white-space:nowrap}
+.nedit{display:block;margin:2px 0}
+.nedit textarea{display:block;width:100%;min-height:56px;resize:vertical;font-family:inherit;
+  font-size:13px;line-height:1.65;color:var(--tx);background:var(--panel-2);
+  border:1px solid var(--accent);border-radius:6px;padding:7px 9px}
+.nedit .row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:var(--tx-3)}
+.nedit button{font-size:11.5px;border-radius:5px;padding:3px 11px;border:1px solid var(--line-2)}
+.nedit .save{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.nedit .save[disabled]{opacity:.55;cursor:default}
+.nedit .bad{color:var(--no)}
 /* 커스텀 이모지 — 글자 흐름에 얹히는 작은 그림이다 */
 .cem{height:1em;width:auto;vertical-align:-.15em;margin:0 2px;display:inline-block}
 /* 표·그림·코드·구분선은 항목 안에 통째로 들어온다. 앞의 점을 지우고 폭을 채운다 */
@@ -826,6 +858,18 @@ const SAMPLE = SAMPLES.includes(CLIENT);
 const SRC  = CLIENT ? `${BASE}c/${CLIENT}${SAMPLE ? '.json' : '.enc'}` : null;
 const SKEY = CLIENT ? `gh:client:${CLIENT}` : null;
 
+/* 담당자가 공지를 고칠 때만 부르는 중계 서버. 노션 열쇠는 저쪽에만 있다.
+   여기 주소가 새어도 담당자 비밀번호 없이는 아무것도 못 한다. */
+const RELAY = 'https://growthhigh-clientpage-relay.growthhigh-clientpage-worker.workers.dev';
+/* 담당자 비밀번호를 담아 두는 자리. 클라이언트 비밀번호(SKEY)와 다른 값이고,
+   탭을 닫으면 사라진다. localStorage 에 두지 않는다 — 공용 PC 에 남는다 */
+const EKEY = CLIENT ? `gh:editor:${CLIENT}` : null;
+/* 편집 스위치는 ?edit 를 달고 들어온 사람에게만 보인다.
+   클라이언트에게는 편집이라는 것이 있다는 사실조차 보이지 않아야 한다 —
+   비밀번호로 막혀 있어도, 버튼이 보이면 눌러 보게 되고 물어보게 된다.
+   담당자는 이 주소를 즐겨찾기에 둔다: /{슬러그}/?edit */
+const EDITQ = Q.has('edit');
+
 /* ── 표현 계층 상수 (JSON 의 stage 인덱스로 참조) ── */
 const LABELS = {
   fund:['검토','서류','작성','평가','결과'],
@@ -1291,19 +1335,33 @@ function init(D){
   const noticeHtml = h => String(h || '').replace(/\bsrc="assets\//g, `src="${BASE}assets/`);
   /* 표·그림·코드·구분선·첨부는 글줄이 아니라 내용 자체다. 깊이 제한은 체크리스트를
      읽기 좋게 접으려는 것이므로 이런 블록은 제한과 무관하게 끝까지 그린다 */
-  function noticeItem(it, depth){
+  /* edit 가 참일 때만 항목 자기 글을 .nx 로 감싸고 주소를 붙인다.
+     평소에는 지금까지와 완전히 같은 DOM 이라 클라이언트 화면은 달라지지 않는다.
+     .nx 로 감싸는 이유는 한 줄을 고칠 때 하위 항목까지 지우지 않기 위해서다 */
+  function noticeItem(it, depth, edit){
     const c = it.checked;
     const cls = c === true ? 'chk on' : c === false ? 'chk' : 'plain';
     /* 노션에 쓴 만큼 다 낸다. depth 상한은 순환 참조를 막는 안전장치일 뿐이다 */
     const kids = depth < 10 ? (it.children || []) : [];
     const sub = kids.length
-      ? `<ul>${kids.map(k=>noticeItem(k, depth+1)).join('')}</ul>` : '';
+      ? `<ul>${kids.map(k=>noticeItem(k, depth+1, edit)).join('')}</ul>` : '';
+
+    const body = noticeHtml(it.html);
+    let mark = '', text = body;
+    if(edit && it.id){
+      mark = ` data-nid="${esc(it.id)}"`;
+      text = `<span class="nx">${body}</span>`;
+    } else if(edit && it.locked){
+      mark = ` data-lock="${esc(it.locked)}"`;
+      text = `<span class="nx" data-lock="${esc(it.locked)}">${body}</span>`;
+    }
+
     /* 노션에서 접어 둔 항목은 접힌 채로 시작한다 — 접어 둔 의도를 따른다 */
     if(it.toggle && sub){
-      return `<li class="tg"><span class="tgh"><i class="tw">▸</i>
-        <span>${noticeHtml(it.html)}</span></span>${sub}</li>`;
+      return `<li class="tg"${mark}><span class="tgh"><i class="tw">▸</i>
+        ${edit && (it.id || it.locked) ? text : `<span>${body}</span>`}</span>${sub}</li>`;
     }
-    return `<li class="${cls}">${noticeHtml(it.html)}${sub}</li>`;
+    return `<li class="${cls}"${mark}>${text}${sub}</li>`;
   }
   function noticeFeed(){
     const sections = (notice && Array.isArray(notice.sections)) ? notice.sections : [];
@@ -1311,15 +1369,214 @@ function init(D){
       return `<div class="notice"><div class="bd" style="padding-top:13px">
         <p class="empty">등록된 내용이 없습니다.</p></div></div>`;
     }
+    const edit = ED.on();
     /* 기본은 첫 섹션만 열어 둔다. 분량이 많아 다 펼치면 한눈에 안 들어온다 */
     return sections.map((s,si)=>`
       <div class="notice${si===0?' open':''}">${(s.heading_html || s.heading)
         ? `<h3><i class="tw">▸</i><span>${s.heading_html
             ? noticeHtml(s.heading_html) : esc(s.heading)}</span></h3>` : ''}<div class="bd">
        ${(s.items||[]).length
-         ? `<ul class="ck">${s.items.map(i=>noticeItem(i,1)).join('')}</ul>`
+         ? `<ul class="ck">${s.items.map(i=>noticeItem(i,1,edit)).join('')}</ul>`
          : `<p class="empty">등록된 내용이 없습니다.</p>`}
       </div></div>`).join('');
+  }
+
+  /* ══ 편집 모드 ═══════════════════════════════════════════════════
+     담당자가 공지 화면에서 한 줄씩 고친다. 노션이 계속 원본이고, 여기서
+     고친 것도 노션에 들어가므로 다음 빌드가 덮어쓰지 않는다.
+
+     클라이언트에게는 이 아래 어느 것도 보이지 않는다. 편집 모드는 담당자
+     공용 비밀번호를 통과해야만 켜지고, 그 비밀번호는 중계 서버만 안다.
+
+     봉투가 평문인 클라이언트(샘플)에서는 아예 켜지 않는다. 평문이면 항목
+     주소가 그대로 노출되고, 그 화면은 비밀번호 없이 누구나 연다. */
+  const ED = {
+    can(){ return !!(CLIENT && !SAMPLE && ENV && ENV.enc !== false && notice); },
+    token(){ try { return sessionStorage.getItem(EKEY) || ''; } catch(_){ return ''; } },
+    on(){ return this.can() && !!this.token(); },
+    /* 비밀번호는 base64(UTF-8) 로 싣는다. HTTP 헤더는 바이트 하나가 한 글자라
+       한글이 든 비밀번호를 그대로 넣으면 브라우저가 요청을 못 만든다 */
+    pack(pw){ return btoa(String.fromCharCode(...new TextEncoder().encode(pw))); },
+    async call(method, path, body){
+      const res = await fetch(RELAY + path, {
+        method,
+        headers: Object.assign({'Authorization': 'Bearer ' + this.token()},
+                               body ? {'Content-Type':'application/json'} : {}),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      let data = null;
+      try { data = await res.json(); } catch(_){}
+      if(!res.ok){
+        const err = new Error((data && data.detail) || (data && data.error) || res.status);
+        err.status = res.status;
+        err.code = data && data.error;
+        throw err;
+      }
+      return data;
+    },
+    async unlock(pw){
+      const keep = this.token();
+      sessionStorage.setItem(EKEY, this.pack(pw));
+      try { await this.call('POST', '/auth'); return true; }
+      catch(e){
+        if(keep) sessionStorage.setItem(EKEY, keep); else sessionStorage.removeItem(EKEY);
+        throw e;
+      }
+    },
+  };
+
+  /* 편집 모드 스위치. 공지 화면 제목 옆에만 둔다 */
+  function editSwitch(){
+    if(!ED.can()) return '';
+    /* 켜 둔 세션이면 ?edit 가 없어도 계속 보인다 — 화면을 옮길 때마다
+       주소를 다시 붙이게 만들지 않는다 */
+    if(!EDITQ && !ED.token()) return '';
+    if(ED.on()) return `<span class="edt"><span class="edt-on">편집 모드</span>
+      <button class="edt-b" data-edoff>끄기</button></span>`;
+    return `<span class="edt"><button class="edt-b" data-edon>담당자 편집</button></span>`;
+  }
+
+  function bindEditSwitch(){
+    const off = document.querySelector('[data-edoff]');
+    if(off) off.onclick = () => { sessionStorage.removeItem(EKEY); go('notice'); };
+
+    const on = document.querySelector('[data-edon]');
+    if(!on) return;
+    on.onclick = () => {
+      const box = on.parentElement;
+      box.innerHTML = `<input type="password" placeholder="담당자 비밀번호"
+        aria-label="담당자 비밀번호" autocomplete="off">
+        <button class="edt-b" data-edgo>확인</button><span class="err"></span>`;
+      const inp = box.querySelector('input'), err = box.querySelector('.err');
+      inp.focus();
+      const submit = async () => {
+        if(!inp.value) return;
+        err.textContent = '확인 중…';
+        try { await ED.unlock(inp.value); go('notice'); }
+        catch(e){
+          err.textContent = e.status === 401 ? '비밀번호가 다릅니다'
+                          : '연결하지 못했습니다';
+          inp.select();
+        }
+      };
+      box.querySelector('[data-edgo]').onclick = submit;
+      inp.onkeydown = e => {
+        if(e.key === 'Enter'){ e.preventDefault(); submit(); }
+        if(e.key === 'Escape'){ box.innerHTML = ''; box.outerHTML = editSwitch(); bindEditSwitch(); }
+      };
+    };
+  }
+
+  /* 항목 하나를 그 자리에서 고친다. 하위 항목은 건드리지 않는다 */
+  function bindEditItems(){
+    if(!ED.on()) return;
+
+    document.querySelectorAll('.ck li[data-lock]>.nx').forEach(nx => {
+      nx.ondblclick = e => {
+        e.stopPropagation();
+        alert(`이 줄은 클라이언트 페이지에서 고칠 수 없습니다 — ${nx.dataset.lock}\n\n` +
+              `노션에서 고쳐 주세요.` +
+              (notice.page_url ? `\n\n${notice.page_url}` : ''));
+      };
+    });
+
+    document.querySelectorAll('.ck li[data-nid]').forEach(li => {
+      const nx = li.querySelector(':scope>.nx, :scope>.tgh>.nx');
+      if(!nx) return;
+      nx.ondblclick = async e => {
+        e.stopPropagation();                 /* 토글 항목에서 접히지 않게 */
+        if(li.querySelector(':scope>.nedit')) return;
+        openEditor(li, nx);
+      };
+    });
+  }
+
+  async function openEditor(li, nx){
+    const id = li.dataset.nid;
+    const box = document.createElement('div');
+    box.className = 'nedit';
+    box.innerHTML = `<textarea disabled>불러오는 중…</textarea>
+      <div class="row"><button class="save" disabled>저장</button>
+        <button class="cancel">취소</button>
+        <span class="hint">**굵게** · ~~취소선~~ · \`코드\` · Esc 취소</span></div>`;
+    nx.style.display = 'none';
+    nx.parentElement.insertBefore(box, nx.nextSibling);
+
+    const ta = box.querySelector('textarea');
+    const save = box.querySelector('.save');
+    const hint = box.querySelector('.hint');
+
+    const close = () => { box.remove(); nx.style.display = ''; };
+
+    /* 화면에 보이는 글이 아니라 노션에 있는 글을 가져온다. 빌드가 후행 콜론을
+       떼기 때문에 둘이 다를 수 있고, 보이는 대로 저장하면 그만큼 사라진다 */
+    let got;
+    try { got = await ED.call('GET', `/notice/item?slug=${encodeURIComponent(CLIENT)}&blockId=${encodeURIComponent(id)}`); }
+    catch(e){
+      ta.value = '';
+      hint.className = 'hint bad';
+      hint.textContent = e.status === 409 ? `고칠 수 없는 줄입니다 — ${e.message}`
+                       : e.status === 401 ? '편집 모드가 풀렸습니다. 다시 켜 주세요'
+                       : '불러오지 못했습니다';
+      box.querySelector('.cancel').onclick = close;
+      return;
+    }
+
+    ta.disabled = false;
+    ta.value = got.markdown;
+    save.disabled = false;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    ta.style.height = Math.min(320, Math.max(56, ta.scrollHeight)) + 'px';
+
+    box.querySelector('.cancel').onclick = close;
+
+    const commit = async () => {
+      if(save.disabled) return;
+      save.disabled = true;
+      hint.className = 'hint';
+      hint.textContent = '저장 중…';
+      try {
+        const out = await ED.call('PUT', '/notice/item',
+                                  {slug: CLIENT, blockId: id, markdown: ta.value});
+        nx.innerHTML = noticeHtml(out.html);
+        close();
+        toastSaved();
+      } catch(e){
+        /* 쓴 글을 지우지 않는다. 다시 타이핑하게 만들지 않는다 */
+        save.disabled = false;
+        hint.className = 'hint bad';
+        hint.textContent =
+          e.status === 401 ? '편집 모드가 풀렸습니다. 끄고 다시 켜 주세요'
+        : e.status === 409 ? `고칠 수 없는 줄입니다 — ${e.message}`
+        : e.status === 422 ? `쓰신 내용을 확인해 주세요 — ${e.message}`
+        : e.status === 404 ? '노션에서 그 줄을 찾지 못했습니다'
+        : '저장하지 못했습니다. 다시 눌러 주세요';
+      }
+    };
+    save.onclick = commit;
+    ta.onkeydown = e => {
+      if(e.key === 'Escape'){ e.preventDefault(); close(); }
+      if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); commit(); }
+    };
+    /* 바깥을 눌러도 닫지 않는다 — 쓰던 글을 실수로 잃지 않게 한다 */
+  }
+
+  /* 저장은 됐지만 다른 사람 화면은 아직 옛 내용이다. 그 사실을 숨기지 않는다 */
+  function toastSaved(){
+    let t = document.getElementById('edtoast');
+    if(!t){
+      t = document.createElement('div');
+      t.id = 'edtoast';
+      t.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);' +
+        'background:var(--panel-2);border:1px solid var(--line-2);border-radius:8px;' +
+        'padding:9px 15px;font-size:12px;color:var(--tx);z-index:60;box-shadow:0 6px 20px rgba(0,0,0,.18)';
+      document.body.appendChild(t);
+    }
+    t.textContent = '노션에 저장했습니다 — 클라이언트 화면에는 1~2분 뒤 반영됩니다';
+    t.style.display = '';
+    clearTimeout(toastSaved._t);
+    toastSaved._t = setTimeout(() => { t.style.display = 'none'; }, 4200);
   }
 
   /* 공지 요약 카드 — 조달현황 옆자리. 섹션 제목을 접었다 펴는 형태다.
@@ -1629,7 +1886,8 @@ function init(D){
    </div>`;
 
   V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
-    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
+    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
+    ${editSwitch()}</div>
    ${noticeFeed()}`;
 
   V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
@@ -1637,7 +1895,8 @@ function init(D){
   V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
 
   V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
-    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}</div>
+    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
+    ${editSwitch()}</div>
    ${noticeFeed()}`;
 
   V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
@@ -1931,6 +2190,8 @@ function init(D){
       e.stopPropagation();                      /* 중첩 토글에서 위까지 닫히지 않게 */
       h.parentElement.classList.toggle('open');
     });
+    bindEditSwitch();
+    bindEditItems();
   }
 
   /* 아코디언과 채널 탭. 탭을 누르면 목록만 다시 그리고 다시 묶는다 */
