@@ -21,6 +21,7 @@ import {
 import {
   assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, ITEM_TYPES,
 } from "./notion.js";
+import { requestRebuild } from "./rebuild.js";
 
 /** 클라이언트 페이지가 사는 곳. 여기서 오는 요청만 받는다.
     레포의 CNAME 이 client.growthhigh.co.kr 이라 실제 담당자는 그쪽으로 들어온다.
@@ -142,6 +143,18 @@ const NEW_ITEM_TYPE = "bulleted_list_item";
 /** 날짜를 채웠을 때만 알려 준다. 평소 응답에 null 을 얹지 않는다. */
 const withDate = (body, dated) => (dated ? { ...body, dated } : body);
 
+/**
+ * 쓰기에 성공한 뒤에만 부른다.
+ *
+ * 신호가 실패해도 담당자의 저장은 성공이다 — 노션에는 이미 들어갔고 다음
+ * 빌드가 가져간다. 여기서 응답을 실패로 돌리면 담당자는 같은 글을 두 번
+ * 저장하게 된다.
+ */
+async function signalRebuild(env, slug, body) {
+  const rebuild = await requestRebuild(env, slug);
+  return rebuild === "sent" ? body : { ...body, rebuild };
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const { pathname } = url;
@@ -186,7 +199,7 @@ async function route(request, env) {
       [block.type]: { rich_text: runs },
     });
     const dated = await ensureNoticeDate(nt, notice);
-    return json(withDate({ html: blockToHtml(updated) }, dated), 200);
+    return json(await signalRebuild(env, slug, withDate({ html: blockToHtml(updated) }, dated)), 200);
   }
 
   if (pathname === "/notice/item" && method === "POST") {
@@ -206,7 +219,8 @@ async function route(request, env) {
     if (!made) throw upstream("노션이 새 줄을 돌려주지 않았습니다");
 
     const dated = await ensureNoticeDate(nt, notice);
-    return json(withDate({ blockId: made.id, html: blockToHtml(made) }, dated), 201);
+    return json(await signalRebuild(env, slug,
+      withDate({ blockId: made.id, html: blockToHtml(made) }, dated)), 201);
   }
 
   if (pathname === "/notice/item" && method === "DELETE") {
@@ -220,6 +234,7 @@ async function route(request, env) {
     // 첨부가 든 줄을 여기서 지우면 노션에서 파일이 통째로 사라진다.
     await pickItem(nt, slug, blockId);
     await nt.del(`/blocks/${blockId}`);
+    await requestRebuild(env, slug);
     return new Response(null, { status: 204 });
   }
 

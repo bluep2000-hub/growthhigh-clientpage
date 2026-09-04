@@ -19,6 +19,8 @@ export const ENV = {
   NOTION_TOKEN: "secret-notion-token",
   EDITOR_PASSWORD: "editor-pw-1234",
   NOTION_VERSION: "2022-06-28",
+  GITHUB_DISPATCH_TOKEN: "secret-dispatch-token",
+  GITHUB_REPO: "bluep2000-hub/growthhigh-clientpage",
 };
 
 const BLANK = {
@@ -88,17 +90,25 @@ export function installNotion(opts = {}) {
   };
 
   globalThis.fetch = async (url, init = {}) => {
-    const path = new URL(url).pathname.replace(/^\/v1/, "");
+    const u = new URL(url);
+    const path = u.pathname.replace(/^\/v1/, "");
     const method = init.method || "GET";
     const body = init.body ? JSON.parse(init.body) : undefined;
     const auth = (init.headers || {}).authorization;
-    calls.push({ method, path, body, auth });
+    calls.push({ method, path, body, auth, host: u.host });
 
     const forced = opts.fail?.(method, path);
     if (forced) return forced;
 
     const reply = (data, status = 200) =>
       new Response(JSON.stringify(data), { status });
+
+    // 재빌드 신호는 노션이 아니라 GitHub 으로 간다.
+    if (u.host === "api.github.com") {
+      return opts.dispatchFails
+        ? reply({ message: "bad credentials" }, 401)
+        : new Response(null, { status: 204 });
+    }
 
     if (method === "POST" && path === `/databases/${SHARE_DB}/query`) return reply(share);
     if (method === "GET" && path === `/databases/${NOTICE_DB}`) {
@@ -148,4 +158,8 @@ function toPlain(runs) {
 }
 
 /** 노션에 나간 쓰기 요청만. 「안 썼다」를 확인할 때 쓴다. */
-export const writes = (calls) => calls.filter((c) => c.method !== "GET" && !c.path.endsWith("/query"));
+export const writes = (calls) => calls.filter(
+  (c) => c.host !== "api.github.com" && c.method !== "GET" && !c.path.endsWith("/query"));
+
+/** GitHub 으로 나간 재빌드 신호. */
+export const dispatches = (calls) => calls.filter((c) => c.host === "api.github.com");

@@ -1,0 +1,59 @@
+# 담당자가 공지를 고치면 그 기업 페이지를 다시 만들어 배포한다.
+#
+# 중계 서버(worker/)가 노션에 쓰기를 마치면 repository_dispatch 를 던진다.
+# 사람이 명령을 치지 않는다 — 사람은 잊고, 그러면 담당자는 「고쳤는데 왜
+# 안 보이지」를 반복하게 된다.
+#
+# 판단은 전부 publish.py 에 맡긴다. 내용이 안 바뀌면 커밋하지 않고, 평문·
+# 사본 갈라짐·pull 충돌이면 배포까지 가지 않고 멈춘다.
+
+name: 공지 반영
+
+on:
+  repository_dispatch:
+    types: [rebuild]
+  # 손으로도 돌릴 수 있게 둔다.
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "클라이언트 슬러그"
+        required: true
+        type: string
+
+# 연달아 고치면 신호도 연달아 온다. 슬러그마다 마지막 것 하나만 남긴다 —
+# 앞선 빌드는 어차피 곧 덮일 내용을 만들고 있다.
+concurrency:
+  group: rebuild-${{ github.event.client_payload.slug || inputs.slug || 'all' }}
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: src/requirements.txt
+
+      - run: pip install -r src/requirements.txt
+
+      - name: 빌드하고 배포
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          CALENDAR_ICS_URL: ${{ secrets.CALENDAR_ICS_URL }}
+          # IMAP 은 쓰지 않는다. 공지 한 줄 고친 것을 반영하려고 메일함까지
+          # 뒤질 이유가 없고, 기존 소통 내역은 노션에서 그대로 읽어 온다.
+          SLUG: ${{ github.event.client_payload.slug || inputs.slug }}
+        run: |
+          if [ -z "$SLUG" ]; then
+            echo "슬러그가 비어 있습니다. 신호에 client_payload.slug 가 없습니다."
+            exit 1
+          fi
+          git config user.name  "growthhigh-bot"
+          git config user.email "growthhigh.yun@gmail.com"
+          python src/publish.py --client "$SLUG" --skip-imap

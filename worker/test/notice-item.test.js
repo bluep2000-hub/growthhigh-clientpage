@@ -234,9 +234,14 @@ describe("PUT /notice/item — 고치기", () => {
     const { calls } = installNotion();
     await call("PUT", "/notice/item", { body: editBody(), password: good });
 
-    expect(calls.length).toBeGreaterThan(0);
-    for (const c of calls) {
+    const toNotion = calls.filter((c) => c.host !== "api.github.com");
+    expect(toNotion.length).toBeGreaterThan(0);
+    for (const c of toNotion) {
       expect(c.auth).toBe(`Bearer ${ENV.NOTION_TOKEN}`);
+    }
+    // 노션 토큰이 GitHub 으로 새지 않는다. 열쇠마다 갈 곳이 따로다.
+    for (const c of calls.filter((c2) => c2.host === "api.github.com")) {
+      expect(c.auth).toBe(`Bearer ${ENV.GITHUB_DISPATCH_TOKEN}`);
     }
   });
 });
