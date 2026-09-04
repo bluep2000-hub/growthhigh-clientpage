@@ -8,7 +8,7 @@
  * 지우는 창구는 다음 티켓에서 붙는다.
  */
 
-const HEALTH = "/health";
+const HEALTH_PATH = "/health";
 
 /** JSON 응답 하나. 창구가 늘어도 모양이 갈라지지 않게 여기로 모은다. */
 function json(body, status = 200) {
@@ -26,7 +26,7 @@ export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
 
-    if (pathname === HEALTH && request.method === "GET") {
+    if (pathname === HEALTH_PATH && request.method === "GET") {
       return json({ ok: true, service: "growthhigh-clientpage-relay" });
     }
 

@@ -9,7 +9,7 @@ Cloudflare Workers 위에서 돈다.
 토큰을 화면에 실어야 하는데, 페이지 주소는 누구나 열 수 있으므로 그러면
 워크스페이스 전체가 새어 나간다. 토큰은 여기에만 둔다.
 
-자세한 결정은 `../docs/adr/0001-공지-줄-단위-편집.md` 를 본다.
+자세한 결정은 `../docs/adr/0001-공지-항목-단위-편집.md` 를 본다.
 
 ## ⚠ 이 폴더는 웹에 서빙된다
 
@@ -35,8 +35,8 @@ npx wrangler secret put EDITOR_PASSWORD         # 담당자 공용 비밀번호
 npx wrangler secret put GITHUB_DISPATCH_TOKEN   # 재빌드 신호용 (티켓 #14)
 ```
 
-`EDITOR_PASSWORD` 는 **클라이언트 비밀번호와 다른 값**이어야 한다. 같으면
-클라이언트가 자기 공지를 고칠 수 있게 된다.
+`EDITOR_PASSWORD` 는 **클라이언트 페이지 비밀번호와 다른 값**이어야 한다.
+같으면 기업이 자기 공지를 고칠 수 있게 된다.
 
 로컬에서 돌릴 때는 `.dev.vars` 에 넣는다 (`.gitignore` 에 있다).
 `.dev.vars.example` 을 복사해 쓴다.
