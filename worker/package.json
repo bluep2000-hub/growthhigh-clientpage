@@ -1,0 +1,18 @@
+{
+  "name": "growthhigh-clientpage-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "클라이언트 페이지의 편집 모드가 노션에 쓸 때 거치는 중계 서버",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8",
+    "wrangler": "^4.42.0"
+  }
+}

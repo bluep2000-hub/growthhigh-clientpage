@@ -24,3 +24,10 @@ venv/
 .transcribed.json
 
 _verify/
+
+# 중계 서버(worker/). 레포 루트는 통째로 웹에 서빙되므로 값이 든 파일은
+# 커밋하지 않는 것으로 끝나지 않고 아예 두지 않는다. .dev.vars 는 로컬
+# 개발용 비밀값이고, .wrangler/ 는 wrangler 가 만드는 로컬 상태다.
+worker/node_modules/
+worker/.wrangler/
+.dev.vars

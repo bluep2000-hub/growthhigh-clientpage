@@ -1,0 +1,17 @@
+name = "growthhigh-clientpage-relay"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# 비밀값은 여기 적지 않는다. 이 파일은 레포에 커밋되고, 레포 루트는 통째로
+# GitHub Pages 로 서빙되므로 여기 적은 것은 누구나 읽는다.
+#
+#   npx wrangler secret put NOTION_TOKEN
+#   npx wrangler secret put EDITOR_PASSWORD
+#   npx wrangler secret put GITHUB_DISPATCH_TOKEN
+#
+# 로컬에서는 .dev.vars 에 넣는다 (.gitignore 에 들어 있다).
+
+[vars]
+# 값이 새어도 무해한 것만 여기 둔다.
+NOTION_VERSION = "2022-06-28"
+GITHUB_REPO = "bluep2000-hub/growthhigh-clientpage"
