@@ -22,8 +22,11 @@ import {
   assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, ITEM_TYPES,
 } from "./notion.js";
 
-/** 클라이언트 페이지가 사는 곳. 여기서 오는 요청만 받는다. */
+/** 클라이언트 페이지가 사는 곳. 여기서 오는 요청만 받는다.
+    레포의 CNAME 이 client.growthhigh.co.kr 이라 실제 담당자는 그쪽으로 들어온다.
+    github.io 주소는 그리로 301 되지만, 직접 열었을 때를 위해 남겨 둔다. */
 const DEFAULT_ORIGINS = [
+  "https://client.growthhigh.co.kr",
   "https://bluep2000-hub.github.io",
   "http://localhost:8000",
   "http://127.0.0.1:8000",
