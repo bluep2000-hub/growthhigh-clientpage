@@ -879,6 +879,36 @@ def block_runs(block: dict) -> list[dict]:
     return body.get("rich_text") or []
 
 
+# 항목이 아니라 HTML 한 덩어리로 들어가는 블록. 고칠 글이 없으니 전부 잠긴다.
+BLOCK_LOCK = {"file": "첨부", "image": "그림", "table": "표",
+              "code": "코드", "divider": "구분선", "child_page": "문서"}
+
+# 편집 모드가 되돌려 쓸 수 있는 서식. 이 밖의 것이 든 항목은 잠근다.
+# 중계 서버가 다루는 표시(`**굵게**` · `~~취소선~~` · 인라인 코드)와 같은
+# 범위여야 한다. 여기가 넓으면 저장하는 순간 노션 쪽 서식이 조용히 깎인다.
+EDITABLE_ANNOTATIONS = {"bold", "strikethrough", "code"}
+
+
+def lock_reason(b: dict) -> str | None:
+    """이 항목을 클라이언트 페이지에서 고칠 수 없게 만드는 것. 없으면 None.
+
+    글로 되돌려 쓸 수 없는 것이 하나라도 들어 있으면 잠근다. 고쳐서 저장하는
+    순간 그만큼이 노션에서 사라지기 때문이다 — 링크는 주소를 잃고, 커스텀
+    이모지는 「:이름:」이 되고, 밑줄은 없어진다. 잃을 바에는 못 고치게 한다.
+    """
+    for r in block_runs(b):
+        if custom_emoji_url(r):
+            return "이모지"
+        if r.get("href"):
+            return "링크"
+        a = r.get("annotations") or {}
+        if any(a.get(k) for k in a if k != "color" and k not in EDITABLE_ANNOTATIONS):
+            return "서식"
+        if (a.get("color") or "default") != "default":
+            return "글자색"
+    return None
+
+
 def make_item(b: dict, children: list[dict]) -> dict | None:
     """빈 항목은 버린다. 단 하위 항목이 있으면 부모는 살린다."""
     html = runs_to_html(trim_runs(block_runs(b)))
@@ -889,10 +919,26 @@ def make_item(b: dict, children: list[dict]) -> dict | None:
     t = b.get("type")
     checked = (b.get(t) or {}).get("checked") if t == "to_do" else None
     out = {"checked": checked, "html": html, "children": children}
+
+    # 이 항목이 노션의 어느 블록인지. 편집 모드가 고칠 곳을 찾는 유일한 실마리다.
+    # 잠긴 항목에는 주소를 넣지 않는다 — 없으면 화면이 실수로도 저장 대상으로
+    # 보낼 수 없다. 사유만 남겨 왜 못 고치는지 화면이 말해 줄 수 있게 한다.
+    reason = lock_reason(b)
+    if reason:
+        out["locked"] = reason
+    elif b.get("id"):
+        out["id"] = b["id"]
+
     # 노션에서 접어 둔 항목이다. 화면도 접힌 채로 시작하게 표시만 남긴다.
     if t == "toggle" and children:
         out["toggle"] = True
     return out
+
+
+def make_block_item(b: dict, html: str) -> dict:
+    """표·그림·첨부처럼 통째로 HTML 이 되는 블록. 언제나 잠긴 항목이다."""
+    return {"checked": None, "html": html, "children": [],
+            "locked": BLOCK_LOCK.get(b.get("type"), "노션 전용")}
 
 
 def block_to_html(nt: Notion, b: dict) -> str:
@@ -958,7 +1004,7 @@ def notice_items(nt: Notion, blocks: list[dict]) -> list[dict]:
             # 체크박스가 아니므로 checked 는 None 이고 하위도 두지 않는다.
             h = block_to_html(nt, b)
             if h:
-                items.append({"checked": None, "html": h, "children": []})
+                items.append(make_block_item(b, h))
             continue
 
         if t not in NOTICE_ITEM_TYPES:
@@ -1076,7 +1122,7 @@ def fetch_notice(nt: Notion, url: str | None) -> dict | None:
             if t in NOTICE_BLOCK_TYPES:
                 h = block_to_html(nt, b)
                 if h:
-                    flush_into([{"checked": None, "html": h, "children": []}])
+                    flush_into([make_block_item(b, h)])
                 continue
             # 그 밖(embed·child_database·unsupported 등)은 건너뛴다.
             # 노션이 내용을 주지 않는 것도 있어 몇 개였는지만 남긴다.
@@ -1096,7 +1142,10 @@ def fetch_notice(nt: Notion, url: str | None) -> dict | None:
         warn("공지 본문에서 읽을 내용이 없습니다 — notice 생략")
         return None
 
-    return {"title": title or "공지사항", "date": when, "sections": sections}
+    # 잠긴 항목에서 「노션에서 고치기」로 보낼 곳. 주소를 모르면 담당자는
+    # 워크스페이스에서 그 공지를 손으로 찾아야 한다.
+    return {"title": title or "공지사항", "date": when, "sections": sections,
+            "page_url": page.get("url") or ""}
 
 
 # ══════════════════════════════════════════════════════════════════════════
