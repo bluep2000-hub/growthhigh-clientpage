@@ -1,5 +1,9 @@
 # 중계 서버
 
+```
+https://growthhigh-clientpage-relay.growthhigh-clientpage-worker.workers.dev
+```
+
 클라이언트 페이지의 **편집 모드**가 노션에 쓸 때 거치는 서버다.
 Cloudflare Workers 위에서 돈다.
 
