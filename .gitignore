@@ -31,3 +31,7 @@ _verify/
 worker/node_modules/
 worker/.wrangler/
 .dev.vars
+
+# 브라우저 도구가 남기는 페이지 스냅샷·콘솔 로그. 작업 부산물이고, 레포
+# 루트는 통째로 서빙되므로 들어오면 그대로 공개된다.
+.playwright-mcp/
