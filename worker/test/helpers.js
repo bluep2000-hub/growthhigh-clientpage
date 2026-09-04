@@ -80,7 +80,12 @@ export function installNotion(opts = {}) {
     }],
   };
 
-  const notice = opts.notice ?? { results: [{ id: NOTICE_PAGE, object: "page" }] };
+  const notice = opts.notice ?? {
+    results: [{
+      id: NOTICE_PAGE, object: "page",
+      properties: { "일자": { type: "date", date: { start: "2026-07-31" } } },
+    }],
+  };
 
   globalThis.fetch = async (url, init = {}) => {
     const path = new URL(url).pathname.replace(/^\/v1/, "");
@@ -100,6 +105,19 @@ export function installNotion(opts = {}) {
       return reply({ object: "database", id: NOTICE_DB });
     }
     if (method === "POST" && path === `/databases/${NOTICE_DB}/query`) return reply(notice);
+
+    const pm = /^\/pages\/([^/]+)$/.exec(path);
+    if (pm && method === "PATCH") return reply({ object: "page", id: pm[1], ...body });
+
+    const cm = /^\/blocks\/([^/]+)\/children$/.exec(path);
+    if (cm && method === "PATCH") {
+      const made = body.children.map((c, i) => ({
+        object: "block", id: `new-block-${i}`, type: c.type,
+        parent: inBlock(cm[1]), [c.type]: { rich_text: toPlain(c[c.type].rich_text) },
+      }));
+      for (const b of made) blocks[b.id] = { ...b, parent: inPage(cm[1]) };
+      return reply({ results: made });
+    }
 
     const bm = /^\/blocks\/([^/]+)$/.exec(path);
     if (bm) {

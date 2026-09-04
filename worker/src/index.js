@@ -10,13 +10,17 @@
  *   POST   /auth           담당자 공용 비밀번호가 맞는지
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글
  *   PUT    /notice/item    그 항목을 고친다
+ *   POST   /notice/item    공지 맨 끝에 한 줄 보탠다
+ *   DELETE /notice/item    그 항목을 지운다
  */
 
-import { ApiError, notFound, unauthorized, unprocessable } from "./error.js";
+import { ApiError, notFound, unauthorized, unprocessable, upstream } from "./error.js";
 import {
   assertEditable, blockRuns, blockToHtml, markdownToRuns, runsToMarkdown,
 } from "./markdown.js";
-import { assertBlockInPage, createNotion, findNoticePage, ITEM_TYPES } from "./notion.js";
+import {
+  assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, ITEM_TYPES,
+} from "./notion.js";
 
 /** 클라이언트 페이지가 사는 곳. 여기서 오는 요청만 받는다. */
 const DEFAULT_ORIGINS = [
@@ -106,6 +110,13 @@ function requireText(value, name) {
   return value.trim();
 }
 
+/** 빈 항목은 빌더가 버린다. 저장해 봐야 다음 빌드에서 사라지므로 여기서 막는다. */
+function requireMarkdown(value) {
+  if (typeof value !== "string") throw unprocessable("markdown 이 필요합니다");
+  if (!value.trim()) throw unprocessable("빈 내용");
+  return value;
+}
+
 /**
  * 슬러그와 블록 주소로 「고쳐도 되는 그 항목」을 집어 온다.
  *
@@ -113,14 +124,20 @@ function requireText(value, name) {
  * 블록인가, 글로 고칠 수 있는 항목인가. 쓰기 창구는 반드시 이걸 먼저 지난다.
  */
 async function pickItem(nt, slug, blockId) {
-  const pageId = await findNoticePage(nt, slug);
-  const block = await assertBlockInPage(nt, blockId, pageId);
+  const notice = await findNoticePage(nt, slug);
+  const block = await assertBlockInPage(nt, blockId, notice.pageId);
   if (!ITEM_TYPES.has(block.type)) {
     throw notFound(`${block.type} 은 공지 항목이 아닙니다`);
   }
   assertEditable(block);
-  return block;
+  return { block, notice };
 }
+
+/** 보탠 줄의 생김새. 공지는 대부분 글머리 기호라 그 모양으로 붙인다. */
+const NEW_ITEM_TYPE = "bulleted_list_item";
+
+/** 날짜를 채웠을 때만 알려 준다. 평소 응답에 null 을 얹지 않는다. */
+const withDate = (body, dated) => (dated ? { ...body, dated } : body);
 
 async function route(request, env) {
   const url = new URL(request.url);
@@ -142,7 +159,7 @@ async function route(request, env) {
     const blockId = requireText(url.searchParams.get("blockId"), "blockId");
 
     const nt = createNotion(env);
-    const block = await pickItem(nt, slug, blockId);
+    const { block } = await pickItem(nt, slug, blockId);
     // 화면에 보이는 글이 아니라 노션에 있는 글을 준다. 빌드가 후행 콜론을
     // 떼기 때문에 둘이 다를 수 있고, 보이는 대로 저장하면 그만큼 사라진다.
     return json({
@@ -157,18 +174,50 @@ async function route(request, env) {
     const body = await readJson(request);
     const slug = requireText(body.slug, "slug");
     const blockId = requireText(body.blockId, "blockId");
-    if (typeof body.markdown !== "string") throw unprocessable("markdown 이 필요합니다");
-    // 빈 항목은 빌더가 버린다. 저장해 봐야 다음 빌드에서 사라지므로 여기서 막는다.
-    if (!body.markdown.trim()) throw unprocessable("빈 내용");
+    const runs = markdownToRuns(requireMarkdown(body.markdown));
 
     const nt = createNotion(env);
-    const block = await pickItem(nt, slug, blockId);
-    const runs = markdownToRuns(body.markdown);
+    const { block, notice } = await pickItem(nt, slug, blockId);
 
     const updated = await nt.patch(`/blocks/${blockId}`, {
       [block.type]: { rich_text: runs },
     });
-    return json({ html: blockToHtml(updated) }, 200);
+    const dated = await ensureNoticeDate(nt, notice);
+    return json(withDate({ html: blockToHtml(updated) }, dated), 200);
+  }
+
+  if (pathname === "/notice/item" && method === "POST") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const runs = markdownToRuns(requireMarkdown(body.markdown));
+
+    const nt = createNotion(env);
+    // 새 공지(새 행)는 만들지 않는다. 가장 최근 공지의 맨 끝에 한 줄 붙일 뿐이다.
+    const notice = await findNoticePage(nt, slug);
+    const res = await nt.patch(`/blocks/${notice.pageId}/children`, {
+      children: [{ object: "block", type: NEW_ITEM_TYPE,
+                   [NEW_ITEM_TYPE]: { rich_text: runs } }],
+    });
+    const made = (res.results || [])[0];
+    if (!made) throw upstream("노션이 새 줄을 돌려주지 않았습니다");
+
+    const dated = await ensureNoticeDate(nt, notice);
+    return json(withDate({ blockId: made.id, html: blockToHtml(made) }, dated), 201);
+  }
+
+  if (pathname === "/notice/item" && method === "DELETE") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const blockId = requireText(body.blockId, "blockId");
+
+    const nt = createNotion(env);
+    // 고치기와 같은 확인을 거친다. 잠긴 항목은 지우지도 못한다 —
+    // 첨부가 든 줄을 여기서 지우면 노션에서 파일이 통째로 사라진다.
+    await pickItem(nt, slug, blockId);
+    await nt.del(`/blocks/${blockId}`);
+    return new Response(null, { status: 204 });
   }
 
   throw notFound(pathname);

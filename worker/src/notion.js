@@ -112,15 +112,36 @@ export async function findNoticePage(nt, slug) {
   }
   if (!source) throw notFound(`공지 원천을 열지 못했습니다: ${sourceId}`);
 
-  if (source.object !== "database") return source.id;
+  if (source.object !== "database") {
+    return { pageId: source.id, page: source, fromDatabase: false };
+  }
 
-  const page = await nt.post(`/databases/${sourceId}/query`, {
+  const res = await nt.post(`/databases/${sourceId}/query`, {
     sorts: [{ property: "일자", direction: "descending" }],
     page_size: 1,
   });
-  const latest = (page.results || [])[0];
+  const latest = (res.results || [])[0];
   if (!latest) throw notFound(`${slug} 의 공지가 비어 있습니다`);
-  return latest.id;
+  return { pageId: latest.id, page: latest, fromDatabase: true };
+}
+
+/**
+ * 공지 행의 `일자` 가 비어 있으면 오늘로 채운다.
+ *
+ * 빌더가 `일자` 내림차순으로 첫 행만 공지로 올린다. 비어 있는 행은 정렬에서
+ * 밀려 **화면에 아예 뜨지 않는다** — 담당자는 저장했는데 아무 데도 안 보이는
+ * 일을 겪는다. 고치거나 보탠 김에 채워 둔다.
+ */
+export async function ensureNoticeDate(nt, notice) {
+  if (!notice.fromDatabase) return null;
+  if (notice.page?.properties?.["일자"]?.date?.start) return null;
+
+  // 담당자가 사는 시간대. UTC 로 적으면 저녁에 쓴 공지가 어제 날짜로 남는다.
+  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  await nt.patch(`/pages/${notice.pageId}`, {
+    properties: { "일자": { date: { start: today } } },
+  });
+  return today;
 }
 
 /**
@@ -131,6 +152,10 @@ export async function findNoticePage(nt, slug) {
  */
 export async function assertBlockInPage(nt, blockId, pageId, maxDepth = 12) {
   const target = await nt.get(`/blocks/${blockId}`);
+
+  // 노션의 삭제는 휴지통으로 보내는 것이라 지운 블록도 조회는 된다.
+  // 화면에는 이미 없는 줄이므로 공지 항목으로 치지 않는다.
+  if (target.archived || target.in_trash) throw notFound("이미 지운 항목입니다");
 
   let cur = target;
   for (let i = 0; i < maxDepth; i += 1) {

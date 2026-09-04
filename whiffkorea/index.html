@@ -233,6 +233,21 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .nedit .save{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .nedit .save[disabled]{opacity:.55;cursor:default}
 .nedit .bad{color:var(--no)}
+
+/* 지우기 — 평소에는 안 보이다가 그 줄에 손이 갈 때만 나온다.
+   늘 떠 있으면 읽는 데 방해가 되고, 잘못 누르기도 쉽다 */
+.nx-del{opacity:0;margin-left:8px;font-size:11px;color:var(--tx-3);padding:0 4px;
+  border-radius:4px;vertical-align:.05em}
+.ck li[data-nid]:hover>.nx>.nx-del,
+.ck li[data-nid]:hover>.tgh>.nx>.nx-del{opacity:1}
+.nx-del:hover{color:var(--no);background:var(--no-bg)}
+.nx-del:focus-visible{opacity:1}
+.nx-del.ask{opacity:1;color:var(--no);font-weight:600}
+/* ＋ 줄 추가 — 공지 맨 끝 */
+.nadd{margin:6px 0 2px}
+.nadd-b{font-size:12px;color:var(--tx-3);border:1px dashed var(--line-2);border-radius:7px;
+  padding:7px 13px;width:100%;text-align:left}
+.nadd-b:hover{color:var(--accent);border-color:var(--accent)}
 /* 커스텀 이모지 — 글자 흐름에 얹히는 작은 그림이다 */
 .cem{height:1em;width:auto;vertical-align:-.15em;margin:0 2px;display:inline-block}
 /* 표·그림·코드·구분선은 항목 안에 통째로 들어온다. 앞의 점을 지우고 폭을 채운다 */
@@ -1378,7 +1393,9 @@ function init(D){
        ${(s.items||[]).length
          ? `<ul class="ck">${s.items.map(i=>noticeItem(i,1,edit)).join('')}</ul>`
          : `<p class="empty">등록된 내용이 없습니다.</p>`}
-      </div></div>`).join('');
+      </div></div>`).join('')
+      /* 보탠 줄은 공지 맨 끝에 붙는다. 그래서 단추도 맨 끝에 둔다 */
+      + (edit ? `<div class="nadd"><button class="nadd-b" data-nadd>＋ 줄 추가</button></div>` : '');
   }
 
   /* ══ 편집 모드 ═══════════════════════════════════════════════════
@@ -1468,6 +1485,11 @@ function init(D){
   }
 
   /* 항목 하나를 그 자리에서 고친다. 하위 항목은 건드리지 않는다 */
+  /* 지우기 단추는 항목 자기 글 뒤에 붙는다. 저장하면 .nx 를 통째로 다시 그리므로
+     그때마다 도로 붙여야 한다 — 한 군데로 모아 둔다 */
+  const delBtn = () => `<button class="nx-del" data-ndel title="이 줄 지우기">✕</button>`;
+  function paintItem(nx, html){ nx.innerHTML = noticeHtml(html) + delBtn(); bindDelete(nx); }
+
   function bindEditItems(){
     if(!ED.on()) return;
 
@@ -1483,53 +1505,68 @@ function init(D){
     document.querySelectorAll('.ck li[data-nid]').forEach(li => {
       const nx = li.querySelector(':scope>.nx, :scope>.tgh>.nx');
       if(!nx) return;
-      nx.ondblclick = async e => {
+      if(!nx.querySelector('.nx-del')) nx.insertAdjacentHTML('beforeend', delBtn());
+      bindDelete(nx);
+      nx.ondblclick = e => {
         e.stopPropagation();                 /* 토글 항목에서 접히지 않게 */
         if(li.querySelector(':scope>.nedit')) return;
         openEditor(li, nx);
       };
     });
+
+    const add = document.querySelector('[data-nadd]');
+    if(add) add.onclick = () => openAdder(add.parentElement);
   }
 
-  async function openEditor(li, nx){
-    const id = li.dataset.nid;
+  function bindDelete(nx){
+    const btn = nx.querySelector('.nx-del');
+    if(!btn) return;
+    btn.onclick = async e => {
+      e.stopPropagation();                   /* 토글이 접히지 않게 */
+      const li = nx.closest('li[data-nid]');
+      const kids = li.querySelectorAll('li[data-nid],li[data-lock]').length;
+      const text = nx.textContent.replace(/✕$/, '').trim().slice(0, 60);
+      /* 노션에서 블록을 지우면 그 안의 줄도 같이 사라진다. 몇 줄이 딸려
+         가는지 먼저 말해 준다 — 지운 뒤에 알면 늦다 */
+      if(!confirm(`이 줄을 노션에서 지웁니다.\n\n${text}` +
+                  (kids ? `\n\n안에 든 ${kids}줄도 함께 지워집니다.` : ''))) return;
+      btn.disabled = true;
+      try {
+        await ED.call('DELETE', '/notice/item', {slug: CLIENT, blockId: li.dataset.nid});
+        li.remove();
+        toastSaved('노션에서 지웠습니다');
+      } catch(err){
+        btn.disabled = false;
+        alert(edErr(err, '지우지 못했습니다'));
+      }
+    };
+  }
+
+  /* 실패를 사람 말로. 상태 코드는 화면에 내보내지 않는다 */
+  function edErr(e, fallback){
+    return e.status === 401 ? '편집 모드가 풀렸습니다. 끄고 다시 켜 주세요'
+         : e.status === 409 ? `고칠 수 없는 줄입니다 — ${e.message}`
+         : e.status === 422 ? `쓰신 내용을 확인해 주세요 — ${e.message}`
+         : e.status === 404 ? '노션에서 그 줄을 찾지 못했습니다'
+         : fallback;
+  }
+
+  /* 입력칸 하나. 고치기와 보태기가 같은 것을 쓴다 */
+  function editorBox(mount, opts){
     const box = document.createElement('div');
     box.className = 'nedit';
-    box.innerHTML = `<textarea disabled>불러오는 중…</textarea>
-      <div class="row"><button class="save" disabled>저장</button>
+    box.innerHTML = `<textarea ${opts.initial === null ? '' : 'disabled'}
+        placeholder="${esc(opts.placeholder || '')}">${
+        opts.initial === null ? '' : '불러오는 중…'}</textarea>
+      <div class="row"><button class="save"${opts.initial === null ? '' : ' disabled'}>저장</button>
         <button class="cancel">취소</button>
         <span class="hint">**굵게** · ~~취소선~~ · \`코드\` · Esc 취소</span></div>`;
-    nx.style.display = 'none';
-    nx.parentElement.insertBefore(box, nx.nextSibling);
+    mount(box);
 
     const ta = box.querySelector('textarea');
     const save = box.querySelector('.save');
     const hint = box.querySelector('.hint');
-
-    const close = () => { box.remove(); nx.style.display = ''; };
-
-    /* 화면에 보이는 글이 아니라 노션에 있는 글을 가져온다. 빌드가 후행 콜론을
-       떼기 때문에 둘이 다를 수 있고, 보이는 대로 저장하면 그만큼 사라진다 */
-    let got;
-    try { got = await ED.call('GET', `/notice/item?slug=${encodeURIComponent(CLIENT)}&blockId=${encodeURIComponent(id)}`); }
-    catch(e){
-      ta.value = '';
-      hint.className = 'hint bad';
-      hint.textContent = e.status === 409 ? `고칠 수 없는 줄입니다 — ${e.message}`
-                       : e.status === 401 ? '편집 모드가 풀렸습니다. 다시 켜 주세요'
-                       : '불러오지 못했습니다';
-      box.querySelector('.cancel').onclick = close;
-      return;
-    }
-
-    ta.disabled = false;
-    ta.value = got.markdown;
-    save.disabled = false;
-    ta.focus();
-    ta.setSelectionRange(ta.value.length, ta.value.length);
-    ta.style.height = Math.min(320, Math.max(56, ta.scrollHeight)) + 'px';
-
-    box.querySelector('.cancel').onclick = close;
+    const close = () => { box.remove(); opts.onClose && opts.onClose(); };
 
     const commit = async () => {
       if(save.disabled) return;
@@ -1537,33 +1574,92 @@ function init(D){
       hint.className = 'hint';
       hint.textContent = '저장 중…';
       try {
-        const out = await ED.call('PUT', '/notice/item',
-                                  {slug: CLIENT, blockId: id, markdown: ta.value});
-        nx.innerHTML = noticeHtml(out.html);
+        await opts.onSave(ta.value);
         close();
-        toastSaved();
       } catch(e){
         /* 쓴 글을 지우지 않는다. 다시 타이핑하게 만들지 않는다 */
         save.disabled = false;
         hint.className = 'hint bad';
-        hint.textContent =
-          e.status === 401 ? '편집 모드가 풀렸습니다. 끄고 다시 켜 주세요'
-        : e.status === 409 ? `고칠 수 없는 줄입니다 — ${e.message}`
-        : e.status === 422 ? `쓰신 내용을 확인해 주세요 — ${e.message}`
-        : e.status === 404 ? '노션에서 그 줄을 찾지 못했습니다'
-        : '저장하지 못했습니다. 다시 눌러 주세요';
+        hint.textContent = edErr(e, '저장하지 못했습니다. 다시 눌러 주세요');
       }
     };
     save.onclick = commit;
+    box.querySelector('.cancel').onclick = close;
     ta.onkeydown = e => {
       if(e.key === 'Escape'){ e.preventDefault(); close(); }
       if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); commit(); }
     };
-    /* 바깥을 눌러도 닫지 않는다 — 쓰던 글을 실수로 잃지 않게 한다 */
+
+    const fill = text => {
+      ta.disabled = false; ta.value = text; save.disabled = false;
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+      ta.style.height = Math.min(320, Math.max(56, ta.scrollHeight)) + 'px';
+    };
+    const fail = msg => {
+      ta.value = ''; hint.className = 'hint bad'; hint.textContent = msg;
+    };
+    if(opts.initial === null) fill('');
+    return {fill, fail, close};
   }
 
+  async function openEditor(li, nx){
+    const id = li.dataset.nid;
+    nx.style.display = 'none';
+    const ui = editorBox(b => nx.parentElement.insertBefore(b, nx.nextSibling), {
+      initial: undefined,
+      onClose(){ nx.style.display = ''; },
+      async onSave(md){
+        const out = await ED.call('PUT', '/notice/item',
+                                  {slug: CLIENT, blockId: id, markdown: md});
+        paintItem(nx, out.html);
+        toastSaved();
+      },
+    });
+
+    /* 화면에 보이는 글이 아니라 노션에 있는 글을 가져온다. 빌드가 후행 콜론을
+       떼기 때문에 둘이 다를 수 있고, 보이는 대로 저장하면 그만큼 사라진다 */
+    try {
+      const got = await ED.call('GET',
+        `/notice/item?slug=${encodeURIComponent(CLIENT)}&blockId=${encodeURIComponent(id)}`);
+      ui.fill(got.markdown);
+    } catch(e){
+      ui.fail(edErr(e, '불러오지 못했습니다'));
+    }
+  }
+
+  /* 공지 맨 끝에 한 줄 보탠다. 새 공지(새 행)를 만드는 것이 아니다 */
+  function openAdder(mountAt){
+    const btn = mountAt.querySelector('[data-nadd]');
+    btn.style.display = 'none';
+    editorBox(b => mountAt.appendChild(b), {
+      initial: null,
+      placeholder: '미팅에서 나온 한 줄',
+      onClose(){ btn.style.display = ''; },
+      async onSave(md){
+        const out = await ED.call('POST', '/notice/item', {slug: CLIENT, markdown: md});
+        const lists = document.querySelectorAll('.notice .bd>ul.ck');
+        const last = lists[lists.length - 1];
+        if(last){
+          const li = document.createElement('li');
+          li.className = 'plain';
+          li.dataset.nid = out.blockId;
+          li.innerHTML = `<span class="nx"></span>`;
+          last.appendChild(li);
+          const nx = li.querySelector('.nx');
+          paintItem(nx, out.html);
+          nx.ondblclick = e => { e.stopPropagation(); openEditor(li, nx); };
+          li.scrollIntoView({block:'nearest'});
+        }
+        toastSaved(out.dated
+          ? `노션에 보탰습니다 — 공지 날짜를 ${out.dated} 로 채웠습니다`
+          : undefined);
+      },
+    });
+  }
+
+
   /* 저장은 됐지만 다른 사람 화면은 아직 옛 내용이다. 그 사실을 숨기지 않는다 */
-  function toastSaved(){
+  function toastSaved(msg){
     let t = document.getElementById('edtoast');
     if(!t){
       t = document.createElement('div');
@@ -1573,7 +1669,7 @@ function init(D){
         'padding:9px 15px;font-size:12px;color:var(--tx);z-index:60;box-shadow:0 6px 20px rgba(0,0,0,.18)';
       document.body.appendChild(t);
     }
-    t.textContent = '노션에 저장했습니다 — 클라이언트 화면에는 1~2분 뒤 반영됩니다';
+    t.textContent = (msg || '노션에 저장했습니다') + ' · 클라이언트 화면에는 1~2분 뒤 반영됩니다';
     t.style.display = '';
     clearTimeout(toastSaved._t);
     toastSaved._t = setTimeout(() => { t.style.display = 'none'; }, 4200);
