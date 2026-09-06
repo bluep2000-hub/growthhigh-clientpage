@@ -19,6 +19,7 @@ git 을 보지 않는다. 빌드 산출물을 커밋하는 구조라 원본과 �
     python src/check_copies.py --quiet     # 문제 있는 것만 (배포 스크립트용)
 
 문제가 하나라도 있으면 종료 코드 1 이다. publish.py 가 이걸로 배포를 멈춘다.
+`DEMO_FOLDERS` 는 예외다 — 상태는 그대로 내되 배포는 막지 않는다.
 """
 
 from __future__ import annotations
@@ -35,6 +36,12 @@ SLUG_RE = re.compile(r'window\.__SLUG__="([^"]+)"')
 
 OK, STALE, EDITED, FORKED, UNKNOWN = "최신", "뒤처짐", "손댐", "갈라짐", "확인불가"
 MISMATCH = "이름불일치"
+DEMO = "데모"
+
+# 클라이언트가 아니라 데모다. 공유페이지 DB 에 행이 없어 재빌드로 다시 만들 수
+# 없고, 그래서 어떤 상태로 잡히든 고칠 방법이 없다. 검사에 남겨 두면 늘 빨간불이라
+# 진짜 문제가 생겼을 때 아무도 알아채지 못한다 — 상태는 그대로 내되 배포는 막지 않는다.
+DEMO_FOLDERS = frozenset({"beauty", "it", "game"})
 
 
 def read_raw(path: Path) -> str:
@@ -132,6 +139,7 @@ ADVICE = {
     FORKED: "재빌드하면 사본 쪽 내용이 사라진다. 먼저 원본에 옮긴다",
     UNKNOWN: "주입 모양이 달라 복원하지 못했다. 재빌드로 다시 만든다",
     MISMATCH: "폴더 이름과 슬러그가 다르다. 이 주소는 남의 데이터를 읽는다",
+    DEMO: "노션에 없는 데모다. 재빌드로 고칠 수 없어 배포를 막지 않는다",
 }
 
 
@@ -154,6 +162,10 @@ def check(only: str | None = None) -> tuple[int, list[dict]]:
             continue
         row = {"folder": folder, "slug": slug, "root": 0, "copy": 0}
 
+        if folder in DEMO_FOLDERS:
+            rows.append({**row, "state": DEMO})
+            continue
+
         # 폴더 이름이 곧 주소다. 슬러그와 다르면 그 주소는 다른 기업의
         # payload 를 내려받는다. 템플릿 비교보다 먼저 잡아야 한다.
         if folder != slug:
@@ -171,12 +183,12 @@ def check(only: str | None = None) -> tuple[int, list[dict]]:
         print(f"{only}/index.html 을 찾지 못했습니다.", file=sys.stderr)
         return 2, []
 
-    bad = sum(1 for r in rows if r["state"] != OK)
+    bad = sum(1 for r in rows if r["state"] not in (OK, DEMO))
     return (1 if bad else 0), rows
 
 
 def report(rows: list[dict], quiet: bool) -> None:
-    shown = [r for r in rows if r["state"] != OK] if quiet else rows
+    shown = [r for r in rows if r["state"] not in (OK, DEMO)] if quiet else rows
     if not shown:
         if not quiet:
             print("사본이 없습니다.")
@@ -216,10 +228,14 @@ def main() -> int:
     report(rows, args.quiet)
 
     if rc:
-        n = sum(1 for r in rows if r["state"] != OK)
+        n = sum(1 for r in rows if r["state"] not in (OK, DEMO))
         print(f"\n■ {n}건이 원본과 맞지 않습니다. 배포 전에 정리하세요.")
     elif not args.quiet:
-        print("\n모두 지금 원본 템플릿에서 나온 것입니다.")
+        # 데모는 검사하지 않았다. 「모두 맞다」고만 하면 검사한 적 없는 것까지
+        # 맞다고 말하는 셈이 된다.
+        demo = sum(1 for r in rows if r["state"] == DEMO)
+        tail = f" (데모 {demo}개는 검사에서 뺐습니다)" if demo else ""
+        print(f"\n검사한 사본은 모두 지금 원본 템플릿에서 나온 것입니다.{tail}")
     return rc
 
 
