@@ -12,15 +12,17 @@
  *   POST   /notice/save    고친 것을 한 번에 노션에 적용한다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식, #25 에서 사라진다)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
- *   POST   /notice/item    공지 맨 끝에 한 줄 보탠다               (옛 방식)
+ *   POST   /notice/item    고른 섹션 안에 한 줄 보탠다             (옛 방식)
  *   DELETE /notice/item    그 항목을 지운다                        (옛 방식)
  */
 
-import { ApiError, notFound, unauthorized, unprocessable, upstream } from "./error.js";
+import {
+  ApiError, foreign, notFound, unauthorized, unprocessable, upstream,
+} from "./error.js";
 import { assertEditable, blockToHtml, markdownToRuns, runsToMarkdown } from "./markdown.js";
 import {
-  assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, ITEM_TYPES,
-  sameId, walkChildren,
+  assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, HEADING_TYPES,
+  ITEM_TYPES, listChildren, parentIdOf, sameId, SHELL_TYPES, walkChildren,
 } from "./notion.js";
 import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
@@ -139,8 +141,86 @@ async function pickItem(nt, slug, blockId) {
   return { block, notice };
 }
 
+/** 고른 섹션. 안 골랐으면 빈 문자열 — 공지 맨 끝을 뜻한다. */
+const requireSection = (v) => (typeof v === "string" ? v.trim() : "");
+
 /** 보탠 줄의 생김새. 공지는 대부분 글머리 기호라 그 모양으로 붙인다. */
 const NEW_ITEM_TYPE = "bulleted_list_item";
+
+/**
+ * 제목 없이 시작하는 첫 구역. 열어 준 제목이 없어 주소로 부를 수 없다.
+ * 빌더가 봉투에 이 이름으로 싣는다 — `build_client.py` 의 `flush_into`.
+ *
+ * 아래 `{ type: "start" }` 와 글자가 같지만 남이다. 그쪽은 「이 그릇의 맨
+ * 앞」을 뜻하는 노션 API 의 낱말이다.
+ */
+const SECTION_TOP = "start";
+
+/** 그릇 하나가 섹션 제목을 품고 있는가. 빌더가 펴서 읽는 그릇만 들여다본다. */
+async function holdsHeading(nt, block) {
+  if (!block.has_children || !SHELL_TYPES.has(block.type)) return false;
+  return (await listChildren(nt, block.id)).some((k) => HEADING_TYPES.has(k.type));
+}
+
+/**
+ * 제목 없이 시작하는 첫 구역의 끝자리. 첫 제목 앞에서 끝난다.
+ *
+ * 제목이 그릇 안에 있으면 그 그릇 앞이다 — 그릇을 헤집고 들어가 붙이면
+ * 머리말이 남의 섹션 안으로 들어간다.
+ */
+async function topSpot(nt, pageId) {
+  const kids = await listChildren(nt, pageId);
+  let last = null;
+  for (const b of kids) {
+    if (HEADING_TYPES.has(b.type) || await holdsHeading(nt, b)) break;
+    last = b;
+  }
+  return { parentId: pageId,
+           position: last ? { type: "after_block", after_block: { id: last.id } }
+                          : { type: "start" } };
+}
+
+/**
+ * 보탠 줄을 어디에 놓을지. 섹션을 고르지 않았으면 null — 공지 맨 끝이다.
+ *
+ * 노션은 이미 있는 블록을 옮기지 못한다. 그래서 맨 끝에 붙였다가 끌어
+ * 올리는 길이 없고, 처음부터 그 자리에 넣어야 한다. 붙일 자리를 고르는 것은
+ * 받아 준다 — `position: {type:"after_block"}`.
+ *
+ * **제목은 공지 페이지 바로 밑에 있지 않을 때가 더 많다.** 실제 공지를 재어
+ * 보니 위프코리아는 최상위 제목이 0개이고 다섯이 전부 콜아웃 안에 있었다.
+ * 그래서 최상위만 훑으면 멀쩡한 섹션이 통째로 「남의 것」이 된다. 제목이 든
+ * 그릇을 찾아 그 안에서 자리를 세고, 보탠 줄도 그 그릇에 남긴다.
+ *
+ * 자리를 여기서 세는 까닭은 순서를 아는 곳이 노션뿐이기 때문이다.
+ * `GET /notice/tree` 는 주소를 열쇠로 한 뭉치라 순서를 담지 않고, 봉투의
+ * 순서는 지난 빌드의 것이다.
+ *
+ * @returns {Promise<{parentId: string, position: object}|null>}
+ */
+async function sectionSpot(nt, pageId, sectionId) {
+  if (!sectionId) return null;
+  if (sectionId === SECTION_TOP) return topSpot(nt, pageId);
+
+  // 이 공지 안의 블록인가. 아니면 여기서 통째로 거절한다 — 주소 하나로
+  // 워크스페이스의 아무 데나 줄을 심을 수 있게 두지 않는다.
+  const head = await assertBlockInPage(nt, sectionId, pageId);
+  if (!HEADING_TYPES.has(head.type)) throw unprocessable("섹션 제목이 아닙니다");
+
+  // 제목 다음부터 다음 제목 앞까지가 그 섹션이다. 그 마지막 뒤에 붙이고,
+  // 섹션이 비어 있으면 제목 자신이 그 자리다.
+  const parentId = parentIdOf(head);
+  const kids = await listChildren(nt, parentId);
+  const at = kids.findIndex((b) => sameId(b.id, sectionId));
+  if (at < 0) throw upstream("제목을 그 그릇에서 찾지 못했습니다");
+
+  let last = at;
+  for (let i = at + 1; i < kids.length && !HEADING_TYPES.has(kids[i].type); i += 1) {
+    last = i;
+  }
+  return { parentId,
+           position: { type: "after_block", after_block: { id: kids[last].id } } };
+}
 
 /** 날짜를 채웠을 때만 알려 준다. 평소 응답에 null 을 얹지 않는다. */
 const withDate = (body, dated) => (dated ? { ...body, dated } : body);
@@ -381,11 +461,13 @@ async function route(request, env) {
     const runs = markdownToRuns(requireMarkdown(body.markdown));
 
     const nt = createNotion(env);
-    // 새 공지(새 행)는 만들지 않는다. 가장 최근 공지의 맨 끝에 한 줄 붙일 뿐이다.
+    // 새 공지(새 행)는 만들지 않는다. 가장 최근 공지 안에 한 줄 붙일 뿐이다.
     const notice = await findNoticePage(nt, slug);
-    const res = await nt.patch(`/blocks/${notice.pageId}/children`, {
+    const spot = await sectionSpot(nt, notice.pageId, requireSection(body.sectionId));
+    const res = await nt.patch(`/blocks/${spot ? spot.parentId : notice.pageId}/children`, {
       children: [{ object: "block", type: NEW_ITEM_TYPE,
                    [NEW_ITEM_TYPE]: { rich_text: runs } }],
+      ...(spot ? { position: spot.position } : {}),
     });
     const made = (res.results || [])[0];
     if (!made) throw upstream("노션이 새 줄을 돌려주지 않았습니다");

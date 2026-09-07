@@ -12,6 +12,21 @@ const API = "https://api.notion.com/v1";
 /** 공유페이지 DB (클라이언트 레지스트리). 빌더의 SHARE_DB_ID 와 같다. */
 export const SHARE_DB_ID = "21e815d7-12b9-80dc-8310-d038abd8a502";
 
+/** 섹션을 여는 블록. 빌더의 NOTICE_HEADING_TYPES 와 같다. */
+export const HEADING_TYPES = new Set(["heading_1", "heading_2", "heading_3"]);
+
+/**
+ * 안쪽을 그대로 펴는 그릇. 빌더의 NOTICE_PASSTHRU_TYPES 와 같다.
+ * 제목을 품은 callout 도 빌더가 껍데기로 보아 펴므로 여기에 함께 둔다.
+ */
+export const SHELL_TYPES = new Set(["column_list", "column", "synced_block", "callout"]);
+
+/** 이 블록의 부모 주소. 페이지 밑이면 페이지 주소다. */
+export function parentIdOf(block) {
+  const p = block?.parent || {};
+  return p.type === "page_id" ? p.page_id : p.block_id;
+}
+
 /** 공지에서 항목이 되는 블록. 빌더의 NOTICE_ITEM_TYPES 와 같다. */
 export const ITEM_TYPES = new Set([
   "to_do", "bulleted_list_item", "numbered_list_item", "paragraph", "toggle", "quote",

@@ -1092,7 +1092,10 @@ def fetch_notice(nt: Notion, url: str | None) -> dict | None:
     def flush_into(dest_items: list[dict]) -> None:
         nonlocal cur
         if cur is None:
-            cur = {"heading": None, "items": []}
+            # 제목 없이 시작하는 첫 구역. 열어 준 제목이 없어 주소가 없다.
+            # 편집 모드가 여기에 줄을 보탤 때 쓰는 이름이 "start" 이고,
+            # 중계 서버가 그 이름으로 받는다 — worker/src/index.js 의 SECTION_TOP.
+            cur = {"id": "start", "heading": None, "items": []}
             sections.append(cur)
         cur["items"].extend(dest_items)
 
@@ -1119,7 +1122,10 @@ def fetch_notice(nt: Notion, url: str | None) -> dict | None:
                 # 그림으로 보여줄 몫은 heading_html 이 맡는다. 📌 같은 글리프는 남는다.
                 heading = "".join(r.get("plain_text", "") for r in runs
                                   if not custom_emoji_url(r)).strip()
-                cur = {"heading": heading,
+                # 섹션의 주소는 제목 블록의 주소다. 편집 모드가 이것으로
+                # 「이 섹션 맨 끝에 붙여 달라」고 중계 서버에 말한다.
+                cur = {"id": b["id"],
+                       "heading": heading,
                        "heading_html": runs_to_html(runs),
                        "items": []}
                 sections.append(cur)
