@@ -122,6 +122,26 @@ export function plainTitle(page) {
 }
 
 /**
+ * 슬러그 → 공유페이지 DB 의 그 기업 행. 없으면 404.
+ *
+ * **아는 기업인지만 묻는다.** 공지가 한 건도 없어도 통과한다 — 저장소에 첫
+ * 공지를 만드는 자리에서는 그것이 실패가 아니라 만들어야 할 까닭이다.
+ * 그 자리는 「공지 DB」 속성을 읽지 않으므로(공지의 원본이 저장소로 옮겨
+ * 왔다) 이 확인만 지난다.
+ */
+export async function findClient(nt, slug) {
+  if (!slug) throw notFound("슬러그가 없습니다");
+
+  const rows = await nt.post(`/databases/${SHARE_DB_ID}/query`, {
+    filter: { property: "슬러그", rich_text: { equals: slug } },
+    page_size: 2,
+  });
+  const client = (rows.results || [])[0];
+  if (!client) throw notFound(`모르는 슬러그: ${slug}`);
+  return client;
+}
+
+/**
  * 슬러그 → 공지 원천과, 그 안에서 지금 화면에 떠 있는 공지.
  *
  * **공지가 하나도 없어도 던지지 않는다.** 새 공지를 만드는 자리에서는 그것이
@@ -131,14 +151,7 @@ export function plainTitle(page) {
  *                    fromDatabase: boolean}>}
  */
 export async function findNoticeSource(nt, slug) {
-  if (!slug) throw notFound("슬러그가 없습니다");
-
-  const rows = await nt.post(`/databases/${SHARE_DB_ID}/query`, {
-    filter: { property: "슬러그", rich_text: { equals: slug } },
-    page_size: 2,
-  });
-  const client = (rows.results || [])[0];
-  if (!client) throw notFound(`모르는 슬러그: ${slug}`);
+  const client = await findClient(nt, slug);
 
   const noticeUrl = client.properties?.["공지 DB"]?.url;
   const sourceId = sourceIdFromUrl(noticeUrl);

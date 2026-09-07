@@ -39,6 +39,30 @@ export function createStore(env) {
       return toNotice(row);
     },
 
+    /** 그 기업의 그 날짜 공지. 하루에 한 건뿐이라 있으면 하나다. */
+    async onDate(slug, date) {
+      const row = await db.prepare(
+        `SELECT * FROM notices WHERE slug = ? AND "date" = ?`,
+      ).bind(slug, date).first();
+      return toNotice(row);
+    },
+
+    /**
+     * 빈 공지 한 건을 만든다.
+     *
+     * 이미 그 날짜 공지가 있으면 **만들지 않고 null 을 돌려준다.** 표의
+     * 짝짓기가 막아 주므로, 담당자 둘이 같은 순간에 눌러도 둘이 되지 않는다.
+     */
+    async create({ id, slug, date }) {
+      const at = new Date().toISOString();
+      const row = await db.prepare(
+        `INSERT INTO notices (id, slug, "date", title, doc, version, updated_at)
+              VALUES (?, ?, ?, '', '{"sections":[]}', 1, ?)
+         ON CONFLICT (slug, "date") DO NOTHING RETURNING *`,
+      ).bind(id, slug, date, at).first();
+      return toNotice(row);
+    },
+
     /** 주소로 집는다. 어느 기업의 것인지는 부른 쪽이 슬러그로 확인한다. */
     async byId(id) {
       const row = await db.prepare("SELECT * FROM notices WHERE id = ?").bind(id).first();

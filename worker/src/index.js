@@ -12,6 +12,7 @@
  *   POST   /notice/save    고치고 보태고 지운 것을 한 번에 노션에 적용한다
  *   POST   /notice/new     오늘 날짜로 빈 공지 한 건을 만든다
  *   GET    /notice/doc     저장소의 최신 공지 문서를 받아 간다
+ *   POST   /notice/doc     저장소에 오늘 날짜의 빈 공지를 만든다
  *   PUT    /notice/doc     저장소의 공지 문서를 통째로 덮어쓴다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
@@ -34,9 +35,9 @@ import {
 } from "./error.js";
 import { assertEditable, blockToHtml, markdownToRuns, runsToMarkdown } from "./markdown.js";
 import {
-  assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, findNoticeSource,
-  HEADING_TYPES, ITEM_TYPES, listChildren, parentIdOf, plainTitle, sameId, SHELL_TYPES,
-  titleProp, todayKst, walkChildren,
+  assertBlockInPage, createNotion, ensureNoticeDate, findClient, findNoticePage,
+  findNoticeSource, HEADING_TYPES, ITEM_TYPES, listChildren, parentIdOf, plainTitle,
+  sameId, SHELL_TYPES, titleProp, todayKst, walkChildren,
 } from "./notion.js";
 import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
@@ -927,6 +928,38 @@ async function route(request, env) {
     const row = await store.latest(slug);
     if (!row) throw notFound("그 기업의 공지가 아직 없습니다");
     return json(noticeDoc(row), 200);
+  }
+
+  /**
+   * 저장소에 새 공지 한 건. 오늘(KST) 날짜로 만들고 제목은 비운다.
+   *
+   * 이사한 뒤 저장소가 비어 있으므로 **모든 기업의 첫 공지가 이 길로
+   * 만들어진다.** 첫 공지를 만들려고 노션을 여는 일이 없어진다.
+   *
+   * **재빌드를 부르지 않는다.** 갓 만든 공지는 비어 있고, 빈 공지가 나가면
+   * 클라이언트 화면에서 공지가 통째로 사라진다. 담당자가 첫 줄을 적고
+   * 「저장」을 누를 때 함께 나간다.
+   */
+  if (pathname === "/notice/doc" && method === "POST") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+
+    // 아는 기업인지는 노션의 공유페이지 DB 가 안다. 저장소는 모른다 —
+    // 공지가 한 건도 없는 기업이 바로 이 창구의 손님이기 때문이다.
+    await findClient(createNotion(env), slug);
+
+    const store = openStore(env);
+    const today = todayKst();
+    // 오늘 날짜 공지가 이미 있으면 또 만들지 않고 그리로 보낸다. 같은 날짜가
+    // 둘이면 화면에 오르는 것이 어느 쪽인지 정할 수 없어, 담당자는
+    // 클라이언트에게 보이지 않는 공지에 적게 된다.
+    const made = await store.create({ id: crypto.randomUUID(), slug, date: today });
+    if (made) return json(noticeDoc(made), 201);
+
+    const already = await store.onDate(slug, today);
+    if (!already) throw upstream("공지를 만들지도 찾지도 못했습니다");
+    return json({ ...noticeDoc(already), existing: true }, 200);
   }
 
   /**
