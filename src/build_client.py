@@ -1118,10 +1118,9 @@ def doc_items(items: list[dict]) -> list[dict]:
         html = it.get("html") or ""
         if not html and not children:
             continue
-        # 인용은 노션에서 읽을 때와 같이 여기서 감싼다. 화면의 인용 서식이
-        # 그 태그에 걸려 있어, 종류만 실어 보내면 인용이 본문처럼 그려진다.
-        if kind == "quote" and html:
-            html = f"<blockquote>{html}</blockquote>"
+        # 인용을 태그로 감싸지 않는다. 종류가 봉투에 실리므로 화면이 그것을
+        # 보고 그린다 — 감쌌다가는 편집 모드에서 담당자가 고치는 글에 남의
+        # 태그가 섞인다. 노션에서 읽는 다리 쪽은 지금까지대로 감싼다.
         row = {"type": kind, "checked": it.get("checked") if kind == "todo" else None,
                "html": html, "children": children}
         if it.get("id"):
