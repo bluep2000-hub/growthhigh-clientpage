@@ -19,15 +19,14 @@ GITHUB_REPO = "bluep2000-hub/growthhigh-clientpage"
 # 공지 저장소. 공지의 원본이 노션에서 이리로 옮겨 온다
 # (../docs/adr/0004-공지-원본-이사.md).
 #
-#   npx wrangler d1 create growthhigh-clientpage-notices
+# database_id 는 이미 붙어 있다(`wrangler d1 create` 로 만든 것). 비밀값이
+# 아니다 — 이 값만으로는 아무것도 열리지 않고, 붙으려면 Cloudflare 계정 인증이
+# 따로 필요하다. 표를 세우는 것은 따로다.
 #
-# 위 명령이 내주는 database_id 를 아래에 붙인다. 비밀값이 아니다 — 이 값만으로는
-# 아무것도 열리지 않고, 붙으려면 Cloudflare 계정 인증이 따로 필요하다.
-# 붙인 뒤 표를 세운다.
-#
-#   npx wrangler d1 migrations apply growthhigh-clientpage-notices --remote
+#   npx wrangler d1 migrations apply growthhigh-clientpage-notices --remote   # 배포본
+#   npx wrangler d1 migrations apply growthhigh-clientpage-notices --local    # npm run dev
 [[d1_databases]]
 binding = "DB"
 database_name = "growthhigh-clientpage-notices"
-database_id = ""
+database_id = "4ebde80e-7c34-4f36-9a18-8789fbbaf16e"
 migrations_dir = "migrations"

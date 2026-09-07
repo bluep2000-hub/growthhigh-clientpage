@@ -51,13 +51,12 @@ npx wrangler secret put GITHUB_DISPATCH_TOKEN   # 재빌드 신호용 (티켓 #1
 공지의 원본이 노션에서 이리로 옮겨 온다(`../docs/adr/0004-공지-원본-이사.md`).
 저장소가 없으면 새 창구는 `503 no_store` 로 멈춘다 — 노션 경로는 그대로 돈다.
 
-```bash
-npx wrangler d1 create growthhigh-clientpage-notices
-```
+저장소는 이미 만들어 붙여 두었다(`wrangler d1 create growthhigh-clientpage-notices`).
+`database_id` 는 `wrangler.toml` 에 적혀 있다 — **비밀값이 아니다.** 이 값만으로는
+아무것도 열리지 않고, 붙으려면 Cloudflare 계정 인증이 따로 필요하다.
 
-내주는 `database_id` 를 `wrangler.toml` 의 `[[d1_databases]]` 에 붙인다.
-**비밀값이 아니다** — 이 값만으로는 아무것도 열리지 않고, 붙으려면 Cloudflare
-계정 인증이 따로 필요하다. 그다음 표를 세운다.
+표를 세우는 것은 따로다. 배포본에는 이미 세워 두었고, 로컬에서 `npm run dev` 로
+돌릴 때는 그 기계에서 한 번 세워야 한다.
 
 ```bash
 npx wrangler d1 migrations apply growthhigh-clientpage-notices --remote   # 배포본
