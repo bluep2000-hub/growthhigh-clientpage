@@ -10,6 +10,7 @@
  *   POST   /auth           담당자 공용 비밀번호가 맞는지
  *   GET    /notice/tree    편집 모드가 고칠 글을 통째로 받아 간다
  *   POST   /notice/save    고치고 보태고 지운 것을 한 번에 노션에 적용한다
+ *   POST   /notice/new     오늘 날짜로 빈 공지 한 건을 만든다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
  *   POST   /notice/item    고른 섹션 안에 한 줄 보탠다             (옛 방식)
@@ -26,8 +27,9 @@ import {
 } from "./error.js";
 import { assertEditable, blockToHtml, markdownToRuns, runsToMarkdown } from "./markdown.js";
 import {
-  assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, HEADING_TYPES,
-  ITEM_TYPES, listChildren, parentIdOf, sameId, SHELL_TYPES, walkChildren,
+  assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, findNoticeSource,
+  HEADING_TYPES, ITEM_TYPES, listChildren, parentIdOf, plainTitle, sameId, SHELL_TYPES,
+  titleProp, todayKst, walkChildren,
 } from "./notion.js";
 import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
@@ -269,10 +271,11 @@ const SAVE_MAX_CHANGES = 20;
 /**
  * 이 창구가 받는 변경. 옮기기·종류 바꾸기·표는 뒤 티켓에서 붙는다.
  *
+ *   title   공지의 제목을 갈아 끼운다     { seen, text }
  *   edit    그 줄의 글을 갈아 끼운다      { blockId, seen, html }
  *   check   할 일 표시만 바꾼다           { blockId, seen, checked }
  *   add     줄 하나를 보탠다              { tempId, html, after|afterNew|sectionId }
- *   remove  그 줄을 지운다                { blockId }
+ *   remove  그 줄을 지운다                { blockId, seen }
  *
  * 보탤 자리는 셋 중 하나로 짚는다 — 화면이 아는 것이 그때그때 다르다.
  *
@@ -280,7 +283,7 @@ const SAVE_MAX_CHANGES = 20;
  *   after     이미 노션에 있는 줄 다음
  *   sectionId 그 섹션의 끝. 빈 섹션에 처음 보탤 때뿐이다
  */
-const SAVE_OPS = new Set(["edit", "check", "add", "remove"]);
+const SAVE_OPS = new Set(["title", "edit", "check", "add", "remove"]);
 
 /**
  * 편집 모드가 한 항목에 대해 알아야 할 전부.
@@ -369,6 +372,44 @@ async function planRemove(nt, notice, change, ancestors) {
 }
 
 /**
+ * 결과에서 이 변경을 되짚는 이름. **종류마다 다르다.**
+ *
+ * 보태는 줄에는 노션 주소가 아직 없어 화면이 붙인 tempId 로 부르고, 제목은
+ * 줄이 아니라 공지 한 건의 것이라 자리 번호뿐이다.
+ *
+ * 살펴보기와 쓰기가 같은 이름을 내야 한다 — 화면은 실패한 변경도 성공한
+ * 변경과 같은 열쇠로 되짚는다. 그래서 한 곳에서만 짓는다.
+ */
+function nameOf(index, change) {
+  const text = (v) => (typeof v === "string" ? v.trim() : "");
+  if (change?.op === "add") return { index, tempId: text(change.tempId) };
+  if (change?.op === "title") return { index };
+  return { index, blockId: text(change?.blockId) };
+}
+
+/**
+ * 공지의 제목을 살펴본다.
+ *
+ * **기준선이 수정시각이 아니라 제목 글자 자체다.** 페이지의 `last_edited_time`
+ * 은 안에 든 줄을 하나 고쳐도 움직인다. 그것을 기준선으로 삼으면 같은 저장에서
+ * 줄 하나만 손대도 제목이 어긋남으로 튕긴다. 제목은 한 칸짜리라 지금 적혀
+ * 있는 글자와 견주는 것으로 족하다.
+ *
+ * 빈 제목은 어긋남이 아니다 — 갓 만든 공지의 제목이 그것이고, 담당자가 커서를
+ * 두러 가는 자리가 바로 거기다. 그래서 `seen` 은 있기만 하면 되고 비어도 된다.
+ */
+function planTitle(notice, change) {
+  if (typeof change.text !== "string") throw unprocessable("text 가 필요합니다");
+  if (typeof change.seen !== "string") throw unprocessable("seen 이 필요합니다");
+  const prop = titleProp(notice.page?.properties);
+  if (!prop) throw unprocessable("공지에 제목 속성이 없습니다");
+
+  const now = plainTitle(notice.page);
+  if (now !== change.seen.trim()) return { current: { title: now } };
+  return { prop, title: change.text.trim() };
+}
+
+/**
  * 화면이 본 뒤에 노션에서 먼저 바뀌었는가. 바뀌었으면 그 결과를, 아니면 null.
  *
  * 노션에 조건부 쓰기가 없어 읽기와 쓰기 사이의 틈은 남는다. 그래도 다른
@@ -393,19 +434,24 @@ function staleResult(at, block, seen) {
  */
 async function inspectChange(nt, notice, change, index, ancestors, placed) {
   const op = change?.op;
-  const blockId = typeof change?.blockId === "string" ? change.blockId.trim() : "";
-  // 보태는 줄에는 노션 주소가 아직 없다. 화면이 되짚는 이름은 tempId 다.
-  const at = op === "add"
-    ? { index, tempId: typeof change?.tempId === "string" ? change.tempId.trim() : "" }
-    : { index, blockId };
-  const fail = (detail) => ({ ...at, result: { ...at, status: "failed", detail } });
+  const at = nameOf(index, change);
+  const blockId = at.blockId || "";
+  const fail = (detail) => ({ ...at, op, result: { ...at, status: "failed", detail } });
 
   try {
     if (!SAVE_OPS.has(op)) return fail(`모르는 변경: ${op}`);
-    if (op === "add") return { ...at, ...await planAdd(nt, notice, change, ancestors, placed) };
+    if (op === "title") {
+      const plan = planTitle(notice, change);
+      return plan.current
+        ? { ...at, op, result: { ...at, status: "stale", current: plan.current } }
+        : { ...at, op, ...plan };
+    }
+    if (op === "add") {
+      return { ...at, op, ...await planAdd(nt, notice, change, ancestors, placed) };
+    }
     if (op === "remove") {
       const plan = await planRemove(nt, notice, change, ancestors);
-      return staleResult(at, plan.block, plan.seen) ?? { ...at, ...plan };
+      return staleResult(at, plan.block, plan.seen) ?? { ...at, op, ...plan };
     }
     if (!blockId) return fail("blockId 가 필요합니다");
     const seen = requireText(change.seen, "seen");
@@ -420,7 +466,7 @@ async function inspectChange(nt, notice, change, index, ancestors, placed) {
       // 체크는 rich_text 를 건드리지 않는다. 그래서 잠긴 항목도 체크는 된다 —
       // 링크 카드가 든 할 일에 표시하려고 노션을 열게 하지 않는다.
       if (block.type !== "to_do") return fail(`${block.type} 은 할 일 항목이 아닙니다`);
-      return { ...at, patch: { to_do: { checked: Boolean(change.checked) } } };
+      return { ...at, op, patch: { to_do: { checked: Boolean(change.checked) } } };
     }
 
     const reason = lockReason(block);
@@ -429,7 +475,7 @@ async function inspectChange(nt, notice, change, index, ancestors, placed) {
     // 불투명 조각은 방금 읽은 이 블록에서 꺼낸다. 화면은 자리만 돌려주고,
     // 노션에 들어가는 값은 노션에 있던 값 그대로다.
     const runs = editHtmlToRuns(change.html, blockRuns(block));
-    return { ...at, patch: { [block.type]: { rich_text: runs } } };
+    return { ...at, op, patch: { [block.type]: { rich_text: runs } } };
   } catch (e) {
     if (e instanceof ApiError && e.code === "not_mine") throw e;
     if (e instanceof ApiError) return fail(e.detail || e.code);
@@ -438,17 +484,21 @@ async function inspectChange(nt, notice, change, index, ancestors, placed) {
 }
 
 /**
- * 쓰는 차례. 스펙 #18 이 정한 대로 **고침 → 보탬 → 지움** 이다.
+ * 쓰는 차례. 스펙 #18 이 정한 대로 **제목 → 고침 → 보탬 → 지움** 이다.
  *
  * 지우기가 맨 뒤인 것이 이 중 유일하게 값을 치른다 — 지울 줄을 발판 삼아
- * 보탠 줄이 있으면, 먼저 지우는 순간 그 자리를 짚을 수 없다. 보탬을 고침
- * 뒤로 두는 것은 그만큼 급하지 않지만, 종류마다 차례를 못 박아 두면 뒤에
- * 붙는 옮기기(#23)가 어디에 끼어야 하는지가 이미 정해져 있다.
+ * 보탠 줄이 있으면, 먼저 지우는 순간 그 자리를 짚을 수 없다. 나머지는 그만큼
+ * 급하지 않지만, 종류마다 차례를 못 박아 두면 뒤에 붙는 옮기기(#23)가 어디에
+ * 끼어야 하는지가 이미 정해져 있다.
  *
  * 같은 종류끼리는 보낸 차례 그대로다(정렬이 안정적이다). 이어 보탠 줄이
  * 앞 줄을 발판으로 삼으므로 그 차례가 흐트러지면 안 된다.
  */
-const writeRank = (p) => (p.remove ? 2 : p.runs ? 1 : 0);
+const WRITE_RANK = { title: 0, edit: 1, check: 1, add: 2, remove: 3 };
+/* 모르는 종류는 맨 뒤다. `SAVE_OPS` 가 먼저 걸러 여기 닿지 않지만, 기본값이
+   맨 앞이면 뒤에 붙는 종류를 표에 적는 것을 잊었을 때 그것이 제목보다도
+   먼저 나간다 */
+const writeRank = (p) => WRITE_RANK[p.op] ?? 99;
 
 /**
  * 살펴본 것을 노션에 쓴다. 쓰다 실패해도 나머지는 계속 간다.
@@ -456,15 +506,21 @@ const writeRank = (p) => (p.remove ? 2 : p.runs ? 1 : 0);
  * @param {object} ctx  { nt, notice, made } — `made` 는 tempId → 방금 만든 줄
  */
 async function writeChange(ctx, prepared) {
-  const { nt } = ctx;
-  const at = prepared.tempId ? { index: prepared.index, tempId: prepared.tempId }
-                             : { index: prepared.index, blockId: prepared.blockId };
+  const { nt, notice } = ctx;
+  // 살펴보기가 지은 이름을 그대로 다시 짓는다. `prepared` 가 그 조각들을 안고 온다.
+  const at = nameOf(prepared.index, prepared);
   try {
-    if (prepared.remove) {
+    if (prepared.op === "title") {
+      await nt.patch(`/pages/${notice.pageId}`, {
+        properties: { [prepared.prop]: { title: titleRuns(prepared.title) } },
+      });
+      return { ...at, status: "ok", title: prepared.title };
+    }
+    if (prepared.op === "remove") {
       await nt.del(`/blocks/${prepared.blockId}`);
       return { ...at, status: "ok", removed: true };
     }
-    if (prepared.runs) return { ...at, ...await appendItem(ctx, prepared) };
+    if (prepared.op === "add") return { ...at, ...await appendItem(ctx, prepared) };
     const updated = await nt.patch(`/blocks/${prepared.blockId}`, prepared.patch);
     return { ...at, status: "ok", ...treeItem(updated) };
   } catch (e) {
@@ -472,6 +528,9 @@ async function writeChange(ctx, prepared) {
     throw e;
   }
 }
+
+/** 제목은 글자만 담는다. 빈 제목은 빈 목록이다 — 노션이 그렇게 준다. */
+const titleRuns = (text) => (text ? [{ type: "text", text: { content: text } }] : []);
 
 /** 줄 하나를 짚어 둔 자리에 붙이고, 노션이 준 주소를 `made` 에 적어 둔다. */
 async function appendItem({ nt, notice, made }, prepared) {
@@ -523,7 +582,9 @@ async function route(request, env) {
 
     const items = {};
     for (const b of blocks) items[b.id] = treeItem(b);
-    return json({ pageId: notice.pageId, items, more }, 200);
+    // 제목도 함께 준다. 봉투에 실린 제목은 지난 빌드의 것이고, 빌더가 빈 제목을
+    // 「공지사항」으로 갈아 끼우기까지 해서 그대로 고치면 없던 글자가 들어간다.
+    return json({ pageId: notice.pageId, title: plainTitle(notice.page), items, more }, 200);
   }
 
   if (pathname === "/notice/save" && method === "POST") {
@@ -565,13 +626,61 @@ async function route(request, env) {
 
     // 아무것도 쓰지 못했으면 신호를 던지지 않는다. 던지면 바뀐 것 없는 빌드가
     // 한 번 돌고, 담당자는 실패한 저장을 「1~2분 뒤 반영」으로 읽는다.
+    //
+    // 줄이 하나도 없는 공지도 던지지 않는다. 빌더는 빈 공지를 아예 싣지 않아
+    // (`fetch_notice` 의 「읽을 내용이 없습니다」) 그 기업의 공지가 화면에서
+    // 통째로 사라진다 — 지난 공지까지 함께다. 갓 만든 공지에 제목만 적고
+    // 저장했을 때가 바로 그것이고, 화면은 그때 편집 모드조차 다시 열지 못한다.
     let rebuild = "skipped";
     if (saved) {
       await ensureNoticeDate(nt, notice);
-      rebuild = await requestRebuild(env, slug);
+      rebuild = (await listChildren(nt, notice.pageId)).length
+        ? await requestRebuild(env, slug)
+        : "empty";
     }
     return json({ pageId: notice.pageId, results,
                   saved, failed: results.length - saved, rebuild }, 200);
+  }
+
+  /**
+   * 새 공지 한 건. 오늘(KST) 날짜로 만들고 제목은 비운다 — 화면이 커서를 둔다.
+   *
+   * 날짜를 고르는 창을 띄우지 않는다. 미팅 직후 기록이 목적이라 거의 언제나
+   * 오늘이고, 아니면 만든 뒤 노션에서 고치는 편이 손이 덜 간다.
+   *
+   * **재빌드를 부르지 않는다.** 갓 만든 공지는 비어 있고 빌더는 빈 공지를 아예
+   * 싣지 않아, 지금 내보내면 클라이언트 화면에서 지난 공지까지 사라진다.
+   * 담당자가 첫 줄을 적고 「저장」을 누를 때 함께 나간다.
+   */
+  if (pathname === "/notice/new" && method === "POST") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+
+    const nt = createNotion(env);
+    const src = await findNoticeSource(nt, slug);
+    if (!src.fromDatabase) {
+      throw unprocessable("공지 원천이 DB 가 아니라 새 공지를 만들 수 없습니다");
+    }
+
+    // 오늘 날짜 공지가 이미 있으면 또 만들지 않고 그리로 보낸다. 같은 날짜 행이
+    // 둘이면 `일자` 내림차순의 승자가 임의라, 빌더와 중계 서버가 서로 다른 행을
+    // 집을 수 있다 — 담당자는 화면에 뜨지 않는 공지에 적게 된다. 하루에 공지를
+    // 둘로 나누고 싶으면 노션에서 만든다. 여기서는 그 모호함을 만들지 않는다.
+    const today = todayKst();
+    const latest = src.page;
+    if (latest && (latest.properties?.["일자"]?.date?.start || "").slice(0, 10) === today) {
+      return json({ pageId: latest.id, date: today,
+                    page_url: latest.url || "", existing: true }, 200);
+    }
+
+    const prop = titleProp(src.db?.properties);
+    if (!prop) throw upstream("공지 DB 에 제목 속성이 없습니다");
+    const made = await nt.post("/pages", {
+      parent: { database_id: src.dbId },
+      properties: { [prop]: { title: [] }, "일자": { date: { start: today } } },
+    });
+    return json({ pageId: made.id, date: today, page_url: made.url || "" }, 201);
   }
 
   if (pathname === "/notice/item" && method === "GET") {

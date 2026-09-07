@@ -95,13 +95,42 @@ export function createNotion(env) {
   };
 }
 
+/** 담당자가 사는 시간대의 오늘. UTC 로 적으면 저녁에 쓴 공지가 어제로 남는다. */
+export function todayKst() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
 /**
- * 슬러그 → 지금 클라이언트 페이지에 떠 있는 공지의 페이지 id.
+ * 제목 속성의 이름. **이름이 아니라 title 타입으로 찾는다.**
  *
- * 빌더와 같은 규칙이다. 공지 원천이 DB 면 `일자` 내림차순 첫 행이 공지고,
- * 일반 페이지면 그 페이지가 곧 공지다.
+ * 빌더의 `first_title_prop` 과 같은 규칙이다. 위프코리아 공지 DB 의 제목
+ * 속성명은 「상세내용」이고, 기업마다 다르다.
  */
-export async function findNoticePage(nt, slug) {
+export function titleProp(properties) {
+  for (const [name, v] of Object.entries(properties || {})) {
+    if (v?.type === "title") return name;
+  }
+  return null;
+}
+
+/** 그 페이지의 제목 글자. 서식은 버린다 — 화면의 제목 칸이 글자만 다룬다. */
+export function plainTitle(page) {
+  const name = titleProp(page?.properties);
+  if (!name) return "";
+  const runs = page.properties[name].title || [];
+  return runs.map((r) => r.plain_text ?? r.text?.content ?? "").join("").trim();
+}
+
+/**
+ * 슬러그 → 공지 원천과, 그 안에서 지금 화면에 떠 있는 공지.
+ *
+ * **공지가 하나도 없어도 던지지 않는다.** 새 공지를 만드는 자리에서는 그것이
+ * 실패가 아니라 만들어야 할 까닭이다 — 첫 공지를 노션에서 만들게 하지 않는다.
+ *
+ * @returns {Promise<{db: object|null, dbId: string, page: object|null,
+ *                    fromDatabase: boolean}>}
+ */
+export async function findNoticeSource(nt, slug) {
   if (!slug) throw notFound("슬러그가 없습니다");
 
   const rows = await nt.post(`/databases/${SHARE_DB_ID}/query`, {
@@ -128,16 +157,28 @@ export async function findNoticePage(nt, slug) {
   if (!source) throw notFound(`공지 원천을 열지 못했습니다: ${sourceId}`);
 
   if (source.object !== "database") {
-    return { pageId: source.id, page: source, fromDatabase: false };
+    return { db: null, dbId: sourceId, page: source, fromDatabase: false };
   }
 
   const res = await nt.post(`/databases/${sourceId}/query`, {
     sorts: [{ property: "일자", direction: "descending" }],
     page_size: 1,
   });
-  const latest = (res.results || [])[0];
-  if (!latest) throw notFound(`${slug} 의 공지가 비어 있습니다`);
-  return { pageId: latest.id, page: latest, fromDatabase: true };
+  return { db: source, dbId: sourceId,
+           page: (res.results || [])[0] || null, fromDatabase: true };
+}
+
+/**
+ * 슬러그 → 지금 클라이언트 페이지에 떠 있는 공지의 페이지 id.
+ *
+ * 빌더와 같은 규칙이다. 공지 원천이 DB 면 `일자` 내림차순 첫 행이 공지고,
+ * 일반 페이지면 그 페이지가 곧 공지다.
+ */
+export async function findNoticePage(nt, slug) {
+  const src = await findNoticeSource(nt, slug);
+  if (!src.page) throw notFound(`${slug} 의 공지가 비어 있습니다`);
+  return { pageId: src.page.id, page: src.page, db: src.db, dbId: src.dbId,
+           fromDatabase: src.fromDatabase };
 }
 
 /**
@@ -203,8 +244,7 @@ export async function ensureNoticeDate(nt, notice) {
   if (!notice.fromDatabase) return null;
   if (notice.page?.properties?.["일자"]?.date?.start) return null;
 
-  // 담당자가 사는 시간대. UTC 로 적으면 저녁에 쓴 공지가 어제 날짜로 남는다.
-  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const today = todayKst();
   await nt.patch(`/pages/${notice.pageId}`, {
     properties: { "일자": { date: { start: today } } },
   });

@@ -70,6 +70,7 @@ export function world(extra = {}) {
  * @param {object} [opts.blocks]    id → 블록
  * @param {object} [opts.share]     공유페이지 DB 조회 결과를 갈아끼운다
  * @param {object} [opts.notice]    공지 DB 조회 결과를 갈아끼운다
+ * @param {boolean} [opts.noticeIsPage] 공지 원천이 DB 가 아니라 일반 페이지다
  * @param {function} [opts.fail]    (method, path) → 응답을 가로채 실패시킨다
  */
 export function installNotion(opts = {}) {
@@ -86,10 +87,15 @@ export function installNotion(opts = {}) {
     }],
   };
 
+  // 제목 속성명은 일부러 「상세내용」이다. 이름이 아니라 title 타입으로 찾는지
+  // 보려는 것이다 — 빌더의 `first_title_prop` 과 같은 규칙이다.
   const notice = opts.notice ?? {
     results: [{
-      id: NOTICE_PAGE, object: "page",
-      properties: { "일자": { type: "date", date: { start: "2026-07-31" } } },
+      id: NOTICE_PAGE, object: "page", url: `https://www.notion.so/${NOTICE_PAGE}`,
+      properties: {
+        "상세내용": { type: "title", title: [run("2026년 7월 공지")] },
+        "일자": { type: "date", date: { start: "2026-07-31" } },
+      },
     }],
   };
 
@@ -118,12 +124,32 @@ export function installNotion(opts = {}) {
 
     if (method === "POST" && path === `/databases/${SHARE_DB}/query`) return reply(share);
     if (method === "GET" && path === `/databases/${NOTICE_DB}`) {
-      return reply({ object: "database", id: NOTICE_DB });
+      // 공지 원천이 일반 페이지인 세계에서는 DB 로는 열리지 않는다. 중계 서버가
+      // 둘을 차례로 물어보므로, 여기서 404 를 줘야 페이지 쪽으로 넘어간다.
+      if (opts.noticeIsPage) return reply({ message: "not a database" }, 404);
+      return reply({
+        object: "database", id: NOTICE_DB,
+        properties: { "상세내용": { type: "title" }, "일자": { type: "date" } },
+      });
     }
     if (method === "POST" && path === `/databases/${NOTICE_DB}/query`) return reply(notice);
 
+    // 새 공지 한 행. 노션은 만든 페이지를 그대로 돌려준다.
+    if (method === "POST" && path === "/pages") {
+      const id = `new-page-${(minted += 1)}`;
+      return reply({ object: "page", id, url: `https://www.notion.so/${id}`,
+                     parent: body.parent, properties: body.properties,
+                     last_edited_time: bumped() });
+    }
+
     const pm = /^\/pages\/([^/]+)$/.exec(path);
     if (pm && method === "PATCH") return reply({ object: "page", id: pm[1], ...body });
+    if (pm && method === "GET" && opts.noticeIsPage && pm[1] === NOTICE_DB) {
+      return reply({ object: "page", id: NOTICE_PAGE,
+                     url: `https://www.notion.so/${NOTICE_PAGE}`,
+                     properties: { "상세내용": { type: "title", title: [run("붙박이 공지")] } },
+                     last_edited_time: EDITED });
+    }
 
     const cm = /^\/blocks\/([^/]+)\/children$/.exec(path);
     if (cm && method === "GET") {
