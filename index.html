@@ -2045,6 +2045,159 @@ function init(D){
     sel.addRange(r);
   }
 
+  /* ── 커서 ──
+     노션이 쉬운 까닭은 기능이 많아서가 아니라 **키보드가 글에서 떠나지 않기**
+     때문이다. 줄 하나하나가 따로 떨어진 입력칸이라 그냥 두면 ↑ ↓ 가 그 줄
+     안에서만 움직이고, 담당자는 줄마다 마우스로 찍어야 한다. 아래 셋이
+     그 벽을 없앤다 — 지금 커서가 줄의 끝 줄에 있는가, 이웃 줄은 어디인가,
+     그 줄의 같은 가로 자리는 어디인가. */
+
+  /** 지금 커서의 네모. 없으면 null — 커서가 이 화면에 없다는 뜻이다 */
+  function edCaretRect(){
+    const sel = document.getSelection();
+    if(!sel || !sel.rangeCount) return null;
+    const r = sel.getRangeAt(0).cloneRange();
+    const box = r.getClientRects()[0];
+    if(box) return box;
+    /* 빈 줄에는 잴 네모가 없다. 그 자리에 빈 글자를 잠깐 놓아 재고 걷는다 */
+    const probe = document.createElement('span');
+    probe.textContent = '​';
+    r.insertNode(probe);
+    const at = probe.getBoundingClientRect();
+    const keep = {x: at.left, top: at.top, bottom: at.bottom, left: at.left};
+    probe.remove();
+    return keep;
+  }
+
+  /** 커서가 이 칸의 첫 줄(위) · 끝 줄(아래)에 닿아 있는가 */
+  function edAtEdge(nx, dir){
+    const at = edCaretRect();
+    if(!at) return true;
+    const box = nx.getBoundingClientRect();
+    /* 한 줄 높이의 절반을 자로 쓴다. 글자 크기가 달라도 함께 따라간다 */
+    const half = Math.max(4, (at.bottom - at.top) / 2);
+    return dir === 'up' ? at.top - box.top < half : box.bottom - at.bottom < half;
+  }
+
+  /**
+   * 그 칸의 같은 가로 자리에 커서를 놓는다.
+   *
+   * 늘 줄 끝으로 보내지 않는 까닭은, 문단 가운데를 고치다 ↓ 를 눌렀을 때
+   * 커서가 저 멀리 끝으로 튀면 다시 찾아 와야 하기 때문이다.
+   */
+  function edCaretTo(nx, dir, x){
+    nx.focus();
+    const box = nx.getBoundingClientRect();
+    const half = Math.max(4, box.height / 4);
+    const y = dir === 'up' ? box.bottom - half : box.top + half;
+    const hit = document.caretRangeFromPoint
+      ? document.caretRangeFromPoint(x, y)
+      : (document.caretPositionFromPoint ? (() => {
+          const p = document.caretPositionFromPoint(x, y);
+          if(!p) return null;
+          const r = document.createRange();
+          r.setStart(p.offsetNode, p.offset);
+          return r;
+        })() : null);
+    /* 짚지 못했거나 남의 칸을 짚었으면 그 줄 끝으로. 빈 줄이 그렇다 */
+    if(!hit || !nx.contains(hit.startContainer)){ edFocusEnd(nx); return; }
+    hit.collapse(true);
+    const sel = document.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(hit);
+  }
+
+  /**
+   * 커서 자리를 지킨 채로 그 줄을 움직인다.
+   *
+   * DOM 에서 옮기면 브라우저가 초점을 거둔다. 그대로 두면 **방금 보탠 빈 줄이
+   * `onblur` 에 걷혀 사라지고**, 담당자는 Tab 한 번에 쓰던 줄을 잃는다.
+   */
+  function edKeepCaret(nx, run){
+    const at = edOffset(nx);
+    edHolding = true;
+    try { run(); } finally { edHolding = false; }
+    nx.focus();
+    edSeek(nx, at);
+  }
+
+  /** 옮기는 중인가. 그동안의 `onblur` 는 못 본 척한다 */
+  let edHolding = false;
+
+  /** 커서가 이 칸의 몇 글자째에 있는가 */
+  function edOffset(nx){
+    const sel = document.getSelection();
+    if(!sel || !sel.rangeCount || !nx.contains(sel.anchorNode)) return null;
+    const r = sel.getRangeAt(0).cloneRange();
+    r.selectNodeContents(nx);
+    r.setEnd(sel.anchorNode, sel.anchorOffset);
+    return r.toString().length;
+  }
+
+  /** 그 글자 수만큼 들어간 자리에 커서를 놓는다 */
+  function edSeek(nx, at){
+    if(at === null || at === undefined){ edFocusEnd(nx); return; }
+    const walk = document.createTreeWalker(nx, NodeFilter.SHOW_TEXT);
+    let left = at, node = null;
+    while(walk.nextNode()){
+      node = walk.currentNode;
+      if(left <= node.nodeValue.length) break;
+      left -= node.nodeValue.length;
+    }
+    if(!node){ edFocusEnd(nx); return; }
+    const r = document.createRange();
+    r.setStart(node, Math.min(left, node.nodeValue.length));
+    r.collapse(true);
+    const sel = document.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+
+  /** 줄 처음부터 커서까지의 글. 그 앞이 비어 있을 때만 종류 단축으로 읽는다 */
+  function edHead(nx){
+    const at = edOffset(nx);
+    if(!at) return '';
+    const r = document.createRange();
+    r.selectNodeContents(nx);
+    const sel = document.getSelection();
+    r.setEnd(sel.anchorNode, sel.anchorOffset);
+    const head = r.toString();
+    /* 커서 앞이 곧 줄 전체일 때만이다. 문장 가운데에서 「>」를 치고 빈칸을
+       누르는 것까지 종류 바꾸기로 읽으면 글을 쓸 수가 없다 */
+    return head.length === at ? head : '';
+  }
+
+  /** 줄 앞의 그 글자들을 걷는다 */
+  function edCutHead(nx, n){
+    const r = document.createRange();
+    r.selectNodeContents(nx);
+    const sel = document.getSelection();
+    r.setEnd(sel.anchorNode, sel.anchorOffset);
+    r.setStart(nx, 0);
+    r.deleteContents();
+    const put = document.createRange();
+    put.setStart(nx, 0);
+    put.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(put);
+  }
+
+  /** 화면에서 이웃한, 글을 고칠 수 있는 줄. 안에 든 줄과 다음 칸까지 넘어간다 */
+  function edNextEditable(li, dir){
+    const all = [...document.querySelectorAll('.ck li[data-nid]')];
+    const at = all.indexOf(li);
+    if(at < 0) return null;
+    const step = dir === 'up' ? -1 : 1;
+    for(let i = at + step; i >= 0 && i < all.length; i += step){
+      /* 접어 둔 토글 안은 건너뛴다. 보이지 않는 줄에 커서를 두면 담당자는
+         글자가 어디로 갔는지 알 수 없다 */
+      if(!all[i].offsetParent) continue;
+      const it = edItems.get(all[i].dataset.nid);
+      if(it && !it.del && it.nx.isContentEditable) return it;
+    }
+    return null;
+  }
+
   /* 바로 위에 있는 고칠 수 있는 줄. Backspace 로 빈 줄을 지운 뒤 갈 곳이다 */
   function edPrev(li){
     for(let sib = li.previousElementSibling; sib; sib = sib.previousElementSibling){
@@ -2339,6 +2492,26 @@ function init(D){
   const ED_TYPES = [['bullet','글머리'], ['number','번호'], ['todo','할 일'],
                     ['paragraph','본문'], ['quote','인용'], ['toggle','토글']];
 
+  /**
+   * 줄 앞에서 이것을 치고 빈칸을 누르면 그 종류가 된다.
+   *
+   * **노션과 같은 글자다.** 담당자가 이미 손에 익힌 것이라 새로 배울 것이
+   * 없다 — 그것이 이 표의 값어치 전부다. 숫자는 아무거나 받는다(`1.` `3.`).
+   */
+  const ED_MD = {'-':'bullet', '*':'bullet', '+':'bullet',
+                 '[]':'todo', '[ ]':'todo', '>':'toggle', '"':'quote'};
+  const edMdKind = (head) => ED_MD[head] || (/^\d+\.$/.test(head) ? 'number' : null);
+
+  /** 종류를 바꾼다. 고르개를 돌렸을 때와 같은 자리로 모은다 */
+  function edRetype(it, kind){
+    it.retype = kind === it.type ? null : kind;
+    const sel = edMvSel(it);
+    if(sel) sel.value = kind;
+    edRtChip(it);
+    edMvSync();
+    edStatus();
+  }
+
   /* 옮기기 단추와 종류 고르개. 지우기 단추 옆에 함께 둔다 */
   function edMvBox(it){
     const anchor = it.nx.parentElement.querySelector(':scope>.nx-del') || it.nx;
@@ -2358,12 +2531,7 @@ function init(D){
     });
     const sel = box.querySelector('[data-nrt]');
     sel.onclick = e => e.stopPropagation();
-    sel.onchange = () => {
-      it.retype = sel.value === it.type ? null : sel.value;
-      edRtChip(it);
-      edMvSync();
-      edStatus();
-    };
+    sel.onchange = () => edRetype(it, sel.value);
     anchor.parentElement.insertBefore(box, anchor.nextSibling);
     edMvSync();
   }
@@ -2470,8 +2638,48 @@ function init(D){
     nx.onclick = e => e.stopPropagation();   /* 토글 항목이 접히지 않게 */
     /* 눌러만 두고 아무것도 쓰지 않은 줄은 떠날 때 걷는다. 남겨 두면 노션에
        없는 빈 줄이 화면에만 쌓인다 */
-    nx.onblur = () => { if(it.isNew && edEmpty(nx)) edForget(it); };
+    nx.onblur = () => { if(!edHolding && it.isNew && edEmpty(nx)) edForget(it); };
     nx.onkeydown = e => {
+      /* ── 키보드로 줄을 넘고 옮기고 들여쓴다 ──
+         손이 글에서 떠나지 않게 하는 것이 전부다. 단추는 그대로 있고,
+         여기서는 같은 길을 키보드에도 낸다 */
+      const mod = e.ctrlKey || e.metaKey;
+      if((e.key === 'ArrowUp' || e.key === 'ArrowDown')){
+        const dir = e.key === 'ArrowUp' ? 'up' : 'down';
+        if(mod && e.shiftKey){                 /* 줄을 옮긴다 */
+          e.preventDefault();
+          edKeepCaret(nx, () => edMove(it, dir));
+          return;
+        }
+        /* 여러 줄로 접힌 줄 안에서는 그 줄 안에서 먼저 움직인다.
+           끝 줄에 닿았을 때만 이웃 줄로 넘어간다 */
+        if(!mod && !e.shiftKey && edAtEdge(nx, dir)){
+          const near = edNextEditable(it.li, dir);
+          if(near){
+            const at = edCaretRect();
+            e.preventDefault();
+            edCaretTo(near.nx, dir, at ? at.left : 0);
+            return;
+          }
+        }
+      }
+      if(e.key === 'Tab'){
+        e.preventDefault();
+        edKeepCaret(nx, () => edMove(it, e.shiftKey ? 'out' : 'in'));
+        return;
+      }
+      /* 줄 앞에서 `- ` `1. ` `[] ` `> ` `" ` — 노션과 같은 글자다 */
+      if(e.key === ' ' && !mod){
+        const head = edHead(nx);
+        const kind = head && edMdKind(head);
+        if(kind){
+          e.preventDefault();
+          edCutHead(nx, head.length);
+          edRetype(it, kind);
+          edTouch(it);
+          return;
+        }
+      }
       if(e.key === 'Enter' && !e.shiftKey){
         /* 바로 아래에 새 줄. 노션과 같은 손놀림이다 — 줄 안에서 줄을 바꾸는
            것은 Shift+Enter 다 */
