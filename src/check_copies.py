@@ -12,8 +12,11 @@
 하나에만 들어갔고, 아무도 모르는 채 여러 커밋이 지나갔다. 그동안 한 곳은
 옛 화면이었고, 다른 한 곳은 재빌드 한 번이면 디자인을 잃는 상태였다.
 
-git 을 보지 않는다. 빌드 산출물을 커밋하는 구조라 원본과 사본이 늘 같은
-작업 트리 안에 있고, 그것만으로 판정이 된다.
+줄만 견주어서는 「손댐」과 「루트가 앞서 감」을 가를 수 없다. 사본에만 있는
+줄은 사람이 사본을 고쳐서 생기기도 하고, 루트가 그 뒤로 그 줄을 지우거나
+갈아 끼워서 생기기도 한다. 그래서 사본에만 있는 줄이 잡히면 그때만 git 을
+한 번 본다 — 사본이 마지막으로 바뀐 커밋의 루트와 같으면 사람은 손대지
+않은 것이다.
 
     python src/check_copies.py
     python src/check_copies.py --quiet     # 문제 있는 것만 (배포 스크립트용)
@@ -106,6 +109,47 @@ def strip_injection(copy_text: str, slug: str) -> str | None:
     return None
 
 
+def root_at_last_change(path: Path) -> str | None:
+    """그 사본이 마지막으로 바뀐 커밋의 루트 index.html. 모르면 None."""
+    rel = path.relative_to(ROOT).as_posix()
+    try:
+        r = subprocess.run(["git", "log", "-1", "--format=%H", "--", rel],
+                           cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", timeout=20)
+        if r.returncode != 0 or not r.stdout.strip():
+            return None
+        sha = r.stdout.strip()
+        # 바이트로 받는다. 작업 트리는 CRLF 인데 blob 은 LF 일 수 있어,
+        # 글자로 바로 받으면 줄바꿈 차이가 내용 차이로 둔갑한다.
+        r = subprocess.run(["git", "show", f"{sha}:index.html"],
+                           cwd=ROOT, capture_output=True, timeout=20)
+        if r.returncode != 0:
+            return None
+        return r.stdout.decode("utf-8")
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
+        return None
+
+
+def built_from_root(path: Path, recon: str) -> bool:
+    """이 사본이 「그때의 루트」에서 그대로 나온 것인가.
+
+    사본에만 있는 줄은 두 가지 뜻이다.
+
+      사람이 사본을 고쳤다        재빌드하면 그만큼 잃는다. 막아야 한다
+      루트가 그 뒤로 줄을 지웠다  잃을 것이 없다. 재빌드가 바로 답이다
+
+    줄 뭉치만 견주어서는 둘이 똑같이 보인다. 가르는 것은 시간이다 — 사본이
+    마지막으로 바뀐 커밋의 루트를 꺼내 견준다. 그때의 루트와 같으면 사본은
+    그 루트에서 그대로 나온 것이고, 지금 루트와의 차이는 전부 루트 쪽에서
+    생긴 것이다.
+
+    모르면 False 다. 안전한 쪽이 「막는다」이다.
+    """
+    past = root_at_last_change(path)
+    # 줄 단위로 견준다. 줄바꿈 종류가 달라도 내용은 같을 수 있다.
+    return past is not None and past.splitlines() == recon.splitlines()
+
+
 def classify(root_text: str, recon: str) -> tuple[str, int, int]:
     """복원한 루트와 지금 루트를 줄 단위로 견준다.
 
@@ -177,6 +221,11 @@ def check(only: str | None = None) -> tuple[int, list[dict]]:
             rows.append({**row, "state": UNKNOWN})
             continue
         state, only_root, only_copy = classify(root_text, recon)
+        # 사본에만 있는 줄이 잡혔어도, 그것이 루트 쪽에서 생긴 것이면
+        # 재빌드가 답이다. 이 확인이 없으면 루트에서 줄을 하나 지우는 순간
+        # 배포가 막히고, 그것을 푸는 유일한 길인 재빌드로 가는 문도 닫힌다.
+        if only_copy and built_from_root(path, recon):
+            state = STALE
         rows.append({**row, "state": state, "root": only_root, "copy": only_copy})
 
     if only and not rows:

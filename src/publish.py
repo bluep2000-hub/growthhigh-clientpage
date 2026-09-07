@@ -52,7 +52,9 @@ VOLATILE = ("generated_at",)
 # 가는 길이 함께 막힌다.
 #
 # 남는 것은 재빌드로 해결되지 않는 것들이다. 「손댐」·「갈라짐」은 사본에만
-# 있는 내용이 있어 재빌드하면 잃는다. 「이름불일치」는 그 주소가 남의 기업
+# 있는 내용이 있어 재빌드하면 잃는다. 루트가 줄을 지우거나 갈아 끼워서 생긴
+# 차이는 여기 걸리지 않는다 — check_copies 의 `built_from_root` 가 그것을
+# 「뒤처짐」으로 내린다. 「이름불일치」는 그 주소가 남의 기업
 # payload 를 읽는다는 뜻이고, 「확인불가」는 잃을 것이 있는지 자체를 모른다.
 BLOCKING = (check_copies.EDITED, check_copies.FORKED,
             check_copies.MISMATCH, check_copies.UNKNOWN)
