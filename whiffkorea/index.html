@@ -238,13 +238,6 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
    글로 고칠 수 없으니 통째로 두거나 통째로 지운다 */
 .ed-o{white-space:nowrap}
 .ed-o:not(:has(img)){background:var(--panel-2);border-radius:3px;padding:0 3px}
-/* 잠긴 항목 — 왜 못 고치는지와 어디서 고치는지를 그 자리에서 말해 준다 */
-.ck li[data-lock]>.nx,.ck li[data-lock]>.tgh>.nx{opacity:.62}
-.ed-lk{font-size:10.5px;color:var(--tx-3);margin-left:7px;white-space:nowrap}
-/* 아래 `.ck a` 보다 뒤에 오지 않으므로 한 겹 더 짚는다 — 그러지 않으면
-   잠금 안내가 공지 속 링크 색을 뒤집어쓰고 본문보다 더 크게 외친다 */
-.ck .ed-lk a{color:var(--tx-3);text-decoration:underline}
-.ck .ed-lk a:hover{color:var(--accent)}
 /* 공지 제목 칸. 제목처럼 보이게 두고 손댈 수 있다는 것만 밑줄로 알린다 —
    입력칸 테두리를 두르면 화면 맨 위가 갑자기 서식 화면이 된다 */
 .nti{font-family:inherit;font-size:19px;font-weight:600;letter-spacing:-.025em;
@@ -305,6 +298,26 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .nx-mv select{font-family:inherit;font-size:10.5px;color:var(--tx-3);margin-left:4px;
   background:var(--panel-2);border:1px solid var(--line-2);border-radius:4px;padding:1px 2px}
 .nx-mv select[disabled]{opacity:.35}
+/* ── 칸(섹션) 손질 ──
+   줄의 것과 같은 꼴이다. 머리말에 마우스를 얹어야 나타난다 — 클라이언트가
+   보는 화면에는 애초에 그려지지 않는다 */
+.ns-mv{opacity:0;margin-left:auto;white-space:nowrap;flex:none}
+.notice>h3:hover .ns-mv,.ns-mv:focus-within{opacity:1}
+.ns-mv button{font-size:11px;color:var(--tx-3);padding:0 3px;border-radius:4px}
+.ns-mv button:hover:not([disabled]){color:var(--accent);background:var(--accent-bg)}
+.ns-mv button[disabled]{opacity:.28;cursor:default}
+/* 이름을 고칠 수 있다는 것만 알린다. 제목처럼 보이는 것은 그대로 둔다 */
+.notice>h3>.nsx{border-radius:3px;padding:0 3px;margin:0 -3px;min-width:5em;
+  cursor:text;box-shadow:inset 0 -1px 0 var(--line-2)}
+.notice>h3>.nsx:focus{outline:none;background:var(--panel-2);
+  box-shadow:inset 0 0 0 1px var(--accent)}
+.notice>h3>.nsx:empty::before{content:'칸 이름';color:var(--tx-3);font-weight:400}
+.notice.ed-dirty{box-shadow:inset 2px 0 var(--accent)}
+.notice.ed-new{box-shadow:inset 2px 0 var(--ok)}
+.notice.ed-secdel{box-shadow:inset 2px 0 var(--no)}
+.notice.ed-secdel>h3>.nsx,.notice.ed-secdel .bd{opacity:.42}
+.notice.ed-secdel>h3>.nsx{text-decoration:line-through}
+.nsadd{margin:-6px 0 16px}
 /* 옮긴 줄. 고친 줄과 색을 나눈다 — 저장 창구가 둘을 갈라서 세기 때문이다 */
 .ck li.ed-moved{box-shadow:inset 2px 0 var(--run);border-radius:3px}
 /* 바꿀 종류. 화면은 지금 모양 그대로 그린다 — 글머리를 번호로 다시 그리는
@@ -323,9 +336,11 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 /* 커스텀 이모지 — 글자 흐름에 얹히는 작은 그림이다 */
 .cem{height:1em;width:auto;vertical-align:-.15em;margin:0 2px;display:inline-block}
 /* 표·그림·코드·구분선은 항목 안에 통째로 들어온다. 앞의 점을 지우고 폭을 채운다 */
-.ck li:has(>table),.ck li:has(>figure),.ck li:has(>pre),.ck li:has(>hr){padding-left:0}
+.ck li:has(>table),.ck li:has(>figure),.ck li:has(>pre),.ck li:has(>hr),
+.ck li:has(>blockquote),.ck li:has(>.nx>blockquote){padding-left:0}
 .ck li:has(>table)::before,.ck li:has(>figure)::before,
-.ck li:has(>pre)::before,.ck li:has(>hr)::before{content:none}
+.ck li:has(>pre)::before,.ck li:has(>hr)::before,
+.ck li:has(>blockquote)::before,.ck li:has(>.nx>blockquote)::before{content:none}
 .ck li>table{width:100%;border-collapse:collapse;margin:7px 0;font-size:12px;
   display:table;table-layout:auto}
 .ck li>table th,.ck li>table td{border:1px solid var(--line);padding:5px 8px;
@@ -369,6 +384,45 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ck ul li.chk.on::before{left:2px;top:6.5px;width:5px;height:8px;border-width:0 2px 2px 0}
 /* 하위 불릿은 상위와 위계가 갈리도록 한 단계 더 죽인다 */
 .ck ul li.plain::before{left:4px;top:9px;width:3px;height:3px;background:var(--line-2)}
+/* ── 항목의 종류 ──
+   봉투가 종류를 실으면 종류대로 그린다. 담당자가 번호 목록으로 바꾼 것이
+   클라이언트에게도 번호로 보여야 바꾼 뜻이 산다. 종류를 싣지 않는 봉투(노션에서
+   읽은 것)는 지금까지처럼 할 일과 그 밖 둘로만 그린다 */
+.ck,.ck ul{counter-reset:nnum}
+.ck li.ord{counter-increment:nnum}
+.ck>li.ord::before{content:counter(nnum) ".";position:absolute;left:0;top:3px;
+  width:15px;text-align:right;font-size:12px;line-height:1.65;color:var(--tx-3);
+  font-variant-numeric:tabular-nums}
+.ck ul li.ord::before{left:0;top:2px;width:11px;font-size:11.5px;line-height:1.65}
+/* 본문에는 표시가 없다. 앞의 여백은 남겨 다른 줄과 글머리가 맞는다 */
+.ck li.para::before{content:none}
+/* 안에 든 줄이 없는 토글. 펼 것이 없어 접기 손잡이는 달지 않지만, 종류는
+   드러나야 한다 — 글머리와 똑같이 그리면 담당자가 바꾼 것이 화면에서 사라진다 */
+.ck li.tg0::before{content:'▸';position:absolute;left:2px;top:0;
+  font-size:9px;line-height:2.4;color:var(--tx-3);background:none;
+  width:auto;height:auto;border-radius:0}
+.ck ul li.tg0::before{left:3px;line-height:2.3;font-size:8px}
+/* 인용. 노션에서 읽은 봉투는 <blockquote> 를 싣고 저장소에서 온 봉투는 종류를
+   싣는다 — 어느 쪽으로 와도 같은 꼴이 되게 둘 다 여기서 그린다 */
+.ck li.qt{padding-left:11px;border-left:2px solid var(--line-2);color:var(--tx-2)}
+.ck li.qt::before{content:none}
+/* 어긋남 상자 — 다른 담당자가 먼저 저장했을 때 저장소의 지금 공지를 나란히 낸다.
+   화면에 적어 둔 글은 그대로 두고, 어느 쪽을 남길지는 담당자가 고른다 */
+.ed-cf{border:1px solid var(--line-2);border-radius:8px;background:var(--panel-2);
+  margin:10px 0 16px;overflow:hidden}
+.ed-cf .cf-t{font-size:11.5px;font-weight:600;color:var(--tx-2);padding:9px 12px;
+  border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:baseline}
+.ed-cf .cf-v{font-weight:400;color:var(--tx-3)}
+.ed-cf .cf-b{padding:9px 12px;max-height:260px;overflow-y:auto}
+.ed-cf .cf-h{font-size:11.5px;font-weight:600;margin:7px 0 3px;color:var(--tx-2)}
+.ed-cf .cf-h:first-child{margin-top:0}
+.ed-cf .cf-l{font-size:12px;line-height:1.6;color:var(--tx-2);padding:1px 0}
+.ed-cf .cf-e{color:var(--tx-3)}
+.ed-cf .cf-a{display:flex;gap:7px;padding:9px 12px;border-top:1px solid var(--line)}
+.ed-cf .rv-l{display:flex;align-items:center;gap:9px;padding:3px 0;font-size:12px}
+.ed-cf .rv-w{color:var(--tx-3);font-variant-numeric:tabular-nums;flex:none}
+.ed-cf .rv-t{color:var(--tx-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-cf .rv-l .edt-b{margin-left:auto;flex:none}
 .ck s{opacity:.72}
 /* 노션에서는 코드지만 여기서는 그냥 강조어다. 네모를 빼고 밑줄만 둔다 */
 .ck code{font-size:inherit;font-family:inherit;font-weight:600;color:var(--tx);
@@ -685,6 +739,11 @@ body.locked #gate{display:grid}
   .psum .ck>li{font-size:10px;line-height:1.5;padding:2px 0 2px 18px}
   .psum .ck li.chk::before{top:8px}
   .psum .ck li.chk.on::before{top:5.5px}
+  .psum .ck>li.ord::before{top:2px;width:12px;font-size:9.5px;line-height:1.5}
+  /* 인용은 왼쪽에 붙인다. 위의 `.psum .ck>li` 가 들여쓰기를 되돌려 놓아
+     여기서 다시 짚지 않으면 세로줄과 글이 멀찍이 떨어진다 */
+  .psum .ck>li.qt{padding-left:9px}
+  .psum .ck>li.tg0::before{line-height:2.1}
   .psum .empty{font-size:9.5px}
 
   /* 화면 전용 장치는 뺀다 */
@@ -1428,21 +1487,28 @@ function init(D){
   /* edit 가 참일 때만 항목 자기 글을 .nx 로 감싸고 주소를 붙인다.
      평소에는 지금까지와 완전히 같은 DOM 이라 클라이언트 화면은 달라지지 않는다.
      .nx 로 감싸는 이유는 한 줄을 고칠 때 하위 항목까지 지우지 않기 위해서다 */
+  /* 항목의 종류 → 줄 앞에 그릴 표시 */
+  const KIND_CLS = { bullet:'plain', number:'ord', paragraph:'para',
+                     quote:'qt', toggle:'tg0' };
+
   function noticeItem(it, depth, edit){
     const c = it.checked;
-    const cls = c === true ? 'chk on' : c === false ? 'chk' : 'plain';
-    /* 노션에 쓴 만큼 다 낸다. depth 상한은 순환 참조를 막는 안전장치일 뿐이다 */
-    const kids = depth < 10 ? (it.children || []) : [];
+    /* 종류는 저장소에서 온 봉투에만 실린다. 노션에서 읽은 봉투에는 없어,
+       그때는 지금까지처럼 할 일과 그 밖 둘로만 그린다 — 노션 경로를 걷는
+       #39 가 이 갈래도 함께 지운다 */
+    const cls = it.type === 'todo' ? (c === true ? 'chk on' : 'chk')
+      : it.type ? (KIND_CLS[it.type] || 'plain')
+      : c === true ? 'chk on' : c === false ? 'chk' : 'plain';
+    /* 적은 만큼 다 낸다. depth 상한은 깊이를 제한하려는 것이 아니라 봉투가
+       망가져 순환이 생겼을 때 멈추는 자리다 — 저장 쪽 상한과 같은 값이다 */
+    const kids = depth < 50 ? (it.children || []) : [];
     const sub = kids.length
       ? `<ul>${kids.map(k=>noticeItem(k, depth+1, edit)).join('')}</ul>` : '';
 
     const body = noticeHtml(it.html);
     let mark = '', text = body;
-    /* 주소만 싣는다. 봉투의 `locked` 는 여기서 쓰지 않는다 —
-       빌더의 잠금 판정과 중계 서버의 판정이 다르고(빌더는 이모지·링크·글자색이
-       든 줄까지 잠근다), 둘을 다 화면에 내면 담당자는 방금 잠겼던 줄이 스스로
-       열리는 것을 본다. 무엇을 고칠 수 있는지는 `GET /notice/tree` 하나가 정하고,
-       그것이 오기 전까지는 어느 줄도 고칠 수 없다 */
+    /* 주소와 종류만 싣는다. 편집 모드는 봉투로 그린 이 화면을 고치지 않는다 —
+       저장소의 공지 문서를 받아 화면을 다시 그린 뒤에야 고칠 수 있게 된다 */
     if(edit && it.id){
       mark = ` data-nid="${esc(it.id)}"`;
       text = `<span class="nx">${body}</span>`;
@@ -1459,35 +1525,54 @@ function init(D){
      편집용 DOM 이 되어, 담당자가 뽑은 종이에 편집 흔적이 섞여 나간다 */
   function noticeFeed(edit){
     const sections = (notice && Array.isArray(notice.sections)) ? notice.sections : [];
-    /* 섹션 주소를 실은 봉투로 열었으면 단추를 섹션마다 둔다. 미팅에서 나온
-       한 줄은 대개 어느 섹션에 속하고, 맨 끝에만 붙일 수 있으면 담당자는
-       보탠 뒤 노션을 열어 그 줄을 끌어 올려야 한다 */
-    const perSection = edit && sections.some(s => s.id);
-    const addBtn = at => `<div class="nadd"><button class="nadd-b"
-      data-nadd="${esc(at)}">＋ 줄 추가</button></div>`;
 
-    /* 갓 만든 공지가 여기다. 섹션이 하나도 없어도 편집 모드에서는 단추와 저장
-       창구를 내야 한다 — 안 그러면 「＋ 새 공지」로 만들어 놓고 첫 줄을 적을
-       곳이 없다. 클라이언트에게는 지금까지와 같은 빈 상자다 */
-    /* `open` 을 붙여 둔다. 섹션 제목이 없어 접으면 다시 펼 손잡이가 없다 */
-    if(!sections.length){
+    /* 갓 만든 공지가 여기다. 칸이 하나도 없어도 편집 모드에서는 빈 칸 하나를
+       세워 준다 — 안 그러면 「＋ 새 공지」로 만들어 놓고 첫 줄을 적을 곳도,
+       칸에 이름을 붙일 곳도 없다. 클라이언트에게는 지금까지와 같은 빈 상자다 */
+    const boxes = sections.length ? sections
+      : edit ? [{id: '', heading: null, items: []}] : [];
+
+    if(!boxes.length){
       return `<div class="notice open"><div class="bd" style="padding-top:13px">
-        <p class="empty">등록된 내용이 없습니다.</p>${edit ? addBtn('') : ''}
-        </div></div>${edit ? saveBar() : ''}`;
+        <p class="empty">등록된 내용이 없습니다.</p></div></div>`;
     }
 
-    /* 기본은 첫 섹션만 열어 둔다. 분량이 많아 다 펼치면 한눈에 안 들어온다 */
-    return sections.map((s,si)=>`
-      <div class="notice${si===0?' open':''}">${(s.heading_html || s.heading)
-        ? `<h3><i class="tw">▸</i><span>${s.heading_html
-            ? noticeHtml(s.heading_html) : esc(s.heading)}</span></h3>` : ''}<div class="bd">
+    /* 기본은 첫 칸만 열어 둔다. 분량이 많아 다 펼치면 한눈에 안 들어온다.
+       클라이언트 화면에서 제목 없는 칸은 늘 열어 둔다 — 접으면 다시 펼
+       손잡이가 없어 그 줄들이 통째로 사라진다. 편집 모드에는 제목이 비어도
+       손잡이가 있으므로(이름을 붙일 자리라 늘 그린다) 그 예외가 필요 없다 */
+    const opened = (s,si) => si===0 || (!edit && !(s.heading_html || s.heading));
+
+    return boxes.map((s,si)=>`
+      <div class="notice${opened(s,si)?' open':''}"${
+        edit ? ` data-nsec="${esc(s.id || '')}"` : ''}>${secHead(s, edit)}<div class="bd">
        ${(s.items||[]).length
          ? `<ul class="ck">${s.items.map(i=>noticeItem(i,1,edit)).join('')}</ul>`
          : `<p class="empty">등록된 내용이 없습니다.</p>`}
-       ${perSection && s.id ? addBtn(s.id) : ''}
+       ${edit ? `<div class="nadd"><button class="nadd-b" data-nadd>＋ 줄 추가</button></div>` : ''}
       </div></div>`).join('')
-      /* 섹션 주소가 없는 옛 봉투로 열렸을 때. 그때는 예전처럼 맨 끝에만 붙는다 */
-      + (edit ? `${perSection ? '' : addBtn('')}${saveBar()}` : '');
+      + (edit ? `<div class="nsadd"><button class="nadd-b" data-nsadd>＋ 새 섹션</button></div>`
+              + saveBar() : '');
+  }
+
+  /**
+   * 칸의 머리말.
+   *
+   * 편집 모드에서는 **제목이 비어 있어도 그린다.** 이름을 붙일 자리가
+   * 거기뿐이기 때문이다 — 클라이언트 화면에서는 지금까지처럼 이름 없는 칸에
+   * 머리말을 두지 않는다.
+   */
+  function secHead(s, edit){
+    const has = !!(s.heading_html || s.heading);
+    if(!edit && !has) return '';
+    const body = has ? (s.heading_html ? noticeHtml(s.heading_html) : esc(s.heading)) : '';
+    if(!edit) return `<h3><i class="tw">▸</i><span>${body}</span></h3>`;
+    return `<h3><i class="tw">▸</i><span class="nsx" data-nsx>${body}</span>
+      <span class="ns-mv">
+        <button data-nsmv="up" title="칸을 위로">↑</button>
+        <button data-nsmv="down" title="칸을 아래로">↓</button>
+        <button data-nsdel title="이 칸 지우기">✕</button>
+      </span></h3>`;
   }
 
   /* 저장 창구. 고친 줄이 몇인지, 무엇이 나갔는지가 여기 한 곳에만 뜬다 */
@@ -1495,13 +1580,14 @@ function init(D){
     return `<div class="ed-bar" id="edbar">
       <button class="save" data-edsave disabled>저장</button>
       <button data-edundo disabled>되돌리기</button>
+      <button data-edrev>지난 판</button>
       <span class="cnt" data-edcnt>공지를 불러오는 중…</span>
       <span class="msg" data-edmsg></span></div>`;
   }
 
   /* ══ 편집 모드 ═══════════════════════════════════════════════════
-     담당자가 공지 화면에서 한 줄씩 고친다. 노션이 계속 원본이고, 여기서
-     고친 것도 노션에 들어가므로 다음 빌드가 덮어쓰지 않는다.
+     담당자가 공지 화면에서 공지 전체를 고친다. 원본은 중계 서버의 저장소이고,
+     여기서 고친 것이 곧 원본이므로 다음 빌드가 덮어쓰지 않는다.
 
      클라이언트에게는 이 아래 어느 것도 보이지 않는다. 편집 모드는 담당자
      공용 비밀번호를 통과해야만 켜지고, 그 비밀번호는 중계 서버만 안다.
@@ -1509,7 +1595,9 @@ function init(D){
      봉투가 평문인 클라이언트(샘플)에서는 아예 켜지 않는다. 평문이면 항목
      주소가 그대로 노출되고, 그 화면은 비밀번호 없이 누구나 연다. */
   const ED = {
-    can(){ return !!(CLIENT && !SAMPLE && ENV && ENV.enc !== false && notice); },
+    /* 공지가 **한 건도 없어도** 열린다. 첫 공지를 페이지에서 만들기 때문이다 —
+       예전에는 노션에 공지가 있어야만 열려, 첫 공지는 노션에서 만들어야 했다 */
+    can(){ return !!(CLIENT && !SAMPLE && ENV && ENV.enc !== false); },
     token(){ try { return sessionStorage.getItem(EKEY) || ''; } catch(_){ return ''; } },
     on(){ return this.can() && !!this.token(); },
     /* 비밀번호는 base64(UTF-8) 로 싣는다. HTTP 헤더는 바이트 하나가 한 글자라
@@ -1528,6 +1616,9 @@ function init(D){
         const err = new Error((data && data.detail) || (data && data.error) || res.status);
         err.status = res.status;
         err.code = data && data.error;
+        /* 거절하며 건네준 것을 버리지 않는다 — 판이 어긋났을 때 저장소의 지금
+           문서가 여기 실려 온다 */
+        err.data = data;
         throw err;
       }
       return data;
@@ -1560,7 +1651,7 @@ function init(D){
        편집 모드는 이미 꺼져 있고, 고쳐 둔 줄은 다음 그리기에 사라진다 */
     if(off) off.onclick = () => {
       if(!edMayLeave()) return;
-      edItems = new Map();
+      edForgetAll();
       sessionStorage.removeItem(EKEY);
       go('notice');
     };
@@ -1597,48 +1688,69 @@ function init(D){
      모두 화면에 쌓였다가 「저장」을 눌러야 한 번에 나간다 — 그래서 저장 전에
      되돌릴 수 있고, 재빌드도 한 번만 돈다.
 
-     보탠 줄은 노션 주소가 아직 없다. 화면이 임시 이름(tempId)을 붙여 보내고,
-     노션이 준 주소를 받아 그 자리에서 갈아 끼운다. 노션은 블록을 옮기지
-     못하므로(ADR 0003) 보탤 자리는 처음부터 짚어 보낸다 — 바로 위 줄이
-     발판이다.
+     **공지의 원본은 저장소다**(docs/adr/0004-공지-원본-이사.md). 편집을 열 때
+     `GET /notice/doc` 으로 공지 문서를 통째로 받아 **그것으로 화면을 다시
+     그린다.** 봉투로 그린 화면을 고치지 않는 까닭은, 봉투가 지난 빌드의 것이라
+     그 사이에 저장된 것을 화면이 모르기 때문이다 — 그대로 저장하면 남이
+     적어 둔 줄이 소리 없이 사라진다.
 
-     화면에 그려져 있는 글은 봉투에서 온 **표시용** HTML 이라 노션으로 되돌릴
-     수 없다. 빌더가 링크와 글자색을 버리고 커스텀 이모지를 그림으로 바꾸기
-     때문이다. 그래서 편집을 열 때 `GET /notice/tree` 로 **편집용** HTML 을 새로
-     받아 항목마다 갈아 끼운다. 무엇을 고칠 수 있는지도 그 응답만이 정한다.
+     저장은 **문서를 통째로** 보낸다. 줄마다 따로 보내지 않으므로 무게 상한도,
+     부분 실패도, 「이 줄만 저장 안 됨」도 없다. 화면을 걸어 다니며 지금 보이는
+     그대로를 문서로 다시 지어 보내고, 저장소는 그것을 통째로 덮어쓴다.
 
-     저장할 때는 브라우저가 만든 DOM 을 그대로 보내지 않는다. contenteditable
+     문서는 **판 번호**를 안고 있다. 편집을 연 뒤 판이 올랐으면(다른 담당자가
+     먼저 저장했으면) 저장이 통째로 거절되고 저장소의 지금 문서가 함께 온다.
+     화면에 적어 둔 글은 그대로 둔다 — 담당자가 견주고 고른다.
+
+     저장할 때 브라우저가 만든 DOM 을 그대로 보내지는 않는다. contenteditable
      은 <b>·<font>·style 을 제멋대로 내놓는데, 중계 서버는 아는 태그만 받고
-     모르는 것이 하나라도 섞이면 그 줄을 통째로 거절한다. edSerialize() 가
-     DOM 을 걸어 다니며 중계 서버가 아는 어휘로만 다시 쓴다. */
+     모르는 것이 하나라도 섞이면 통째로 거절한다. edSerialize() 가 DOM 을
+     걸어 다니며 중계 서버가 아는 어휘로만 다시 쓴다. */
 
-  /** 한 번의 저장이 지는 무게. 중계 서버의 SAVE_MAX_WEIGHT 와 같은 값이다 */
-  const ED_MAX_WEIGHT = 20;
-
-  /* 한 칸이 아닌 손질. 옮기기 하나가 그 줄을 읽고, 발판을 읽고, 만들고,
-     지운다 — 중계 서버가 한 요청에 낼 수 있는 바깥 호출 수에 상한이 있어
-     개수가 아니라 무게를 센다. 중계 서버의 OP_WEIGHT 와 같은 값이다 */
-  const ED_W = {move: 3, retype: 2};
-  const edWeight = list => list.reduce((sum, p) => sum + (ED_W[p.op] || 1), 0);
+  /** 저장소에서 받아 둔 공지 문서. 화면은 이것으로 그려진다 */
+  let edDoc = null;
+  /** 한 번이라도 받아 봤는가. 「공지가 없다」는 답도 받은 것이다 */
+  let edLoaded = false;
 
   /** 블록 주소 → 항목 하나(`edItem`). 순서는 화면 순서다 */
   let edItems = new Map();
+
+  /**
+   * 손대 둔 것을 통째로 잊는다.
+   *
+   * 화면을 다시 그리기 **직전에** 부른다. 남겨 두면 그 장부가 사라질 DOM 을
+   * 가리킨 채로 「저장하지 않은 것이 있다」고 한 번 더 묻고, 담당자가 거기서
+   * 취소하면 화면과 장부가 서로 다른 것을 가리키게 된다.
+   */
+  function edForgetAll(){
+    edItems = new Map();
+    edSecs = new Map();
+    edTitle = null;
+  }
+
+  /**
+   * 칸 주소 → 칸 하나. 줄의 장부(`edItems`)와 짝이다.
+   *
+   *   base  손대기 전의 제목. 고쳤는지를 이것과 견준다
+   *   home  처음 앉아 있던 자리. 옮겼는지를 이것과 견준다
+   */
+  let edSecs = new Map();
+  let edSecSeq = 0;
 
   /**
    * 항목 하나가 안고 다니는 것. 노션에서 온 줄과 방금 보탠 줄이 같은 모양이어야
    * 한다 — 두 곳에 따로 적어 두면 칸을 하나 보태는 날 한쪽만 고치게 된다.
    *
    *   display  처음 그렸던 **표시용** HTML. 커스텀 이모지를 꺼내 올 곳이다
-   *   seen     노션에서 읽은 수정시각. 어긋남 판정의 기준선이다
    *   base     손대기 전의 편집용 HTML. 고쳤는지를 이것과 견준다
    *   home     처음 앉아 있던 자리. 옮겼는지를 이것과 견준다
+   *   type     그 줄의 종류. 저장할 때 문서에 그대로 실린다
    *   retype   바꾸려는 종류. 저장 전까지 화면에만 있다
    */
   const edItem = (li, nx, extra) => Object.assign(
-    {li, nx, display: '', seen: null, base: null, locked: null,
-     isNew: false, del: false, sectionId: '',
-     type: '', home: null, moved: false, retype: null, said: null}, extra);
-  let edPageId = null;
+    {li, nx, display: '', base: null,
+     isNew: false, del: false, checked: false,
+     type: '', home: null, moved: false, retype: null}, extra);
   let edWired = false;
 
   /** 공지 제목 칸. {input, base, seen} — 줄이 아니라 공지 한 건의 것이라 따로 둔다 */
@@ -1774,96 +1886,120 @@ function init(D){
     it.base = edSerialize(it.nx);
   }
 
-  /* 노션에 있는 편집용 원본을 통째로 받아 온다. 한 번에 다 못 읽으면 응답이
-     `more` 로 못 본 곳을 알려 준다 — 중계 서버가 한 요청에 쓸 수 있는 바깥
-     호출 수에 상한이 있어서다. 그것을 들고 끝까지 이어 읽는다 */
-  async function edFetchTree(){
-    const items = {};
-    let more = '', pageId = null, title = '', rounds = 0;
-    do {
-      const out = await ED.call('GET', '/notice/tree' +
-        `?slug=${encodeURIComponent(CLIENT)}` +
-        (more ? `&more=${encodeURIComponent(more)}` : ''));
-      Object.assign(items, out.items || {});
-      pageId = out.pageId;
-      title = out.title || '';
-      more = (out.more || []).join(',');
-      rounds += 1;
-    } while(more && rounds < 12);
-    return {items, pageId, title, left: !!more};
+  /**
+   * 공지 문서 → 화면이 그릴 수 있는 모양.
+   *
+   * 빌더가 봉투를 짓는 규칙과 같다(`notice_from_doc`). 다른 것은 **빈 줄을
+   * 버리지 않는 것** 하나다 — 담당자가 방금 Enter 로 만든 줄이 그것이고,
+   * 화면에서 사라지면 적을 곳이 없어진다.
+   */
+  function edDocView(doc){
+    const items = list => (list || []).map(i => ({
+      id: i.id, type: i.type, html: i.html || '',
+      checked: i.type === 'todo' ? !!i.checked : null,
+      children: items(i.items),
+      toggle: i.type === 'toggle' && (i.items || []).length ? true : undefined,
+    }));
+    return {
+      title: doc.title || '', date: doc.date || '',
+      sections: (doc.sections || []).map(s => ({
+        id: s.id, heading: (s.title || '').trim() || null, items: items(s.items),
+      })),
+    };
+  }
+
+  /** 주소 → 문서 속 그 항목. 화면의 줄에 글을 갈아 끼울 때 짝을 맞춘다 */
+  function edDocIndex(doc){
+    const map = new Map();
+    const walk = list => (list || []).forEach(i => { map.set(i.id, i); walk(i.items); });
+    (doc.sections || []).forEach(s => walk(s.items));
+    return map;
   }
 
   /* 지난번에 붙여 둔 자국을 걷어낸다. 안 걷으면 줄을 하나 보태 다시 불러올
-     때마다 잠긴 줄에 🔒 딱지가 하나씩 늘어난다 */
+     때마다 같은 딱지가 하나씩 늘어난다 */
   function edReset(it){
-    it.locked = null;
-    delete it.li.dataset.lock;
     it.li.classList.remove('ed-fail');
     it.nx.removeAttribute('contenteditable');
-    const tag = it.nx.parentElement.querySelector(':scope>.ed-lk');
-    if(tag) tag.remove();
     const mv = it.nx.parentElement.querySelector(':scope>.nx-mv');
     if(mv) mv.remove();
-    it.retype = it.said = null;
+    it.retype = null;
     edRtChip(it);
     edClearNote(it);
   }
 
-  /* 편집을 연다. 손대 둔 줄은 다시 받지 않는다 — 덮으면 저장 전에 사라진다.
-     보탠 줄은 노션에 아직 없어, 다시 열면 「노션에 없는 줄」로 잠긴다 */
+  /**
+   * 편집을 연다.
+   *
+   * 처음 한 번은 저장소에서 공지 문서를 받아 **그것으로 화면을 다시 그린다.**
+   * 다시 그리면 이 함수가 또 불리는데, 그때는 문서를 이미 들고 있으므로 화면의
+   * 줄에 편집용 글을 갈아 끼우는 일만 한다.
+   *
+   * 손대 둔 것을 지키려 들지 않는다. 화면을 다시 그리는 길은 `go` 하나뿐이고,
+   * 그 앞에 「저장하지 않고 떠나시겠습니까」가 서 있다.
+   */
   async function edLoad(){
     if(!document.getElementById('edbar')) return;
-    const prev = edItems;
-    const dirty = new Map();
-    prev.forEach((it, id) => {
-      if(it.isNew || it.del || it.moved || it.retype
-         || it.li.classList.contains('ed-dirty')) dirty.set(id, it);
-    });
 
+    if(!edLoaded){
+      edStatus('공지를 불러오는 중…');
+      let doc = null;
+      try { doc = await ED.call('GET', '/notice/doc?slug=' + encodeURIComponent(CLIENT)); }
+      catch(e){
+        if(e.status !== 404){
+          edMsg(edErr(e, '공지를 불러오지 못했습니다'), true);
+          edStatus('불러오지 못했습니다 — 편집 모드를 껐다 켜 주세요');
+          return;
+        }
+        /* 공지가 한 건도 없는 기업이다. 실패가 아니라 만들어야 할 까닭이다 */
+      }
+      edLoaded = true;
+      edDoc = doc;
+      /* 저장소의 문서로 화면을 다시 그린다. 봉투로 그린 화면은 지난 빌드의
+         것이라, 그 위에서 고쳐 저장하면 그 사이에 저장된 줄이 사라진다 */
+      notice = doc ? edDocView(doc) : null;
+      edForgetAll();
+      go('notice');
+      return;
+    }
+
+    /* 화면은 방금 그려졌고 장부는 비어 있다 — `go` 가 함께 버린다. 그래서
+       여기서 하는 일은 지금 화면에 있는 줄을 장부에 올리는 것뿐이다 */
     const next = new Map();
     document.querySelectorAll('.ck li[data-nid]').forEach(li => {
       const nx = li.querySelector(':scope>.nx, :scope>.tgh>.nx');
       if(!nx) return;
-      const id = li.dataset.nid;
-      const was = prev.get(id);
-      const kept = (was && was.li === li) ? was : null;
-      /* 화면을 다시 그리지 않았으면 처음 그렸던 표시용 HTML 을 지킨다. 지금
-         innerHTML 은 이미 편집용이라, 그것을 display 로 삼으면 커스텀 이모지
-         그림을 꺼내 올 곳이 없어진다 */
-      next.set(id, (kept && dirty.has(id)) ? kept
-        : edItem(li, nx, {display: kept ? kept.display : nx.innerHTML}));
+      /* 처음 그려진 **표시용** HTML 을 지켜 둔다. 곧 편집용으로 갈아 끼우므로
+         지금 아니면 커스텀 이모지 그림을 꺼내 올 곳이 없어진다 */
+      next.set(li.dataset.nid, edItem(li, nx, {display: nx.innerHTML}));
     });
     edItems = next;
-    edStatus('공지를 불러오는 중…');
 
-    let tree;
-    try { tree = await edFetchTree(); }
-    catch(e){
-      edMsg(edErr(e, '공지를 불러오지 못했습니다'), true);
-      edStatus('불러오지 못했습니다 — 편집 모드를 껐다 켜 주세요');
+    edSecsLoad();
+
+    if(!edDoc){
+      /* 공지가 없다. 「＋ 새 공지」만이 할 일이다 */
+      edStatus('공지가 없습니다 — 「＋ 새 공지」로 만들어 주세요');
       return;
     }
-    edPageId = tree.pageId;
-    edTitleOpen(tree.title);
-    edItems.forEach((it, id) => { if(!dirty.has(id)) edOpen(it, tree.items[id], tree.left); });
+    const index = edDocIndex(edDoc);
+    edTitleOpen(edDoc.title || '');
+    edItems.forEach((it, id) => edOpen(it, index.get(id)));
     edMvSync();
     edStatus();
-    if(tree.left) edMsg('공지가 깊어 일부는 불러오지 못했습니다 — 그 줄은 노션에서 고쳐 주세요', true);
   }
 
-  /* 제목 칸에 노션의 지금 제목을 넣는다. 봉투의 제목은 지난 빌드의 것이고,
+  /* 제목 칸에 저장소의 지금 제목을 넣는다. 봉투의 제목은 지난 빌드의 것이고,
      빌더가 빈 제목을 「공지사항」으로 갈아 끼우기까지 해서 그대로 두면
-     담당자가 손대지 않은 글자가 노션에 들어간다.
+     담당자가 손대지 않은 글자가 저장소에 들어간다.
 
-     손대 둔 제목은 덮지 않는다 — 기준선도 그대로 둔다. 그래야 그 사이에 남이
-     노션에서 제목을 고쳤을 때 저장이 어긋남으로 잡아 준다 */
+     손대 둔 제목은 덮지 않는다 */
   function edTitleOpen(text){
     const inp = document.getElementById('ntitle');
     if(!inp) return;
-    if(edTitle && edTitle.input === inp && edTitleDirty()) return;
     const now = String(text || '');
     inp.value = now;
-    edTitle = {input: inp, base: now, seen: now};
+    edTitle = {input: inp, base: now};
     inp.oninput = () => edStatus();
     /* Enter 로 줄을 만들지 않는다. 제목은 한 줄이고, 다음 손놀림은 본문이다 */
     inp.onkeydown = e => { if(e.key === 'Enter' || e.key === 'Escape'){
@@ -1875,51 +2011,25 @@ function init(D){
     !!(edTitle && edTitle.input.isConnected && edTitle.input.value.trim() !== edTitle.base);
 
   /* 항목 하나를 고칠 수 있게, 또는 왜 못 고치는지 밝히며 잠긴 채로 연다 */
-  function edOpen(it, node, unread){
+  /**
+   * 화면의 한 줄을 편집할 수 있게 연다.
+   *
+   * **잠기는 줄이 없다.** 노션이 쓰기를 받지 않던 것이 없어졌으므로 그 개념
+   * 자체가 함께 사라졌다. 화면이 문서로 그려졌으니 짝이 없는 줄도 없다.
+   */
+  function edOpen(it, node){
     edReset(it);
-    if(!node){
-      /* 다 읽지 못하고 멈췄으면 없는 줄이 아니라 아직 못 본 줄이다.
-         까닭을 뒤바꿔 말하면 담당자는 노션에 멀쩡히 있는 줄을 찾으러 간다 */
-      edLock(it, unread ? '아직 불러오지 못한 줄' : '노션에 없는 줄');
-      return;
-    }
-    it.seen = node.last_edited_time;
-    if(node.locked || typeof node.html !== 'string'){
-      edLock(it, node.locked || '노션 전용');
-      return;
-    }
-    edPaint(it, node.html);
+    if(!node) return;
+    edPaint(it, node.html || '');
     it.nx.contentEditable = 'true';
     it.nx.spellcheck = false;
     edBindItem(it);
 
-    it.type = node.type;
+    it.type = node.type || 'bullet';
+    it.checked = node.type === 'todo' && !!node.checked;
     it.home = edWhereKey(it);
     it.moved = false;
-    /* 안에 든 줄이 있으면 옮기지 않는다. 옮기기가 지우고 다시 만들기라
-       안엣것이 통째로 딸려 가고 그 줄들의 주소가 전부 바뀐다(ADR 0003).
-       중계 서버도 같은 판정을 하지만, 눌렀다가 실패하는 경험을 만들지 않는다 */
-    if(!node.has_children) edMvBox(it);
-  }
-
-  /* 못 고치는 줄에는 까닭과 갈 곳을 함께 붙인다. 「고칠 수 없습니다」만
-     남기면 담당자는 노션의 어디를 열어야 하는지 스스로 찾아야 한다 */
-  function edLock(it, why){
-    it.locked = why;
-    it.li.dataset.lock = why;
-    const anchor = it.nx.parentElement.querySelector(':scope>.nx-del') || it.nx;
-    const tag = document.createElement('span');
-    tag.className = 'ed-lk';
-    tag.innerHTML = `🔒 ${esc(why)} · <a target="_blank" rel="noopener" href="${
-      esc(edNotionUrl(it.li.dataset.nid))}">노션에서 고치기</a>`;
-    anchor.parentElement.insertBefore(tag, anchor.nextSibling);
-  }
-
-  /** 그 블록으로 바로 가는 노션 주소 */
-  function edNotionUrl(id){
-    const bare = String(id || '').replace(/-/g, '');
-    const page = (notice && notice.page_url) || '';
-    return page ? `${page}#${bare}` : `https://www.notion.so/${bare}`;
+    edMvBox(it);
   }
 
   /* 글이 하나도 없는 줄. 노션 전용 조각과 그림은 글이 없어도 내용이다 */
@@ -1946,13 +2056,209 @@ function init(D){
     return null;
   }
 
-  /* ── 옮기기 · 들여쓰기 · 종류 바꾸기 ──
-     노션 API 에는 블록을 옮기는 창구도 종류를 바꾸는 창구도 없다. 둘 다
-     지우고 다시 만들기라, 안에 든 줄이 있거나 잠긴 줄에는 아예 단추를 내지
-     않는다(ADR 0003). 저장하면 그 줄의 주소가 바뀌어 돌아온다. */
+  /* ── 칸(섹션) ──
+     칸은 제목 하나와 줄 묶음이다. 담당자가 여기서 만들고, 이름을 고치고,
+     지우고, 순서를 바꾼다. 줄과 마찬가지로 **저장을 눌러야** 나간다 —
+     저장이 화면을 걸어 다니며 문서를 다시 지으므로, 화면의 차례가 곧 문서의
+     차례이고 화면에서 지운 칸은 문서에서 사라진다. */
 
-  /** 옮기기와 종류 바꾸기. 둘 다 지우고 다시 만들기라 규칙이 같다 —
-      중계 서버의 `isRespawn` 과 짝이다 */
+  /** 지금 화면의 칸들을 장부에 올린다. 줄의 장부와 같이 언제나 새로 짓는다 */
+  function edSecsLoad(){
+    const next = new Map();
+    document.querySelectorAll('.notice').forEach(box => {
+      const id = box.dataset.nsec;
+      if(id === undefined) return;                 /* 편집 모드가 아닌 상자 */
+      const nsx = box.querySelector(':scope>h3>[data-nsx]');
+      if(!nsx) return;
+      const sec = {box, nsx, base: nsx.textContent.trim(),
+                   home: edSecWhere(box), moved: false, isNew: false, del: false};
+      next.set(id, sec);
+      edSecBind(sec);
+    });
+    edSecs = next;
+    edSecSync();
+  }
+
+  /** 이 칸이 지금 앉은 자리. 바로 위 칸의 주소, 맨 위면 `first` */
+  function edSecWhere(box){
+    const up = edSecSib(box, 'up');
+    return up ? up.dataset.nsec : 'first';
+  }
+
+  function edSecSib(box, dir){
+    const step = b => (dir === 'up' ? b.previousElementSibling : b.nextElementSibling);
+    for(let b = step(box); b; b = step(b)){
+      if(b.matches('.notice')) return b;
+    }
+    return null;
+  }
+
+  const edSecOf = el => {
+    const box = el.closest('.notice');
+    return box ? edSecs.get(box.dataset.nsec) : null;
+  };
+
+  /** 그 칸 안에 든 줄의 수. 지울 때 무엇이 함께 가는지 말해 주려고 센다 */
+  const edSecLines = box => box.querySelectorAll('li[data-nid]').length;
+
+  /** 눌러서 옮겨 놓았고, 아직 제자리로 돌아오지 않았는가.
+      옮긴 칸만 센다 — 옆 칸의 자리도 함께 바뀌지만 담당자가 손댄 것은 하나다 */
+  const edSecMoved = sec => !!(sec.moved && edSecWhere(sec.box) !== sec.home);
+
+  const edSecDirty = sec =>
+    sec.isNew || sec.del || sec.nsx.textContent.trim() !== sec.base || edSecMoved(sec);
+
+  function edSecBind(sec){
+    const {box, nsx} = sec;
+    nsx.contentEditable = 'true';
+    nsx.spellcheck = false;
+    /* 제목을 누르면 커서만 간다. 그대로 두면 머리말이 접혀 안엣줄이 사라진다 */
+    nsx.onclick = e => e.stopPropagation();
+    nsx.oninput = () => { edSecSync(); edStatus(); };
+    /* Enter 로 줄을 만들지 않는다. 칸 이름은 한 줄이다 */
+    nsx.onkeydown = e => {
+      if(e.key === 'Enter' || e.key === 'Escape'){ e.preventDefault(); nsx.blur(); }
+    };
+    box.querySelectorAll(':scope>h3>.ns-mv [data-nsmv]').forEach(b => {
+      b.onclick = e => { e.stopPropagation(); edSecMove(sec, b.dataset.nsmv); };
+    });
+    const del = box.querySelector(':scope>h3>.ns-mv [data-nsdel]');
+    if(del) del.onclick = e => { e.stopPropagation(); edSecDel(sec); };
+  }
+
+  /** 지금 무엇을 누를 수 있는지. 칸 하나가 움직이면 이웃도 함께 바뀐다 */
+  function edSecSync(){
+    edSecs.forEach(sec => {
+      const mv = sec.box.querySelector(':scope>h3>.ns-mv');
+      if(!mv) return;
+      mv.querySelector('[data-nsmv="up"]').disabled = sec.del || !edSecSib(sec.box, 'up');
+      mv.querySelector('[data-nsmv="down"]').disabled = sec.del || !edSecSib(sec.box, 'down');
+      const del = mv.querySelector('[data-nsdel]');
+      del.textContent = sec.del ? '↺' : '✕';
+      del.title = sec.del ? '지우기를 물린다' : '이 칸 지우기';
+      sec.box.classList.toggle('ed-secdel', sec.del);
+      sec.box.classList.toggle('ed-dirty', edSecDirty(sec) && !sec.del);
+      sec.nsx.contentEditable = sec.del ? 'false' : 'true';
+    });
+  }
+
+  function edSecMove(sec, dir){
+    const sib = edSecSib(sec.box, dir);
+    if(!sib) return;
+    sec.box.parentElement.insertBefore(
+      sec.box, dir === 'up' ? sib : sib.nextElementSibling);
+    sec.moved = true;
+    sec.box.scrollIntoView({block: 'nearest'});
+    edSecSync();
+    edStatus();
+  }
+
+  /**
+   * 칸을 지운다. **안에 든 줄도 함께 간다** — 무엇이 딸려 가는지 먼저 말한다.
+   *
+   * 저장 전까지는 그어진 채로 남아 그 자리에서 물릴 수 있다. 줄을 지울 때와
+   * 같은 규칙이다.
+   */
+  function edSecDel(sec){
+    if(sec.del){                                   /* 물리기 */
+      sec.del = false;
+      edSecSync();
+      edStatus();
+      return;
+    }
+    if(sec.isNew){ edSecForget(sec); return; }
+    const n = edSecLines(sec.box);
+    const name = sec.nsx.textContent.trim() || '(이름 없는 칸)';
+    if(!confirm(`이 칸을 지웁니다.\n\n${name}` +
+                (n ? `\n\n안에 든 ${n}줄도 함께 지워집니다.` : '') +
+                '\n\n「저장」을 눌러야 실제로 사라집니다.')) return;
+    sec.del = true;
+    edSecSync();
+    edStatus();
+  }
+
+  /** 옮긴 칸을 제자리로. 제자리를 찾지 못하면 false 다 */
+  function edSecUndo(sec){
+    const home = sec.home;
+    if(home === 'first'){
+      const first = document.querySelector('.notice');
+      if(!first) return false;
+      first.parentElement.insertBefore(sec.box, first);
+    } else {
+      const ref = document.querySelector(`.notice[data-nsec="${home}"]`);
+      if(!ref || ref === sec.box) return false;
+      ref.parentElement.insertBefore(sec.box, ref.nextElementSibling);
+    }
+    sec.moved = false;
+    edSecSync();
+    return true;
+  }
+
+  /** 만들어만 두고 쓰지 않은 칸을 걷는다. 저장에는 나가지 않는다 */
+  function edSecForget(sec){
+    sec.box.querySelectorAll('li[data-nid]').forEach(li => {
+      const it = edItems.get(li.dataset.nid);
+      if(it) edForget(it);
+    });
+    edSecs.delete(sec.box.dataset.nsec);
+    sec.box.remove();
+    edSecEnsure();
+    edSecSync();
+    edStatus();
+  }
+
+  /**
+   * 칸이 하나도 남지 않았으면 빈 칸 하나를 세워 둔다.
+   *
+   * 마지막 칸을 지우고 나면 줄을 적을 곳이 통째로 사라진다 — 갓 만든 공지에
+   * 빈 칸 하나를 세워 주는 것과 같은 까닭이다.
+   */
+  function edSecEnsure(){
+    if(!document.getElementById('edbar')) return;
+    if(document.querySelector('.notice')) return;
+    edSecAdd();
+  }
+
+  /** 빈 칸 하나를 세우고 커서를 이름으로 보낸다 */
+  function edSecAdd(){
+    const bar = document.querySelector('.nsadd');
+    if(!bar) return;
+    edSecSeq += 1;
+    const box = document.createElement('div');
+    box.className = 'notice open ed-new';
+    box.dataset.nsec = `new-s${edSecSeq}`;
+    box.innerHTML = `<h3><i class="tw">▸</i><span class="nsx" data-nsx></span>
+      <span class="ns-mv">
+        <button data-nsmv="up" title="칸을 위로">↑</button>
+        <button data-nsmv="down" title="칸을 아래로">↓</button>
+        <button data-nsdel title="이 칸 지우기">✕</button>
+      </span></h3><div class="bd">
+      <ul class="ck"></ul>
+      <div class="nadd"><button class="nadd-b" data-nadd>＋ 줄 추가</button></div>
+      </div>`;
+    bar.parentElement.insertBefore(box, bar);
+    const nsx = box.querySelector('[data-nsx]');
+    const sec = {box, nsx, base: '', home: edSecWhere(box), isNew: true, del: false};
+    edSecs.set(box.dataset.nsec, sec);
+    edSecBind(sec);
+    bindNoticeBox(box);
+    box.scrollIntoView({block: 'nearest'});
+    edFocusEnd(nsx);
+    edSecSync();
+    edStatus();
+    return sec;
+  }
+
+  /* ── 옮기기 · 들여쓰기 · 종류 바꾸기 ──
+     **화면에서 옮기면 그것으로 끝이다.** 저장이 화면을 걸어 다니며 문서를 다시
+     지으므로, 옮기기는 배열의 원소를 옮기는 일이고 종류 바꾸기는 값 하나를
+     고치는 일이다. 안에 든 줄이 몇 개든 상관없고, 그 줄의 주소도 바뀌지 않는다.
+
+     예전에는 둘 다 「지우고 다시 만들기」였다 — 노션에 블록을 옮기는 창구도
+     종류를 바꾸는 창구도 없었기 때문이다(ADR 0003). 원본이 저장소로 오면서
+     그 제약이 통째로 사라졌다(ADR 0004). */
+
+  /** 글이 아니라 자리와 종류를 손댄 것. 「되돌리기」가 이 둘만 다르게 물린다 */
   const edStruct = op => op === 'move' || op === 'retype';
 
   /** 그 줄의 종류 고르개 */
@@ -1966,14 +2272,11 @@ function init(D){
     return sub;
   }
 
-  /** 화면에서 이웃한 줄. `real` 이면 노션에 이미 있는 줄만 — 아직 없는 줄은
-      발판이 되지 못한다(주소가 없다) */
-  function edSib(li, dir, real){
+  /** 화면에서 이웃한 줄 */
+  function edSib(li, dir){
     const step = s => (dir === 'up' ? s.previousElementSibling : s.nextElementSibling);
     for(let s = step(li); s; s = step(s)){
-      if(!s.matches('li[data-nid]')) continue;
-      if(real && s.classList.contains('ed-new')) continue;
-      return s;
+      if(s.matches('li[data-nid]')) return s;
     }
     return null;
   }
@@ -1982,21 +2285,16 @@ function init(D){
   const edParentLi = li => li.parentElement.closest('li[data-nid]');
 
   /**
-   * 이 줄이 지금 앉은 자리. 중계 서버가 쓰는 낱말 그대로다 —
-   * 「이 줄 다음」 · 「이 줄 앞」 · 「이 줄 안」.
+   * 이 줄이 지금 앉은 자리 — 「이 줄 다음」 · 「이 줄 앞」 · 「이 줄 안」.
    *
-   * 방향(한 칸 위로)으로 보내지 않는 까닭은 **화면의 한 칸과 노션의 한 칸이
-   * 같지 않기 때문**이다. 빌더는 콜아웃을 펴서 그리고 섹션 제목은 화면의 줄이
-   * 아니다. 이웃을 짚어 보내면 그 어긋남이 아예 생기지 않고, 여러 칸을 옮긴
-   * 것도 한 번에 나간다.
+   * 저장에 실려 나가지 않는다. 자리는 화면의 차례가 그대로 문서의 차례가
+   * 되므로 따로 짚을 것이 없다. 여기서 재는 것은 **옮겼는가** 하나뿐이다 —
+   * 처음 앉았던 자리와 견주어 저장 창구가 「1줄 옮김」을 센다.
    */
   function edWhere(li){
     const near = edSib(li, 'up');
-    /* 바로 위가 이번에 함께 보태는 줄이면 임시 이름으로 짚는다. 건너뛰고
-       그 위 줄을 짚으면 노션에서는 보탠 줄보다 **위**로 가 버린다 */
-    if(near && near.classList.contains('ed-new')) return {afterNew: near.dataset.nid};
     if(near) return {after: near.dataset.nid};
-    const next = edSib(li, 'down', true);
+    const next = edSib(li, 'down');
     if(next) return {before: next.dataset.nid};
     const up = edParentLi(li);
     return up ? {into: up.dataset.nid} : null;
@@ -2006,7 +2304,7 @@ function init(D){
   /** 눌러서 옮겨 놓았고, 아직 제자리로 돌아오지 않았는가 */
   const edMoved = it => !!(it.moved && edWhereKey(it) !== it.home);
 
-  /** 화면에서 한 칸 옮긴다. **노션에는 나가지 않는다** — 저장이 함께 내보낸다 */
+  /** 화면에서 한 칸 옮긴다. **저장소에는 나가지 않는다** — 저장이 함께 내보낸다 */
   function edMove(it, dir){
     const li = it.li;
     if(dir === 'up' || dir === 'down'){
@@ -2038,10 +2336,9 @@ function init(D){
     });
   }
 
-  /** 줄의 종류. 중계 서버의 ITEM_TYPES 와 같은 여섯 가지다 */
-  const ED_TYPES = [['bulleted_list_item','글머리'], ['numbered_list_item','번호'],
-                    ['to_do','할 일'], ['paragraph','본문'],
-                    ['quote','인용'], ['toggle','토글']];
+  /** 줄의 종류. 공지 문서가 싣는 여섯 가지다 */
+  const ED_TYPES = [['bullet','글머리'], ['number','번호'], ['todo','할 일'],
+                    ['paragraph','본문'], ['quote','인용'], ['toggle','토글']];
 
   /* 옮기기 단추와 종류 고르개. 지우기 단추 옆에 함께 둔다 */
   function edMvBox(it){
@@ -2075,35 +2372,28 @@ function init(D){
   /**
    * 지금 무엇을 누를 수 있는지 다시 셈한다. 줄 하나가 움직이면 그 이웃들의
    * 사정도 함께 바뀌므로 통째로 훑는다.
-   *
-   * 옮기기와 종류 바꾸기는 **한 줄에 하나씩만** 걸린다. 둘 다 지우고 다시
-   * 만들기라, 함께 보내면 뒤엣것이 이미 없는 주소를 짚는다.
    */
   function edMvSync(){
     edItems.forEach(it => {
       const box = it.nx && it.nx.parentElement.querySelector(':scope>.nx-mv');
       if(!box) return;
-      /* **바로 위 줄**이다. 「노션에 이미 있는 위 줄」로 재면 안 된다 —
-         들여쓰기가 실제로 들어가는 곳은 바로 위 줄 안이라, 둘이 다르면
-         단추는 살아 있는데 담당자는 방금 보탠 줄 안으로 들어가게 된다 */
-      const near = edSib(it.li, 'up');
-      const nearIt = near && edItems.get(near.dataset.nid);
+      /* 들여쓰면 **바로 위 줄** 안으로 들어간다. 그 줄이 방금 보탠 줄이어도
+         상관없다 — 저장이 화면을 걸어 다니며 문서를 짓기 때문에, 화면에
+         들어가 있으면 문서에도 들어가 있다 */
       const can = {
-        up: !!near,
+        up: !!edSib(it.li, 'up'),
         down: !!edSib(it.li, 'down'),
-        /* 들여쓰면 바로 위 줄 안으로 들어간다. 그림이나 표 안에는 못 들어가고,
-           아직 노션에 없는 줄 안으로도 못 들어간다 — 주소가 없다 */
-        in: !!(nearIt && !nearIt.locked && !nearIt.isNew),
+        in: !!edSib(it.li, 'up'),
         out: !!edParentLi(it.li),
       };
-      const rt = !!it.retype, mv = edMoved(it);
-      /* 노션에 안엣줄이 없어도 화면에서 방금 들여쓴 줄이 있을 수 있다. 그 줄을
-         옮기면 안엣것이 통째로 딸려 가므로 여기서도 다시 본다 */
-      const kids = !!it.li.querySelector('li[data-nid]');
+      /* 안에 든 줄이 있어도 막지 않는다. 옮기기가 배열의 원소를 옮기는 일이
+         되어 안엣것이 딸려 가는 것이 곧 옳은 결과다. 옮기기와 종류 바꾸기를
+         함께 걸어도 된다 — 지우고 다시 만들기가 아니라 값 하나를 고치는
+         일이라 서로를 밟지 않는다 */
       box.querySelectorAll('[data-nmv]').forEach(b => {
-        b.disabled = it.del || rt || kids || !can[b.dataset.nmv];
+        b.disabled = it.del || !can[b.dataset.nmv];
       });
-      box.querySelector('[data-nrt]').disabled = it.del || mv || kids;
+      box.querySelector('[data-nrt]').disabled = it.del;
     });
   }
 
@@ -2111,23 +2401,19 @@ function init(D){
   const edTypeName = t => (ED_TYPES.find(([v]) => v === t) || [, t])[1];
 
   /**
-   * 그 줄의 종류를 적어 둔다. 바꾸는 중이면 「종류 → 번호」, 바꾸고 나면
-   * 「종류: 번호」다.
+   * 바꾸려는 종류를 그 줄에 적어 둔다 — 「종류 → 번호」.
    *
-   * **바꾸고 나서도 적어 두는 까닭**은 클라이언트 화면이 종류를 거의 그리지
-   * 않기 때문이다. 봉투에 실리는 것은 할 일의 체크와 인용의 들여쓰기뿐이라,
-   * 글머리·번호·본문은 재빌드 뒤에도 똑같이 그려진다. 딱지를 걷으면 담당자는
-   * 바뀐 것을 어디서도 확인할 수 없다 — 노션을 열어야 한다.
+   * 저장하고 나면 걷는다. 봉투가 종류를 실어 클라이언트 화면이 그 종류대로
+   * 그리므로, 바뀐 것은 화면 자체가 말해 준다.
    */
   function edRtChip(it){
     const top = it.nx.closest('.tgh') || it.nx;
     const old = top.parentElement.querySelector(':scope>.ed-rt');
     if(old) old.remove();
-    if(!it.retype && !it.said) return;
+    if(!it.retype) return;
     const tag = document.createElement('span');
     tag.className = 'ed-rt';
-    tag.textContent = it.retype ? `종류 → ${edTypeName(it.retype)}`
-                                : `종류: ${edTypeName(it.said)}`;
+    tag.textContent = `종류 → ${edTypeName(it.retype)}`;
     top.parentElement.insertBefore(tag, top.nextSibling);
   }
 
@@ -2163,72 +2449,21 @@ function init(D){
    * 적어 둔 자리로 돌려놓는다. 발판이던 줄이 화면에 없으면 그대로 둔다 —
    * 억지로 옮기면 담당자가 놓지 않은 자리에 놓인다.
    *
-   * 발판은 사라질 수 있다. 이웃한 줄을 옮기면 그 줄의 노션 주소가 바뀌고,
-   * 적어 둔 자리는 옛 주소를 가리킨 채로 남는다.
+   * 발판은 사라질 수 있다. 그 줄을 지워 두었으면 화면에 없다.
    *
    * @returns {boolean} 돌려놓았는가
    */
   function edPlaceAt(li, home){
     if(!home) return false;
-    const id = home.after || home.afterNew || home.before || home.into;
+    const id = home.after || home.before || home.into;
     const ref = document.querySelector(`.ck li[data-nid="${id}"]`);
     if(!ref || ref === li || li.contains(ref)) return false;
-    if(home.after || home.afterNew) ref.parentElement.insertBefore(li, ref.nextSibling);
+    if(home.after) ref.parentElement.insertBefore(li, ref.nextSibling);
     else if(home.before) ref.parentElement.insertBefore(li, ref);
     else edSubList(ref).appendChild(li);
     return true;
   }
 
-  /**
-   * 옮기거나 종류를 바꾼 줄이 노션에서 새 주소를 받아 왔다. 그것으로 갈아
-   * 끼운다 — 안 갈면 다음 저장이 이미 지워진 주소를 짚는다.
-   */
-  function edRehome(it, r){
-    edItems.delete(it.li.dataset.nid);
-    it.li.dataset.nid = r.newBlockId;
-    edItems.set(r.newBlockId, it);
-    it.seen = r.last_edited_time;
-    /* 종류가 실제로 바뀌었으면 그 사실을 그 줄에 남긴다. 클라이언트 화면은
-       글머리와 번호를 갈라 그리지 않아, 여기 말고는 확인할 곳이 없다 */
-    if(r.type && r.type !== it.type) it.said = r.type;
-    it.type = r.type || it.type;
-    it.retype = null;
-    it.moved = false;
-    it.display = r.html || '';
-    edPaint(it, r.html || '');
-    edRtChip(it);
-    it.home = edWhereKey(it);
-    it.li.classList.remove('ed-dirty', 'ed-fail', 'ed-moved');
-    const sel = edMvSel(it);
-    if(sel) sel.value = it.type;
-    edMvSync();
-  }
-
-  /* 옮기려던 사이에 노션에서 먼저 바뀌었다. 고치기와 달리 견줄 「내가 쓴 글」이
-     없다 — 자리를 옮기려던 것뿐이다. 그래서 지금 노션에 무엇이 적혀 있는지만
-     보여 주고, 그래도 옮길지를 담당자가 고른다 */
-  function edStaleMove(it, cur, op){
-    const box = edNote(it);
-    box.innerHTML = `${op === 'move' ? '옮기려는' : '종류를 바꾸려는'} 사이에
-      노션에서 먼저 바뀌었습니다. 지금 내용입니다.
-      <div class="cur"></div>
-      <button data-edgo>그래도 진행합니다</button>
-      <button data-edback>그만두기</button>`;
-    box.querySelector('.cur').innerHTML = cur.html || '<i>(빈 줄)</i>';
-    box.querySelector('[data-edgo]').onclick = () => {
-      /* 기준선만 노션의 지금 시각으로 옮긴다. 다음 저장이 그대로 진행한다 */
-      it.seen = cur.last_edited_time;
-      it.li.classList.remove('ed-fail');
-      edClearNote(it);
-      edMsg('다시 「저장」을 누르면 그대로 진행합니다');
-    };
-    box.querySelector('[data-edback]').onclick = () => {
-      edUndoOne(it);
-      edClearNote(it);
-      edStatus();
-      edMsg('');
-    };
-  }
 
   function edBindItem(it){
     const nx = it.nx;
@@ -2297,44 +2532,42 @@ function init(D){
    */
   function edPending(){
     const out = [];
-    /* 제목이 맨 앞이다. 중계 서버도 제목부터 쓴다 — 저장이 상한에서 끊겨도
-       공지의 이름만은 먼저 자리를 잡는다 */
+    /* 공지의 제목이 맨 앞이다. 줄이 아니라 공지 한 건의 것이다 */
     if(edTitleDirty()) out.push({op:'title'});
+    /* 칸 손질. 이름 고침·만듦·옮김·지움을 갈라서 센다 */
+    edSecs.forEach(sec => {
+      if(!sec.box.isConnected) return;
+      if(sec.del){ out.push({sec, op:'secdel'}); return; }
+      if(sec.isNew){
+        /* 이름도 줄도 없는 칸은 저장에 나가지 않는다. 세지도 않는다 —
+           세면 「저장하지 않은 것이 있다」가 영영 붙잡는다 */
+        if(sec.nsx.textContent.trim() || edSecLines(sec.box)) out.push({sec, op:'secadd'});
+        return;
+      }
+      if(sec.nsx.textContent.trim() !== sec.base) out.push({sec, op:'secname'});
+      if(edSecMoved(sec)) out.push({sec, op:'secmove'});
+    });
     document.querySelectorAll('.ck li[data-nid]').forEach(li => {
       const it = edItems.get(li.dataset.nid);
       if(!it) return;
-      /* 지울 줄 안에 든 줄은 따로 보내지 않는다. 노션이 그릇을 지우면 안엣것도
-         함께 사라져, 따로 보내면 「이미 지운 항목」으로 실패해 돌아온다 */
+      /* 지울 줄 안에 든 줄, 지울 칸 안에 든 줄은 따로 세지 않는다. 그릇이
+         사라지면 함께 사라지므로 손질 하나가 여럿으로 보일 뿐이다 */
       if(li.parentElement.closest('li.ed-del')) return;
+      const sec = edSecs.get((li.closest('.notice') || {dataset:{}}).dataset.nsec);
+      if(sec && sec.del) return;
       if(it.del){ out.push({it, op:'remove'}); return; }
       if(it.isNew){
         if(!edEmpty(it.nx)) out.push({it, op:'add'});
         return;
       }
       if(li.classList.contains('ed-dirty')) out.push({it, op:'edit'});
-      /* 옮기기와 종류 바꾸기는 한 줄에 하나씩만 걸린다 — 둘 다 지우고 다시
-         만들기라, 함께 보내면 뒤엣것이 이미 없는 주소를 짚는다.
-         고치기와는 함께 나간다. 중계 서버가 고친 글을 안고 옮겨 준다 */
+      /* 한 줄에 셋이 함께 걸릴 수 있다 — 글을 고치고, 자리를 옮기고, 종류를
+         바꾸는 것이 저장할 때는 문서 한 벌의 서로 다른 자리일 뿐이다.
+         저장 창구는 담당자가 한 대로 세어 보여 준다 */
       if(edMoved(it)) out.push({it, op:'move'});
-      else if(it.retype) out.push({it, op:'retype'});
+      if(it.retype) out.push({it, op:'retype'});
     });
     return out;
-  }
-
-  /* 보탠 줄이 들어갈 자리. 화면에서 바로 위 형제가 발판이다.
-     그 형제도 이번에 함께 보태는 줄이면 노션 주소가 아직 없으므로 tempId 로
-     짚는다 — 중계 서버가 앞 줄을 먼저 만들고 그 다음 자리를 잡아 준다 */
-  function edSpot(it){
-    for(let sib = it.li.previousElementSibling; sib; sib = sib.previousElementSibling){
-      if(!sib.matches('li[data-nid]')) continue;
-      const prev = edItems.get(sib.dataset.nid);
-      /* 쓰지 않은 빈 줄은 저장에 안 나간다. 발판으로 삼으면 없는 자리를 짚는다 */
-      if(prev && prev.isNew && edEmpty(prev.nx)) continue;
-      return (prev && prev.isNew) ? {afterNew: sib.dataset.nid}
-                                  : {after: sib.dataset.nid};
-    }
-    /* 위에 아무것도 없다 — 빈 섹션에 처음 보태는 경우다 */
-    return it.sectionId ? {sectionId: it.sectionId} : {};
   }
 
   function edStatus(text){
@@ -2344,17 +2577,20 @@ function init(D){
     const n = pend.length;
     /* 무엇이 몇 줄 나가는지를 갈라서 센다. 「5줄 바뀜」으로 뭉치면 담당자는
        그 안에 지우기가 몇 줄인지 모른 채 저장을 누른다 */
+    const count = (op) => pend.filter(p => p.op === op).length;
     const said = (pend.some(p => p.op === 'title') ? ['제목'] : [])
       .concat([['edit','고침'], ['add','보탬'], ['move','옮김'],
                ['retype','종류 바꿈'], ['remove','지움']]
-        .map(([op, word]) => [pend.filter(p => p.op === op).length, word])
-        .filter(([c]) => c).map(([c, word]) => `${c}줄 ${word}`)).join(' · ');
+        .map(([op, word]) => [count(op), word])
+        .filter(([c]) => c).map(([c, word]) => `${c}줄 ${word}`))
+      .concat([['secadd','만듦'], ['secname','이름 고침'],
+               ['secmove','옮김'], ['secdel','지움']]
+        .map(([op, word]) => [count(op), word])
+        .filter(([c]) => c).map(([c, word]) => `${c}칸 ${word}`)).join(' · ');
     bar.querySelector('[data-edcnt]').textContent =
       text !== undefined ? text
       : !n ? '바뀐 것 없음'
-      /* 「몇 줄까지」라고 말하지 않는다. 상한이 무게라 옮기기가 섞이면 실제로
-         나가는 줄 수가 그때그때 다르다 — 숫자를 대면 그것이 틀린 말이 된다 */
-      : edWeight(pend) > ED_MAX_WEIGHT ? `${said} — 한 번에 다 나가지 않습니다`
+      /* 몇 개까지라는 말이 없다. 문서를 통째로 보내므로 상한이 없다 */
       : said;
     bar.querySelector('[data-edsave]').disabled = !n;
     bar.querySelector('[data-edundo]').disabled = !n;
@@ -2385,273 +2621,340 @@ function init(D){
     if(old) old.remove();
   }
 
-  /* 어긋남 — 화면이 본 뒤에 노션에서 먼저 바뀌었다. 노션의 지금 내용을 그대로
-     보여 주고 어느 쪽을 남길지는 담당자가 고른다. 여기서 자동으로 고르면
-     둘 중 하나가 말없이 사라진다 */
-  function edStale(it, cur, op){
-    if(op === 'remove') return edStaleDel(it, cur);
-    if(edStruct(op)) return edStaleMove(it, cur, op);
-    /* 노션 전용 조각은 「지금 rich_text 에서의 자리」로 실려 있다. 노션이
-       먼저 바뀌었으면 그 자리에 다른 것이 들어 있을 수 있어, 고친 대로
-       덮어쓰면 중계 서버가 「조각이 손대어졌다」며 되돌린다. 눌러도 실패할
-       단추를 내놓느니 왜 못 하는지를 말한다 */
-    const opaque = !!it.nx.querySelector('[data-o]');
-    const box = edNote(it);
-    box.innerHTML = `노션에서 먼저 바뀌었습니다. 지금 노션의 내용입니다.
-      <div class="cur"></div>
-      <button data-edtake>노션 내용으로</button>` + (opaque
-        ? `<span>이 줄에는 노션에서만 만드는 조각이 있어 덮어쓸 수 없습니다 —
-           노션 내용을 받아 다시 고쳐 주세요</span>`
-        : `<button data-edmine>내가 고친 대로 덮어쓰기</button>`);
-    box.querySelector('.cur').innerHTML = cur.html || '<i>(빈 줄)</i>';
-    box.querySelector('[data-edtake]').onclick = () => {
-      it.seen = cur.last_edited_time;
-      edPaint(it, cur.html || '');
-      it.li.classList.remove('ed-dirty', 'ed-fail');
-      edClearNote(it);
-      edStatus();
-    };
-    if(opaque) return;
-    box.querySelector('[data-edmine]').onclick = () => {
-      /* 기준선만 노션의 지금 시각으로 옮긴다. 다음 저장이 그대로 덮어쓴다 */
-      it.seen = cur.last_edited_time;
-      it.li.classList.remove('ed-fail');
-      edClearNote(it);
-      edMsg('다시 「저장」을 누르면 내가 고친 대로 덮어씁니다');
-    };
-  }
 
-  /* 지우려던 줄이 어긋났다. 고치기보다 이쪽이 위험하다 — 다른 담당자가 방금
-     새로 쓴 글을 통째로 가져가고, 노션에 되돌리기는 없다. 그래서 지금 노션에
-     무엇이 적혀 있는지부터 보여 준다 */
-  function edStaleDel(it, cur){
-    const box = edNote(it);
-    box.innerHTML = `지우려는 사이에 노션에서 먼저 바뀌었습니다. 지금 내용입니다.
-      <div class="cur"></div>
-      <button data-edkill>그래도 지웁니다</button>
-      <button data-edkeep>지우지 않기</button>`;
-    box.querySelector('.cur').innerHTML = cur.html || '<i>(빈 줄)</i>';
-    box.querySelector('[data-edkill]').onclick = () => {
-      /* 기준선만 노션의 지금 시각으로 옮긴다. 다음 저장이 그대로 지운다 */
-      it.seen = cur.last_edited_time;
-      it.li.classList.remove('ed-fail');
-      edClearNote(it);
-      edMsg('다시 「저장」을 누르면 이 줄을 지웁니다');
-    };
-    box.querySelector('[data-edkeep]').onclick = () => {
-      it.li.classList.remove('ed-fail');
-      edMarkDel(it, false);
-      edClearNote(it);
-      edMsg('');
-    };
-  }
 
-  /* 노션이 준 주소로 갈아 끼운다. 이 줄은 이제 다른 줄과 똑같이 그 자리에서
-     고쳐진다 — 화면을 다시 그리지 않아도 된다 */
-  function edAdopt(it, r){
-    edItems.delete(it.li.dataset.nid);
-    it.li.dataset.nid = r.blockId;
-    it.li.classList.remove('ed-new');
-    it.isNew = false;
-    it.sectionId = '';
-    /* 커스텀 이모지를 되찾을 곳이다. 새 줄에는 아직 없지만, 다음 저장의
-       edPaint 가 여기를 본다 */
-    it.display = r.html || '';
-    edItems.set(r.blockId, it);
-  }
 
-  /**
-   * 제목에 붙는 알림 상자를 만들어 돌려준다. 줄에 붙는 `edNote` 와 짝이다.
-   *
-   * 머리말 바로 밑에 놓는다. 저장 창구는 공지 맨 아래에 있어, 거기에만 적으면
-   * 담당자는 제목이 왜 안 나갔는지 화면 끝까지 내려가 읽는다.
-   */
-  function edTitleNote(){
-    edClearTitleNote();
-    const vh = edTitle && edTitle.input.closest('.vh');
-    if(!vh) return null;
-    const box = document.createElement('div');
-    box.className = 'ed-note bad';
-    box.id = 'ntnote';
-    vh.parentElement.insertBefore(box, vh.nextSibling);
-    return box;
-  }
-  function edClearTitleNote(){
-    const old = document.getElementById('ntnote');
-    if(old) old.remove();
-  }
-
-  /**
-   * 제목 저장의 결과를 화면에 반영한다. 세 갈래다 — 들어갔거나, 그 사이에
-   * 노션에서 먼저 바뀌었거나(`stale`), 노션이 거절했거나.
-   *
-   * 들어갔으면 기준선을 그 값으로 옮긴다. 안 옮기면 다음 저장이 방금 내가 쓴
-   * 제목을 어긋남으로 읽는다.
-   */
-  function edTitleResult(r){
-    if(!edTitle) return;
-    edClearTitleNote();
-    if(r.status === 'ok'){
-      edTitle.base = edTitle.seen = r.title || '';
-      edTitle.input.value = edTitle.base;
-      /* 봉투에도 적어 둔다. 편집 모드를 끄면 이 값으로 제목을 다시 그린다 —
-         빌더가 빈 제목에 붙이는 이름이 「공지사항」이다 */
-      if(notice) notice.title = edTitle.base || '공지사항';
-      return;
-    }
-    const box = edTitleNote();
-    if(!box) return;
-    if(r.status !== 'stale'){
-      box.textContent = `제목을 저장하지 못했습니다 — ${r.detail || ''}`;
-      return;
-    }
-    /* 어긋남 — 그 사이에 노션에서 제목이 먼저 바뀌었다. 어느 쪽을 남길지는
-       담당자가 고른다. 여기서 자동으로 고르면 둘 중 하나가 말없이 사라진다 */
-    const mine = edTitle.input.value.trim();
-    const now = (r.current && r.current.title) || '';
-    box.innerHTML = `제목이 노션에서 먼저 바뀌었습니다. 지금 제목입니다.
-      <div class="cur"></div>
-      <button data-edttake>노션 제목으로</button>
-      <button data-edtmine>내가 쓴 대로 덮어쓰기</button>`;
-    box.querySelector('.cur').textContent = now || '(빈 제목)';
-    box.querySelector('[data-edttake]').onclick = () => {
-      edTitle.base = edTitle.seen = now;
-      edTitle.input.value = now;
-      edClearTitleNote();
-      edStatus();
-    };
-    box.querySelector('[data-edtmine]').onclick = () => {
-      /* 기준선만 노션의 지금 제목으로 옮긴다. 다음 저장이 그대로 덮어쓴다 */
-      edTitle.seen = now;
-      edTitle.input.value = mine;
-      edClearTitleNote();
-      edMsg('다시 「저장」을 누르면 제목을 내가 쓴 대로 덮어씁니다');
-    };
-  }
-
-  function edResult(p, r){
-    if(p && p.op === 'title') return edTitleResult(r);
-    const it = p && p.it;
-    if(!it) return;
-    if(r.status === 'ok'){
-      if(p.op === 'remove'){ edForget(it); return; }
-      /* 옮긴 줄은 노션에서 새 주소를 받아 온다 — 지우고 다시 만들기라서다 */
-      if(edStruct(p.op)){ edRehome(it, r); return; }
-      if(p.op === 'add') edAdopt(it, r);
-      it.seen = r.last_edited_time;
-      /* 노션이 받아들인 모양으로 다시 그린다. 화면과 노션이 어긋난 채로 두면
-         다음 저장이 어긋남으로 튕긴다 */
-      edPaint(it, r.html || '');
-      it.li.classList.remove('ed-dirty', 'ed-fail');
-      return;
-    }
-    /* 옮기기는 만들기와 지우기 두 번의 쓰기다. 새 줄이 들어간 뒤 옛 줄을
-       지우지 못했으면 주소부터 갈아탄다 — 안 갈면 다시 「저장」을 누를 때마다
-       노션에 사본이 하나씩 는다 */
-    if(r.newBlockId) edRehome(it, r);
-    it.li.classList.add('ed-fail');
-    if(r.status === 'stale'){ edStale(it, r.current || {}, p.op); return; }
-    /* 옮기기가 실패하면 그 줄은 화면에서 옮겨 놓은 자리에 그대로 남는다.
-       노션에는 아직 옛 자리에 있으니, 다시 「저장」을 누르면 다시 시도한다 */
-    edNote(it).textContent =
-      /* 반만 성공한 옮기기는 「못 했다」가 아니다. 새 줄은 들어갔고, 남은 것은
-         노션에 남은 옛 줄 하나다 — 사유가 그것을 그대로 말한다 */
-        r.newBlockId ? (r.detail || '')
-      : p.op === 'remove' ? `지우지 못했습니다 — ${r.detail || ''}`
-      : p.op === 'add' ? `보태지 못했습니다 — ${r.detail || ''}`
-      : p.op === 'move' ? `옮기지 못했습니다 — ${r.detail || ''}`
-      : p.op === 'retype' ? `종류를 바꾸지 못했습니다 — ${r.detail || ''}`
-      : r.status === 'locked' ? `노션에서 고칠 수 없는 줄이 되었습니다 — ${r.detail || ''}`
-      : `저장하지 못했습니다 — ${r.detail || ''}`;
-  }
-
-  /* 변경 하나를 중계 서버가 받는 모양으로 */
-  function edChange(p){
-    /* 제목의 기준선은 수정시각이 아니라 제목 글자 자체다. 페이지의 수정시각은
-       안에 든 줄을 하나 고쳐도 움직여, 기준선으로 쓰면 제목이 늘 어긋난다 */
-    if(p.op === 'title') return {op:'title', text: edTitle.input.value.trim(),
-                                 seen: edTitle.seen};
-    const id = p.it.li.dataset.nid;
-    /* 지우기도 기준선을 싣는다. ✕ 를 누른 뒤 저장하기까지 몇 분이 흐르고,
-       그 사이에 다른 담당자가 그 줄을 새로 썼을 수 있다 */
-    if(p.op === 'remove') return {op:'remove', blockId: id, seen: p.it.seen};
-    if(p.op === 'add') return Object.assign({op:'add', tempId: id,
-                                             html: edSerialize(p.it.nx)}, edSpot(p.it));
-    /* 옮긴 자리는 방향이 아니라 이웃으로 짚는다. 화면의 한 칸과 노션의 한 칸이
-       같지 않아서다 — `edWhere` 를 본다 */
-    if(p.op === 'move') return Object.assign({op:'move', blockId: id, seen: p.it.seen},
-                                             edWhere(p.it.li));
-    if(p.op === 'retype') return {op:'retype', blockId: id, seen: p.it.seen,
-                                  type: p.it.retype};
-    return {op:'edit', blockId: id, seen: p.it.seen, html: edSerialize(p.it.nx)};
-  }
-
-  /* 눌러만 두고 아무것도 쓰지 않은 빈 줄을 걷는다. 노션에 빈 줄은 만들 수
-     없어 보내 봐야 실패로 돌아온다 — 실패로 말하느니 없던 일로 한다 */
+  /* 눌러만 두고 아무것도 쓰지 않은 빈 줄을 걷는다. 저장소는 빈 줄도 받지만,
+     쓰지 않은 줄을 내보내 봐야 다음 빌드가 버린다 */
   function edSweep(){
     edItems.forEach(it => { if(it.isNew && !it.del && edEmpty(it.nx)) edForget(it); });
   }
 
+  /**
+   * 화면을 걸어 다니며 지금 보이는 그대로를 **꾸러미**로 짓는다.
+   *
+   * 꾸러미는 두 몫을 한 자루에 담는다 — 중계 서버로 나갈 문서(`row`)와, 그
+   * 문서의 각 조각이 화면의 어느 마디에서 왔는지(`box`·`li`). 나갈 것과
+   * 화면의 짝을 **한 번에** 정해 두는 까닭은, 둘을 따로 세면 어긋나기
+   * 때문이다 — 빈 칸 하나를 저장 쪽만 빼고 세는 날, 돌아온 문서가 한 칸씩
+   * 밀려 엉뚱한 줄에 남의 주소가 박힌다.
+   *
+   * 저장이 문서를 통째로 덮어쓰므로 **여기서 빠뜨린 것은 저장소에서
+   * 사라진다.** 지울 줄과 쓰지 않은 빈 줄만 뺀다.
+   */
+  function edParcel(){
+    const out = [];
+    document.querySelectorAll('.notice').forEach(box => {
+      const sec = edSecs.get(box.dataset.nsec);
+      if(sec && sec.del) return;                   /* 지울 칸. 안엣줄도 함께 간다 */
+      const title = sec ? sec.nsx.textContent.trim() : '';
+      const list = box.querySelector(':scope>.bd>ul.ck');
+      const kids = list ? edParcelItems(list) : [];
+      /* 줄도 이름도 없는 칸은 내보내지 않는다. 그런 칸은 아무것도 아니다 */
+      if(!kids.length && !title) return;
+      out.push({box, sec, list,
+                /* 새로 세운 칸에는 주소가 없다. 중계 서버가 지어 붙여 준다 */
+                row: {id: (sec && sec.isNew) ? undefined : (box.dataset.nsec || undefined),
+                      title, items: kids.map(k => k.row)},
+                kids});
+    });
+    return out;
+  }
+
+  function edParcelItems(list){
+    const out = [];
+    [...list.children].forEach(li => {
+      if(!li.matches('li[data-nid]')) return;
+      const it = edItems.get(li.dataset.nid);
+      if(!it || it.del) return;                    /* 지울 줄. 안엣것도 함께 간다 */
+      if(it.isNew && edEmpty(it.nx)) return;       /* 눌러만 두고 안 쓴 줄 */
+      const kind = it.retype || it.type || 'bullet';
+      const sub = li.querySelector(':scope>ul');
+      const kids = sub ? edParcelItems(sub) : [];
+      const row = {type: kind, html: edSerialize(it.nx), items: kids.map(k => k.row)};
+      /* 보탠 줄에는 주소가 없다. 중계 서버가 지어 붙여 돌려준다 */
+      if(!it.isNew) row.id = li.dataset.nid;
+      if(kind === 'todo') row.checked = !!it.checked;
+      out.push({li, it, row, kids});
+    });
+    return out;
+  }
+
+  /**
+   * 저장이 끝났다. 돌아온 문서를 화면에 받아 넣는다.
+   *
+   * 화면은 다시 그리지 않는다 — 커서와 스크롤이 튀고, 방금 친 글이 화면에서
+   * 한 번 사라졌다 돌아온다. 대신 **보탠 줄에 붙은 주소만** 갈아 끼운다.
+   * 보낸 꾸러미를 그대로 들고 걷기 때문에 짝이 어긋날 수 없다.
+   */
+  function edAdoptDoc(parcel, doc){
+    const walk = (kids, nodes) => kids.forEach((k, at) => {
+      const node = nodes[at];
+      if(!node) return;
+      const {li, it} = k;
+      if(it.isNew){
+        edItems.delete(li.dataset.nid);
+        li.dataset.nid = node.id;
+        edItems.set(node.id, it);
+        li.classList.remove('ed-new');
+        it.isNew = false;
+      }
+      it.type = node.type;
+      it.retype = null;
+      it.display = it.base = node.html || '';
+      it.moved = false;
+      li.classList.remove('ed-dirty', 'ed-fail', 'ed-moved');
+      edClearNote(it);
+      edRtChip(it);
+      walk(k.kids, node.items || []);
+    });
+
+    parcel.forEach((p, at) => {
+      const node = (doc.sections || [])[at];
+      if(!node) return;
+      if(node.id && node.id !== p.box.dataset.nsec){
+        edSecs.delete(p.box.dataset.nsec);
+        p.box.dataset.nsec = node.id;
+        if(p.sec) edSecs.set(node.id, p.sec);
+      }
+      if(p.sec){
+        p.sec.isNew = false;
+        p.sec.moved = false;
+        p.sec.base = node.title || '';
+        p.box.classList.remove('ed-new');
+      }
+      walk(p.kids, node.items || []);
+    });
+    /* 지운 칸도, **이름도 줄도 없어져 저장에 나가지 않은 칸**도 저장소에는
+       없다. 화면에서 걷는다 — 남겨 두면 그 칸은 돌아온 문서에 짝이 없어
+       기준선이 낡은 채로 굳고, 저장 창구가 「1칸 이름 고침」을 영영 센다.
+       새로 세워 아직 비어 있는 칸은 적으라고 둔 자리라 그대로 둔다 */
+    const sent = new Set(parcel.map(p => p.box));
+    [...edSecs.values()].forEach(sec => {
+      if(sec.del || (!sent.has(sec.box) && !sec.isNew)) edSecForget(sec);
+    });
+    edSecEnsure();
+    /* 지운 줄은 저장소에서 사라졌다. 화면에서도 걷는다 — 남겨 두면 그어진
+       채로 붙어 있으면서 저장 창구가 「1줄 지움」을 영영 세고, 떠날 때
+       붙잡기까지 한다 */
+    [...edItems.values()].forEach(it => { if(it.del) edForget(it); });
+    /* 자리의 기준선은 **다 걷어낸 뒤에** 잡는다. 지운 줄과 칸이 아직 화면에
+       있을 때 재면, 그것이 사라지는 순간 이웃들이 「옮겨졌다」가 되고 되돌리기는
+       없는 자리를 짚는다 */
+    edItems.forEach(it => { if(it.li.isConnected) it.home = edWhereKey(it); });
+    edSecs.forEach(sec => { if(sec.box.isConnected) sec.home = edSecWhere(sec.box); });
+    edDoc = doc;
+    if(edTitle) edTitle.base = edTitle.input.value.trim();
+    edMvSync();
+    edSecSync();
+  }
+
+  /**
+   * 저장 — 공지 문서를 **통째로** 보낸다.
+   *
+   * 무게 상한이 없다. 줄마다 따로 보내지 않으므로 통째로 들어가거나 통째로
+   * 거절되고, 반쯤 들어간 상태가 생기지 않는다.
+   */
   async function edSave(){
     edSweep();
-    const all = edPending();
-    if(!all.length) return;
-    /* 중계 서버가 한 번에 지는 무게까지만 보낸다. 나눠서 몰래 여러 번 보내면
-       재빌드가 그 수만큼 돌아, 클라이언트 화면이 몇 분씩 흔들린다 */
-    const batch = [];
-    for(const p of all){
-      if(edWeight(batch.concat(p)) > ED_MAX_WEIGHT) break;
-      batch.push(p);
+    if(!edPending().length) return;
+    if(!edDoc){
+      edMsg('공지가 없습니다 — 「＋ 새 공지」로 먼저 만들어 주세요', true);
+      return;
     }
-    if(!batch.length) return;
-    batch.forEach(p => { if(p.it) edClearNote(p.it); });
-    edClearTitleNote();
+    edItems.forEach(it => edClearNote(it));
+    edClearPanels();
     document.querySelector('[data-edsave]').disabled = true;
     edMsg('저장 중…');
 
+    const parcel = edParcel();
     let out;
     try {
-      out = await ED.call('POST', '/notice/save', {
-        slug: CLIENT, noticePageId: edPageId, changes: batch.map(edChange),
+      out = await ED.call('PUT', '/notice/doc', {
+        slug: CLIENT, noticeId: edDoc.noticeId, version: edDoc.version,
+        title: edTitle ? edTitle.input.value.trim() : (edDoc.title || ''),
+        sections: parcel.map(p => p.row),
       });
     } catch(e){
-      edMsg(edErr(e, '저장하지 못했습니다'), true);
+      /* 판이 어긋났다 — 다른 담당자가 먼저 저장했다. 화면에 적어 둔 글은
+         그대로 두고 저장소의 지금 내용을 나란히 보여 준다 */
+      if(e.status === 409 && e.data && e.data.current){
+        edConflict(e.data.current);
+        edMsg('다른 담당자가 먼저 저장했습니다 — 아래에서 견주어 주세요', true);
+      } else {
+        edMsg(edErr(e, '저장하지 못했습니다'), true);
+      }
       edStatus();
       return;
     }
 
-    (out.results || []).forEach(r => edResult(batch[r.index], r));
-    const left = all.length - batch.length;
-    const said = [out.failed
-      ? `${out.saved}개 저장됨, ${out.failed}개 실패`
-      : `${out.saved}개 저장됨`];
+    edAdoptDoc(parcel, out);
     /* 재빌드 신호가 나갔는지는 중계 서버만 안다. 안 나갔는데 「1~2분 뒤 반영」을
        띄우면 담당자는 닿지 않을 것을 닿았다고 읽는다 */
-    if(out.saved){
-      /* 빈 공지는 빌더가 싣지 않아 재빌드를 걸지 않는다. 「다음 빌드에」라고
-         하면 담당자는 한 줄도 없는 공지가 언젠가 오른다고 읽는다 */
-      said.push(out.rebuild === 'sent' ? '1~2분 뒤 반영'
-                : out.rebuild === 'empty' ? '한 줄 이상 적어야 화면에 오릅니다'
-                : '클라이언트 화면은 다음 빌드에 바뀝니다');
-    }
-    if(left) said.push(`남은 ${left}줄은 「저장」을 한 번 더 눌러 주세요`);
-    edMsg(said.join(' · '), !!out.failed);
+    edMsg(out.rebuild === 'sent' ? '저장했습니다 · 1~2분 뒤 반영'
+      : out.rebuild === 'empty' ? '저장했습니다 · 한 줄 이상 적어야 화면에 오릅니다'
+      : '저장했습니다 · 클라이언트 화면은 다음 빌드에 바뀝니다');
     edStatus();
   }
 
-  /* 저장 전이라면 되돌린다. 노션에는 아직 아무것도 나가지 않았다 */
+  /**
+   * 어긋남 — 다른 담당자가 먼저 저장했다.
+   *
+   * 어느 쪽을 남길지는 담당자가 고른다. 여기서 자동으로 고르면 둘 중 하나가
+   * 말없이 사라진다. 화면에 적어 둔 글은 손대지 않는다.
+   */
+  function edConflict(cur){
+    edClearConflict();
+    const bar = document.getElementById('edbar');
+    if(!bar) return;
+    const lines = [];
+    const walk = (list, depth) => (list || []).forEach(i => {
+      lines.push(`<div class="cf-l" style="padding-left:${depth * 12}px">${
+        noticeHtml(i.html || '') || '<span class="cf-e">(빈 줄)</span>'}</div>`);
+      walk(i.items, depth + 1);
+    });
+    (cur.sections || []).forEach(s => {
+      if(s.title) lines.push(`<div class="cf-h">${esc(s.title)}</div>`);
+      walk(s.items, 0);
+    });
+
+    const box = document.createElement('div');
+    box.className = 'ed-cf';
+    box.id = 'edcf';
+    box.innerHTML = `<div class="cf-t">저장소의 지금 공지
+        <span class="cf-v">${esc(String(cur.title || '(제목 없음)'))}</span></div>
+      <div class="cf-b">${lines.join('') || '<div class="cf-e">(줄이 없습니다)</div>'}</div>
+      <div class="cf-a"><button class="edt-b" data-cftake>지금 내용으로 다시 열기</button>
+        <button class="edt-b" data-cfclose>닫기</button></div>`;
+    bar.parentElement.insertBefore(box, bar.nextSibling);
+    box.querySelector('[data-cfclose]').onclick = edClearConflict;
+    box.querySelector('[data-cftake]').onclick = () => {
+      if(!confirm('화면에 적어 둔 것을 버리고 저장소의 지금 공지를 엽니다.')) return;
+      edClearConflict();
+      edLoaded = false;
+      edForgetAll();
+      edLoad();
+    };
+  }
+
+  function edClearConflict(){
+    const old = document.getElementById('edcf');
+    if(old) old.remove();
+  }
+
+  /* 저장 시각. 담당자가 사는 시간대로 「09-08 14:30」 */
+  function edWhen(iso){
+    const t = Date.parse(iso || '');
+    if(!Number.isFinite(t)) return '';
+    const d = new Date(t + 9 * 3600 * 1000);
+    const p2 = n => String(n).padStart(2, '0');
+    return `${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())} ` +
+           `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+  }
+
+  /**
+   * 지난 판 목록. 저장할 때마다 **직전** 문서가 한 판씩 쌓인 것이다.
+   *
+   * 노션이 공짜로 주던 버전 기록을 대신한다. 없으면 담당자가 한 번 실수했을
+   * 때 복구할 수단이 아예 없다.
+   */
+  async function edRevisions(){
+    edClearPanels();
+    if(!edDoc){ edMsg('공지가 없습니다', true); return; }
+
+    edMsg('지난 판을 불러오는 중…');
+    let out;
+    try {
+      out = await ED.call('GET', '/notice/doc/revisions' +
+        `?slug=${encodeURIComponent(CLIENT)}` +
+        `&noticeId=${encodeURIComponent(edDoc.noticeId)}`);
+    } catch(e){ edMsg(edErr(e, '지난 판을 불러오지 못했습니다'), true); return; }
+    edMsg('');
+
+    const bar = document.getElementById('edbar');
+    if(!bar) return;
+    const rows = out.revisions || [];
+    const box = document.createElement('div');
+    box.className = 'ed-cf';
+    box.id = 'edrv';
+    box.innerHTML = `<div class="cf-t">지난 판
+        <span class="cf-v">${rows.length ? `${rows.length}개 · 최근 스무 판까지 남습니다`
+                                         : '아직 없습니다'}</span></div>
+      ${rows.length ? `<div class="cf-b">${rows.map(r => `<div class="rv-l">
+        <span class="rv-w">${esc(edWhen(r.savedAt))}</span>
+        <span class="rv-t">${esc(r.title || '(제목 없음)')}</span>
+        <button class="edt-b" data-rv="${r.version}">이 판으로</button>
+      </div>`).join('')}</div>` : ''}
+      <div class="cf-a"><button class="edt-b" data-cfclose>닫기</button></div>`;
+    bar.parentElement.insertBefore(box, bar.nextSibling);
+    box.querySelector('[data-cfclose]').onclick = edClearPanels;
+    box.querySelectorAll('[data-rv]').forEach(b => {
+      b.onclick = () => edRestore(Number(b.dataset.rv));
+    });
+  }
+
+  /**
+   * 그 판으로 되돌린다. **되돌리기도 저장이다** — 새 판이 되므로 되돌린 것도
+   * 다시 되돌릴 수 있고, 재빌드도 똑같이 걸린다.
+   */
+  async function edRestore(version){
+    /* 화면에 손대 둔 것이 있으면 먼저 묻는다. 되돌리면 그것은 사라진다 */
+    if(edPending().length &&
+       !confirm(`손대 둔 ${edPending().length}개가 사라집니다. 그래도 되돌리시겠습니까?`)) return;
+    if(!confirm(`${version} 판으로 되돌립니다.\n\n` +
+                '지금 내용도 판으로 남아 다시 되돌릴 수 있습니다.\n' +
+                '1~2분 뒤 클라이언트 화면에 반영됩니다.')) return;
+
+    edMsg('되돌리는 중…');
+    let out;
+    try {
+      out = await ED.call('POST', '/notice/doc/restore', {
+        slug: CLIENT, noticeId: edDoc.noticeId, version: edDoc.version, revision: version,
+      });
+    } catch(e){
+      if(e.status === 409 && e.data && e.data.current){
+        edConflict(e.data.current);
+        edMsg('다른 담당자가 먼저 저장했습니다 — 아래에서 견주어 주세요', true);
+      } else {
+        edMsg(edErr(e, '되돌리지 못했습니다'), true);
+      }
+      return;
+    }
+
+    edClearPanels();
+    edDoc = out;
+    edLoaded = true;
+    /* 장부를 먼저 비운다. 남겨 두면 `go` 가 「저장하지 않은 것이 있다」고
+       한 번 더 묻고, 담당자가 거기서 취소하면 화면은 되돌리기 전 그대로인데
+       손에 쥔 문서만 새것이 된다 */
+    edForgetAll();
+    notice = edDocView(out);
+    go('notice');
+    edMsg(`${version} 판으로 되돌렸습니다 · 1~2분 뒤 반영`);
+  }
+
+  function edClearPanels(){
+    edClearConflict();
+    const rv = document.getElementById('edrv');
+    if(rv) rv.remove();
+  }
+
+  /* 저장 전이라면 되돌린다. 저장소에는 아직 아무것도 나가지 않았다 */
   function edUndo(){
     const pend = edPending();
     if(!pend.length) return;
     /* 「줄」이라 하지 않는다 — 제목도 여기에 함께 세어져 있다 */
-    if(!confirm(`손댄 것 ${pend.length}개를 되돌립니다. 저장 전이라 노션은 그대로입니다.`)) return;
+    if(!confirm(`손댄 것 ${pend.length}개를 되돌립니다. 저장 전이라 저장소는 그대로입니다.`)) return;
     let whole = true;
     pend.forEach(p => {
       if(p.op === 'title'){
         edTitle.input.value = edTitle.base;
-        edClearTitleNote();
         return;
       }
+      if(p.op === 'secadd'){ edSecForget(p.sec); return; }
+      if(p.op === 'secdel'){ p.sec.del = false; edSecSync(); return; }
+      if(p.op === 'secname'){ p.sec.nsx.textContent = p.sec.base; edSecSync(); return; }
+      if(p.op === 'secmove'){ whole = edSecUndo(p.sec) && whole; return; }
       if(p.op === 'add'){ edForget(p.it); return; }
       if(p.op === 'remove'){ edMarkDel(p.it, false); return; }
       if(edStruct(p.op)){ whole = edUndoOne(p.it) && whole; return; }
@@ -2788,19 +3091,15 @@ function init(D){
     if(bar){
       bar.querySelector('[data-edsave]').onclick = edSave;
       bar.querySelector('[data-edundo]').onclick = edUndo;
+      bar.querySelector('[data-edrev]').onclick = edRevisions;
     }
     const newBtn = document.querySelector('[data-ednew]');
     if(newBtn) newBtn.onclick = edNewNotice;
-    document.querySelectorAll('[data-nadd]').forEach(b => {
-      b.onclick = () => {
-        /* 섹션 끝에 빈 줄 하나를 세우고 커서를 그리로 보낸다. 노션에는
-           저장을 눌러야 나간다 — 다른 줄과 같은 규칙이다.
-           `sectionList` 가 null 이면 단추가 섹션 밖에 있는 것이다 — 옛 봉투로
-           열렸을 때다. 그때는 예전처럼 마지막 구역의 끝에 붙인다 */
-        const list = sectionList(b) || lastList();
-        if(list) edAdd(li => list.appendChild(li), b.dataset.nadd);
-      };
-    });
+    /* 칸 끝에 빈 줄 하나를 세우고 커서를 그리로 보낸다. 저장을 눌러야
+       나가는 것은 다른 줄과 같다 */
+    document.querySelectorAll('.notice').forEach(bindNoticeBox);
+    const secAdd = document.querySelector('[data-nsadd]');
+    if(secAdd) secAdd.onclick = () => edSecAdd();
 
     /* 화면을 다시 그릴 때마다 묶으면 같은 것이 겹쳐 쌓인다 */
     if(!edWired){
@@ -2830,11 +3129,11 @@ function init(D){
   }
 
   /**
-   * 지울 줄로 표시한다. **노션에는 아직 나가지 않는다** — 저장이 함께 내보낸다.
+   * 지울 줄로 표시한다. **저장소에는 아직 나가지 않는다** — 저장이 함께 내보낸다.
    *
    * 화면에서 치우지 않고 그은 채로 남기는 까닭은 둘이다. 저장 전에 무엇이
    * 사라질지 세어 볼 수 있어야 하고, 잘못 눌렀을 때 되돌릴 곳이 그 자리에
-   * 있어야 한다. 아직 노션에 없던 줄만은 그냥 없앤다 — 되돌릴 것이 없다.
+   * 있어야 한다. 방금 보탠 줄만은 그냥 없앤다 — 되돌릴 것이 없다.
    */
   function edMarkDel(it, on){
     if(on && it.isNew){ edForget(it); return; }
@@ -2844,7 +3143,7 @@ function init(D){
       it.nx.removeAttribute('contenteditable');
       edClearNote(it);
       it.li.classList.remove('ed-fail');
-    } else if(!it.locked){
+    } else {
       it.nx.contentEditable = 'true';
     }
     edDelBtn(it);
@@ -2874,31 +3173,23 @@ function init(D){
       if(!it) return;
       if(it.del){ edMarkDel(it, false); return; }
 
-      /* 노션에서 읽어 오지 못한 줄은 지우지 않는다. 화면에 보이는 글은 지난
-         빌드의 것이라, 지금 노션에 무엇이 있는지 모르는 채로 지우는 셈이다 */
-      if(!it.seen){
-        alert('이 줄을 노션에서 읽어 오지 못했습니다.\n\n' +
-              '무엇을 지우는지 확인할 수 없어 여기서는 지울 수 없습니다 — ' +
-              '노션에서 지워 주세요.');
-        return;
-      }
-
-      /* 노션에서 블록을 지우면 그 안의 줄도 같이 사라진다. 몇 줄이 딸려
-         가는지 먼저 말해 준다 — 지운 뒤에 알면 늦다 */
+      /* 그릇을 지우면 그 안의 줄도 함께 간다. 몇 줄이 딸려 가는지 먼저
+         말해 준다 — 지운 뒤에 알면 늦다 */
       const kids = it.li.querySelectorAll('li[data-nid]').length;
       const text = nx.textContent.trim().slice(0, 60) || '(빈 줄)';
       if(it.isNew || confirm(`이 줄을 지웁니다.\n\n${text}` +
             (kids ? `\n\n안에 든 ${kids}줄도 함께 지워집니다.` : '') +
-            '\n\n「저장」을 눌러야 노션에서 사라집니다.')) edMarkDel(it, true);
+            '\n\n「저장」을 눌러야 실제로 사라집니다.')) edMarkDel(it, true);
     };
   }
 
   /* 실패를 사람 말로. 상태 코드는 화면에 내보내지 않는다 */
   function edErr(e, fallback){
     return e.status === 401 ? '편집 모드가 풀렸습니다. 끄고 다시 켜 주세요'
-         : e.status === 409 ? `고칠 수 없는 줄입니다 — ${e.message}`
+         : e.status === 409 ? '다른 담당자가 먼저 저장했습니다'
          : e.status === 422 ? `쓰신 내용을 확인해 주세요 — ${e.message}`
-         : e.status === 404 ? '노션에서 그 줄을 찾지 못했습니다'
+         : e.status === 404 ? '그 공지를 찾지 못했습니다'
+         : e.status === 503 ? '공지 저장소가 아직 붙어 있지 않습니다'
          : fallback;
   }
 
@@ -2934,10 +3225,10 @@ function init(D){
     return list;
   }
 
-  /** 보탠 줄에 붙는 임시 이름. 저장하면 노션이 준 주소로 갈린다 */
+  /** 보탠 줄에 붙는 임시 이름. 저장하면 중계 서버가 지은 주소로 갈린다 */
   let edSeq = 0;
 
-  /** 공지는 대부분 글머리 기호다. 중계 서버의 NEW_ITEM_TYPE 과 같은 모양이다 */
+  /** 공지는 대부분 글머리 기호다. 보탠 줄은 글머리로 시작한다 */
   function edNewRow(){
     edSeq += 1;
     const li = document.createElement('li');
@@ -2948,23 +3239,26 @@ function init(D){
   }
 
   /**
-   * 빈 줄 하나를 세우고 커서를 그리로 보낸다. **노션에는 나가지 않는다** —
+   * 빈 줄 하나를 세우고 커서를 그리로 보낸다. **저장소에는 나가지 않는다** —
    * 저장이 다른 줄과 함께 내보낸다.
    *
-   * @param {function} mount     세운 li 를 화면 어디에 놓을지
-   * @param {string} [sectionId] 위에 아무 줄도 없을 때 짚을 섹션. 빈 섹션에 처음
-   *                             보탤 때뿐이다 — 그 밖에는 바로 위 줄이 발판이다
+   * @param {function} mount 세운 li 를 화면 어디에 놓을지. **놓은 그 자리가
+   *                          곧 저장될 자리다** — 저장이 화면을 걸어 다니며
+   *                          문서를 다시 짓기 때문이다
    */
-  function edAdd(mount, sectionId){
+  function edAdd(mount){
     const li = edNewRow();
     const nx = li.querySelector(':scope>.nx');
-    const it = edItem(li, nx, {base: '', isNew: true, sectionId: sectionId || ''});
+    const it = edItem(li, nx, {base: '', isNew: true, type: 'bullet'});
     mount(li);
     edItems.set(li.dataset.nid, it);
     nx.contentEditable = 'true';
     nx.spellcheck = false;
     edBindItem(it);
     bindDelete(nx);
+    /* 보탠 줄도 저장 전에 옮기고 들여쓴다. 화면에 놓인 자리가 곧 저장될
+       자리라, 주소가 아직 없다는 것은 아무 상관이 없다 */
+    edMvBox(it);
     li.scrollIntoView({block: 'nearest'});
     edFocusEnd(nx);
     edMvSync();   /* 이웃들의 사정이 바뀐다 — 보탠 줄은 발판이 되지 못한다 */
@@ -2976,11 +3270,14 @@ function init(D){
    * 오늘 날짜로 새 공지를 만들고 그 자리에서 연다.
    *
    * 날짜를 고르는 창은 띄우지 않는다 — 미팅 직후 기록이 목적이라 거의 언제나
-   * 오늘이고, 아니면 만든 뒤 노션에서 고치는 편이 손이 덜 간다.
+   * 오늘이다.
+   *
+   * **공지가 한 건도 없는 기업의 첫 공지도 이 길로 만든다.** 저장소가 비어
+   * 있는 채로 시작하므로, 이사한 뒤 모든 기업의 첫 공지가 여기서 난다.
    *
    * 만들면 화면에 떠 있던 줄들을 통째로 버린다. 그 줄들은 지난 공지의 것이고,
    * 저장 창구는 이제 새 공지를 가리킨다 — 그대로 두면 담당자는 화면에 보이는
-   * 줄을 고치고서 「그 공지가 아닙니다」를 듣는다.
+   * 줄을 고치고서 남의 공지에 적게 된다.
    */
   async function edNewNotice(){
     if(!edMayLeave()) return;
@@ -2988,25 +3285,23 @@ function init(D){
        클라이언트 화면에서 내려간다 — 누르기 전에 그것부터 말한다 */
     if(!confirm('오늘 날짜로 새 공지를 만듭니다.\n\n' +
                 '다음 빌드부터 클라이언트에게는 이 공지가 보입니다. ' +
-                '지금 공지는 노션에 그대로 남습니다.\n\n' +
+                '지난 공지는 저장소에 그대로 남습니다.\n\n' +
                 '제목과 내용을 적고 「저장」을 눌러 주세요.')) return;
 
     edMsg('새 공지를 만드는 중…');
     let out;
-    try { out = await ED.call('POST', '/notice/new', {slug: CLIENT}); }
+    try { out = await ED.call('POST', '/notice/doc', {slug: CLIENT}); }
     catch(e){ edMsg(edErr(e, '새 공지를 만들지 못했습니다'), true); return; }
 
-    edItems = new Map();
-    edTitle = null;
-    edPageId = out.pageId;
-    notice = {title: '', date: out.date, page_url: out.page_url || '', sections: []};
+    edClearPanels();
+    edForgetAll();
+    edDoc = out;
+    edLoaded = true;
+    notice = edDocView(out);
     go('notice');
-    /* 제목 칸을 **여기서** 연다. `go` 가 부른 edLoad 는 아직 노션을 기다리는
-       중이고, 그 사이에 담당자는 이미 타이핑하고 있다 — 늦게 도착한 edLoad 가
-       빈 제목으로 덮어쓰지 않게 지금 기준선을 잡아 둔다 */
-    edTitleOpen('');
+    /* 제목 칸에 커서를 둔다. 갓 만든 공지에서 담당자가 처음 할 일이 그것이다 */
     if(edTitle) edTitle.input.focus();
-    edMsg(out.existing ? '오늘 만들어 둔 빈 공지가 있어 그리로 왔습니다'
+    edMsg(out.existing ? '오늘 만들어 둔 공지가 있어 그리로 왔습니다'
                        : '새 공지를 만들었습니다');
   }
 
@@ -3591,7 +3886,10 @@ function init(D){
       if(o.fromPop) history.pushState({view:'notice'}, '', '#notice');
       return;
     }
-    edItems = new Map();
+    /* 장부는 화면을 가리킨다. 화면을 다시 그리면 통째로 버려야 한다 —
+       하나라도 남기면 그 장부가 사라진 DOM 을 가리킨 채로 「손대 둔 것이
+       있다」고 우기고, 그 위에서 저장하면 지금 화면에 없는 것이 나간다 */
+    edForgetAll();
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        기준일은 상단 우측 pill 에만 표시한다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
@@ -3619,7 +3917,19 @@ function init(D){
     go(V[id] ? id : 'info', {fromPop:true});
   });
 
-  /* 공지 접기. 섹션 제목과 노션 toggle 항목이 같은 방식으로 움직인다.
+  /* 칸 하나에 걸리는 것 — 접기와 「＋ 줄 추가」. 화면을 다시 그리지 않고
+     칸을 세울 때(`edSecAdd`)도 같은 것을 걸어야 한다 */
+  function bindNoticeBox(box){
+    const h3 = box.querySelector(':scope>h3');
+    if(h3) h3.onclick = () => box.classList.toggle('open');
+    const add = box.querySelector(':scope>.bd>.nadd>[data-nadd]');
+    if(add) add.onclick = () => {
+      const list = sectionList(add) || lastList();
+      if(list) edAdd(li => list.appendChild(li));
+    };
+  }
+
+  /* 공지 접기. 섹션 제목과 toggle 항목이 같은 방식으로 움직인다.
      요약 카드(.psum·개요)는 .notice 를 쓰지 않으므로 걸리지 않는다 */
   function bindNotice(){
     document.querySelectorAll('.notice>h3').forEach(h=>h.onclick=()=>
