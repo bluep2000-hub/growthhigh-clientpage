@@ -5,7 +5,7 @@
  * 서로 다른 공지를 잡으면 담당자는 화면에 없는 줄을 고치게 된다.
  */
 
-import { notFound, upstream } from "./error.js";
+import { foreign, notFound, upstream } from "./error.js";
 
 const API = "https://api.notion.com/v1";
 
@@ -126,6 +126,58 @@ export async function findNoticePage(nt, slug) {
 }
 
 /**
+ * 한 블록의 자식 전부. 노션은 100개씩만 준다.
+ */
+export async function listChildren(nt, blockId) {
+  const out = [];
+  let cursor = null;
+  do {
+    const q = `?page_size=100${cursor ? `&start_cursor=${encodeURIComponent(cursor)}` : ""}`;
+    const res = await nt.get(`/blocks/${blockId}/children${q}`);
+    out.push(...(res.results || []));
+    cursor = res.has_more ? res.next_cursor : null;
+  } while (cursor);
+  return out;
+}
+
+/**
+ * 자식을 더 읽지 않는 블록.
+ *
+ * 하위 문서는 다른 페이지다 — 그 안까지 열면 공지가 아닌 것을 고치게 된다.
+ * 표는 아직 다루는 코드가 없다(#26). 위프코리아 공지의 표 행이 400개가 넘어,
+ * 지금 읽어 봐야 쓰지도 않을 것을 위해 왕복만 몇 배로 늘린다.
+ */
+const NO_DESCENT = new Set(["child_page", "table"]);
+
+/**
+ * 공지 한 건의 블록을 훑는다. **한 번에 다 훑지 않는다.**
+ *
+ * Cloudflare Workers 는 요청 하나가 낼 수 있는 바깥 호출 수에 상한이 있다
+ * (무료 50 · 유료 1000). 위프코리아 공지는 표를 건너뛰어도 자식 조회가 49번
+ * 걸려 무료 상한에 그대로 닿는다. 그래서 한 요청이 쓰는 조회 수를 정해 두고,
+ * 못 다 본 곳은 `more` 로 돌려준다 — 화면이 그것을 들고 다시 부른다.
+ *
+ * @param {object[]} roots 이번에 자식을 읽을 블록·페이지 주소
+ * @param {number} budget  이번 요청에서 쓸 자식 조회 횟수
+ * @returns {Promise<{blocks: object[], more: string[]}>}
+ */
+export async function walkChildren(nt, roots, budget) {
+  const blocks = [];
+  const queue = [...roots];
+  let spent = 0;
+
+  while (queue.length && spent < budget) {
+    const id = queue.shift();
+    spent += 1;
+    for (const b of await listChildren(nt, id)) {
+      blocks.push(b);
+      if (b.has_children && !NO_DESCENT.has(b.type)) queue.push(b.id);
+    }
+  }
+  return { blocks, more: queue };
+}
+
+/**
  * 공지 행의 `일자` 가 비어 있으면 오늘로 채운다.
  *
  * 빌더가 `일자` 내림차순으로 첫 행만 공지로 올린다. 비어 있는 행은 정렬에서
@@ -150,7 +202,8 @@ export async function ensureNoticeDate(nt, notice) {
  * 이 확인이 없으면 blockId 하나로 워크스페이스 전체를 고칠 수 있다. 담당자
  * 비밀번호는 담당자 전원이 나눠 쓰는 값이라 「아는 사람만 쓴다」에 기댈 수 없다.
  */
-export async function assertBlockInPage(nt, blockId, pageId, maxDepth = 12) {
+export async function assertBlockInPage(nt, blockId, pageId,
+                                       ancestors = new Map(), maxDepth = 12) {
   const target = await nt.get(`/blocks/${blockId}`);
 
   // 노션의 삭제는 휴지통으로 보내는 것이라 지운 블록도 조회는 된다.
@@ -162,15 +215,23 @@ export async function assertBlockInPage(nt, blockId, pageId, maxDepth = 12) {
     const parent = cur.parent || {};
     if (parent.type === "page_id") {
       if (sameId(parent.page_id, pageId)) return target;
-      throw notFound("그 기업의 공지에 없는 항목입니다");
+      throw foreign("그 기업의 공지에 없는 항목입니다");
     }
     if (parent.type !== "block_id") {
-      throw notFound("그 기업의 공지에 없는 항목입니다");
+      throw foreign("그 기업의 공지에 없는 항목입니다");
     }
-    cur = await nt.get(`/blocks/${parent.block_id}`);
+    // 한 번의 저장에서 여러 항목이 같은 조상을 타고 오른다. 조상만 기억해
+    // 두고 고칠 블록 자체는 늘 새로 읽는다 — 그것이 어긋남 판정의 근거다.
+    const up = parent.block_id;
+    if (ancestors.has(up)) {
+      cur = ancestors.get(up);
+    } else {
+      cur = await nt.get(`/blocks/${up}`);
+      ancestors.set(up, cur);
+    }
   }
   // 공지는 4단 정도까지 중첩된다. 여기까지 왔으면 공지 바깥이거나 순환이다.
-  throw notFound("공지 안에서 찾지 못했습니다");
+  throw foreign("공지 안에서 찾지 못했습니다");
 }
 
 /** 하이픈 유무·대소문자가 달라도 같은 id 로 본다. */

@@ -8,19 +8,21 @@
  *
  *   GET    /health         살아 있는지
  *   POST   /auth           담당자 공용 비밀번호가 맞는지
- *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글
- *   PUT    /notice/item    그 항목을 고친다
- *   POST   /notice/item    공지 맨 끝에 한 줄 보탠다
- *   DELETE /notice/item    그 항목을 지운다
+ *   GET    /notice/tree    편집 모드가 고칠 글을 통째로 받아 간다
+ *   POST   /notice/save    고친 것을 한 번에 노션에 적용한다
+ *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식, #25 에서 사라진다)
+ *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
+ *   POST   /notice/item    공지 맨 끝에 한 줄 보탠다               (옛 방식)
+ *   DELETE /notice/item    그 항목을 지운다                        (옛 방식)
  */
 
 import { ApiError, notFound, unauthorized, unprocessable, upstream } from "./error.js";
-import {
-  assertEditable, blockRuns, blockToHtml, markdownToRuns, runsToMarkdown,
-} from "./markdown.js";
+import { assertEditable, blockToHtml, markdownToRuns, runsToMarkdown } from "./markdown.js";
 import {
   assertBlockInPage, createNotion, ensureNoticeDate, findNoticePage, ITEM_TYPES,
+  sameId, walkChildren,
 } from "./notion.js";
+import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
 
 /** 클라이언트 페이지가 사는 곳. 여기서 오는 요청만 받는다.
@@ -155,6 +157,115 @@ async function signalRebuild(env, slug, body) {
   return rebuild === "sent" ? body : { ...body, rebuild };
 }
 
+/* ─────────────────────── 공지 전체를 읽고, 한 번에 저장한다 ─────────────────────── */
+
+/**
+ * 한 번의 `GET /notice/tree` 가 쓸 자식 조회 횟수. 까닭은 `walkChildren` 을 본다.
+ * 공지를 찾아가는 데 이미 세 번을 쓰므로 그만큼 여유를 둔 값이다.
+ */
+const TREE_BUDGET = 40;
+
+/**
+ * 한 번의 저장이 받는 변경 수. 바깥 호출 상한 때문에 둔다 — 변경 하나가
+ * 조회 한 번에 쓰기 한 번이라, 스무 개면 공지를 찾아가는 세 번을 더해
+ * 무료 상한에 닿는다.
+ *
+ * 재빌드 신호는 **요청 하나에 한 번**이다. 화면이 여기 걸려 저장을 쪼개면
+ * 쪼갠 수만큼 신호가 나간다. 미팅 뒤에 고치는 줄은 열 줄을 넘지 않아 실제로는
+ * 닿지 않지만, 넘으면 쪼개는 대신 담당자에게 알리는 편이 낫다.
+ */
+const SAVE_MAX_CHANGES = 20;
+
+/** 이 티켓이 다루는 변경. 보태기·지우기·옮기기·표는 뒤 티켓에서 붙는다. */
+const SAVE_OPS = new Set(["edit", "check"]);
+
+/**
+ * 편집 모드가 한 항목에 대해 알아야 할 전부.
+ *
+ * `last_edited_time` 이 저장할 때 보내는 `seen` 의 기준선이다. 봉투에 실린
+ * 시각을 기준선으로 쓰면 안 된다 — 그것은 빌드 시각이라, 지난 빌드 이후
+ * 노션에서 손댄 항목이 전부 어긋남으로 잡힌다.
+ */
+function treeItem(block) {
+  const out = { type: block.type, last_edited_time: block.last_edited_time };
+  if (ITEM_TYPES.has(block.type)) out.html = runsToEditHtml(blockRuns(block));
+  if (block.type === "to_do") out.checked = Boolean(block.to_do?.checked);
+  const reason = lockReason(block);
+  if (reason) out.locked = reason;
+  return out;
+}
+
+/** 「더 볼 곳」 목록. 쉼표로 붙여 오고, 없으면 공지 페이지부터 시작한다. */
+function treeRoots(raw, pageId) {
+  const ids = String(raw || "").split(",").map((v) => v.trim()).filter(Boolean);
+  return ids.length ? ids : [pageId];
+}
+
+/**
+ * 변경 하나를 살펴본다. **노션에 쓰지 않는다.**
+ *
+ * 저장은 두 단계다 — 전부 살펴본 다음에 하나씩 쓴다. 살펴보기를 먼저 다
+ * 끝내는 이유는 딱 하나, **남의 기업 블록 주소**다. 그것은 실수가 아니라
+ * 넘겨짚기여서 저장 전체를 거절하는데, 쓰면서 확인하면 앞의 몇 줄은 이미
+ * 노션에 들어간 뒤가 된다.
+ *
+ * 그 밖의 실패는 걸러 두었다가 결과로 돌려준다. 하나가 실패했다고 나머지를
+ * 멈추면 담당자는 관계없는 줄까지 다시 적어야 하고, 전부 취소인 척하면
+ * 거짓말이 된다 — 노션에는 되돌리기가 없다.
+ */
+async function inspectChange(nt, notice, change, index, ancestors) {
+  const blockId = typeof change?.blockId === "string" ? change.blockId.trim() : "";
+  const at = { index, blockId };
+  const fail = (detail) => ({ ...at, result: { ...at, status: "failed", detail } });
+
+  try {
+    if (!SAVE_OPS.has(change?.op)) return fail(`모르는 변경: ${change?.op}`);
+    if (!blockId) return fail("blockId 가 필요합니다");
+    const seen = requireText(change.seen, "seen");
+
+    const block = await assertBlockInPage(nt, blockId, notice.pageId, ancestors);
+    if (!ITEM_TYPES.has(block.type)) return fail(`${block.type} 은 공지 항목이 아닙니다`);
+
+    // 화면이 본 뒤에 노션에서 먼저 바뀌었으면 쓰지 않는다. 노션에 조건부
+    // 쓰기가 없어 읽기와 쓰기 사이의 틈은 남지만, 다른 담당자가 방금 적은
+    // 것을 통째로 덮어쓰는 일은 이것으로 막힌다.
+    if (block.last_edited_time !== seen) {
+      return { ...at, result: { ...at, status: "stale", current: treeItem(block) } };
+    }
+
+    if (change.op === "check") {
+      // 체크는 rich_text 를 건드리지 않는다. 그래서 잠긴 항목도 체크는 된다 —
+      // 링크 카드가 든 할 일에 표시하려고 노션을 열게 하지 않는다.
+      if (block.type !== "to_do") return fail(`${block.type} 은 할 일 항목이 아닙니다`);
+      return { ...at, patch: { to_do: { checked: Boolean(change.checked) } } };
+    }
+
+    const reason = lockReason(block);
+    if (reason) return { ...at, result: { ...at, status: "locked", detail: reason } };
+
+    // 불투명 조각은 방금 읽은 이 블록에서 꺼낸다. 화면은 자리만 돌려주고,
+    // 노션에 들어가는 값은 노션에 있던 값 그대로다.
+    const runs = editHtmlToRuns(change.html, blockRuns(block));
+    return { ...at, patch: { [block.type]: { rich_text: runs } } };
+  } catch (e) {
+    if (e instanceof ApiError && e.code === "not_mine") throw e;
+    if (e instanceof ApiError) return fail(e.detail || e.code);
+    throw e;
+  }
+}
+
+/** 살펴본 것을 노션에 쓴다. 쓰다 실패해도 나머지는 계속 간다. */
+async function writeChange(nt, prepared) {
+  const at = { index: prepared.index, blockId: prepared.blockId };
+  try {
+    const updated = await nt.patch(`/blocks/${prepared.blockId}`, prepared.patch);
+    return { ...at, status: "ok", ...treeItem(updated) };
+  } catch (e) {
+    if (e instanceof ApiError) return { ...at, status: "failed", detail: e.detail || e.code };
+    throw e;
+  }
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const { pathname } = url;
@@ -167,6 +278,67 @@ async function route(request, env) {
   if (pathname === "/auth" && method === "POST") {
     requireEditor(request, env);
     return json({ ok: true }, 200);
+  }
+
+  if (pathname === "/notice/tree" && method === "GET") {
+    requireEditor(request, env);
+    const slug = requireText(url.searchParams.get("slug"), "slug");
+
+    const nt = createNotion(env);
+    // 슬러그로 찾는다. 화면이 페이지 주소를 대는 대로 열어 주면, 주소 하나로
+    // 워크스페이스의 아무 페이지나 읽을 수 있게 된다.
+    const notice = await findNoticePage(nt, slug);
+    const roots = treeRoots(url.searchParams.get("more"), notice.pageId);
+    const { blocks, more } = await walkChildren(nt, roots, TREE_BUDGET);
+
+    const items = {};
+    for (const b of blocks) items[b.id] = treeItem(b);
+    return json({ pageId: notice.pageId, items, more }, 200);
+  }
+
+  if (pathname === "/notice/save" && method === "POST") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const changes = body.changes;
+    if (!Array.isArray(changes) || !changes.length) {
+      throw unprocessable("changes 가 필요합니다");
+    }
+    if (changes.length > SAVE_MAX_CHANGES) {
+      throw unprocessable(`한 번에 ${SAVE_MAX_CHANGES}개까지 보냅니다`);
+    }
+
+    const nt = createNotion(env);
+    const notice = await findNoticePage(nt, slug);
+    // 화면이 열어 둔 사이에 누가 새 공지를 만들었으면, 지금 페이지에 뜨는
+    // 공지는 다른 것이다. 그대로 쓰면 클라이언트에게 보이지 않는 공지를 고친다.
+    if (body.noticePageId && !sameId(body.noticePageId, notice.pageId)) {
+      throw notFound("화면이 보던 공지가 더 이상 가장 최근 공지가 아닙니다");
+    }
+
+    // ① 전부 살펴본다. 남의 기업 주소가 섞여 있으면 여기서 통째로 멈춘다.
+    const ancestors = new Map();
+    const prepared = [];
+    for (let i = 0; i < changes.length; i += 1) {
+      prepared.push(await inspectChange(nt, notice, changes[i], i, ancestors));
+    }
+
+    // ② 통과한 것만 하나씩 쓴다.
+    const results = [];
+    for (const p of prepared) {
+      results.push(p.result ?? await writeChange(nt, p));
+    }
+    const saved = results.filter((r) => r.status === "ok").length;
+
+    // 아무것도 쓰지 못했으면 신호를 던지지 않는다. 던지면 바뀐 것 없는 빌드가
+    // 한 번 돌고, 담당자는 실패한 저장을 「1~2분 뒤 반영」으로 읽는다.
+    let rebuild = "skipped";
+    if (saved) {
+      await ensureNoticeDate(nt, notice);
+      rebuild = await requestRebuild(env, slug);
+    }
+    return json({ pageId: notice.pageId, results,
+                  saved, failed: results.length - saved, rebuild }, 200);
   }
 
   if (pathname === "/notice/item" && method === "GET") {

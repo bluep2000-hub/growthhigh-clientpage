@@ -40,8 +40,12 @@ export function run(text, annotations = {}, extra = {}) {
   };
 }
 
-export function block(id, type, runs, parent) {
-  return { object: "block", id, type, parent, [type]: { rich_text: runs } };
+/** 노션이 돌려주는 수정시각. 어긋난 항목 판정의 기준선이다. */
+export const EDITED = "2026-09-01T00:00:00.000Z";
+
+export function block(id, type, runs, parent, extra = {}) {
+  return { object: "block", id, type, parent, last_edited_time: EDITED,
+           [type]: { rich_text: runs }, ...extra };
 }
 
 export const inPage = (pageId) => ({ type: "page_id", page_id: pageId });
@@ -91,7 +95,9 @@ export function installNotion(opts = {}) {
 
   globalThis.fetch = async (url, init = {}) => {
     const u = new URL(url);
-    const path = u.pathname.replace(/^\/v1/, "");
+    // pathname 은 한글 id 를 퍼센트로 바꿔 놓는다. 되돌려 놓지 않으면 가짜
+    // 노션이 「그런 블록 없다」가 아니라 「자식이 없다」로 조용히 대답한다.
+    const path = decodeURIComponent(u.pathname).replace(/^\/v1/, "");
     const method = init.method || "GET";
     const body = init.body ? JSON.parse(init.body) : undefined;
     const auth = (init.headers || {}).authorization;
@@ -120,6 +126,11 @@ export function installNotion(opts = {}) {
     if (pm && method === "PATCH") return reply({ object: "page", id: pm[1], ...body });
 
     const cm = /^\/blocks\/([^/]+)\/children$/.exec(path);
+    if (cm && method === "GET") {
+      // 자식은 따로 적어 두지 않는다. parent 를 보고 고른다 — 두 곳에 적으면
+      // 한쪽만 고치는 날 가짜 노션이 실제와 다른 모양이 된다.
+      return reply({ object: "list", results: childrenOf(blocks, cm[1]), has_more: false });
+    }
     if (cm && method === "PATCH") {
       const made = body.children.map((c, i) => ({
         object: "block", id: `new-block-${i}`, type: c.type,
@@ -133,12 +144,19 @@ export function installNotion(opts = {}) {
     if (bm) {
       const found = blocks[bm[1]];
       if (!found) return reply({ message: "block not found" }, 404);
-      if (method === "GET") return reply(found);
+      if (method === "GET") return reply(withKids(blocks, found));
       if (method === "PATCH") {
+        // 노션은 보낸 자리만 갈아 끼운다. rich_text 만 보내면 checked 는 남고,
+        // checked 만 보내면 rich_text 가 남는다. 그 흉내를 내야 「체크만
+        // 바꿨는데 글이 날아갔다」를 테스트가 잡아낸다.
         const type = found.type;
-        const updated = { ...found, [type]: { rich_text: toPlain(body[type].rich_text) } };
+        const patch = body[type] || {};
+        const body_ = { ...found[type] };
+        if (patch.rich_text) body_.rich_text = toPlain(patch.rich_text);
+        if (patch.checked !== undefined) body_.checked = patch.checked;
+        const updated = { ...found, [type]: body_, last_edited_time: bumped() };
         blocks[bm[1]] = updated;
-        return reply(updated);
+        return reply(withKids(blocks, updated));
       }
       if (method === "DELETE") {
         delete blocks[bm[1]];
@@ -155,6 +173,32 @@ export function installNotion(opts = {}) {
 /** 노션은 보낸 rich_text 에 plain_text 를 채워 돌려준다. 그 흉내. */
 function toPlain(runs) {
   return runs.map((r) => ({ ...r, plain_text: r.text?.content ?? "", href: r.text?.link?.url ?? null }));
+}
+
+/** 이 블록·페이지를 부모로 삼는 블록들. 적어 둔 순서 그대로. */
+function kidsOf(blocks, id) {
+  const norm = (v) => String(v || "").replace(/-/g, "").toLowerCase();
+  return Object.values(blocks).filter((b) => {
+    const p = b.parent || {};
+    return norm(p.page_id || p.block_id) === norm(id);
+  });
+}
+
+/** has_children 은 세어서 붙인다. 손으로 적어 두면 반드시 어긋난다. */
+function withKids(blocks, b) {
+  return { ...b, has_children: kidsOf(blocks, b.id).length > 0 };
+}
+
+/** 자식 목록. 노션은 목록에도 has_children 을 붙여 준다. */
+function childrenOf(blocks, id) {
+  return kidsOf(blocks, id).map((b) => withKids(blocks, b));
+}
+
+/** 쓰기가 있을 때마다 앞으로 가는 시각. 저장 뒤 기준선이 새것인지 볼 때 쓴다. */
+let clock = 0;
+function bumped() {
+  clock += 1;
+  return new Date(Date.parse(EDITED) + clock * 60000).toISOString();
 }
 
 /** 노션에 나간 쓰기 요청만. 「안 썼다」를 확인할 때 쓴다. */

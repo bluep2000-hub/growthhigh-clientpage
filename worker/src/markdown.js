@@ -10,6 +10,10 @@
  */
 
 import { locked, unprocessable } from "./error.js";
+// 이 파일은 #25 에서 통째로 사라진다. 그때까지 새 그릇(richtext.js)과 같은
+// 이스케이프·같은 rich_text 꺼내기를 쓰도록 빌려 온다 — 둘로 갈라 두면
+// 한쪽만 고치는 날 저장 직후 화면과 재빌드 결과가 조용히 어긋난다.
+import { blockRuns, esc } from "./richtext.js";
 
 /**
  * 글로 적어 되돌릴 수 있는 서식. 이 밖의 것이 든 항목은 잠긴 항목이다.
@@ -24,10 +28,12 @@ function isCustomEmoji(run) {
 }
 
 /**
- * 이 블록을 고칠 수 없게 만드는 것. 없으면 null.
- * 빌더의 `lock_reason()` 과 같은 판정이다.
+ * 이 블록을 **마크다운으로** 고칠 수 없게 만드는 것. 없으면 null.
+ *
+ * 이름을 좁혀 둔다 — `richtext.js` 에도 `lockReason` 이 있고 답이 다르다.
+ * 이쪽이 옛 판정이고 #25 에서 이 파일과 함께 사라진다.
  */
-export function lockReason(block) {
+export function legacyLockReason(block) {
   for (const r of blockRuns(block)) {
     if (isCustomEmoji(r)) return "이모지";
     if (r.href) return "링크";
@@ -39,12 +45,6 @@ export function lockReason(block) {
     if ((a.color || "default") !== "default") return "글자색";
   }
   return null;
-}
-
-/** 노션 블록의 rich_text. 타입마다 자리가 달라 블록 타입을 거쳐 꺼낸다. */
-export function blockRuns(block) {
-  const body = block?.[block?.type];
-  return Array.isArray(body?.rich_text) ? body.rich_text : [];
 }
 
 /* ────────────────────────── rich_text → 마크다운 ────────────────────────── */
@@ -152,13 +152,6 @@ export function markdownToRuns(md) {
 
 /* ────────────────────────── rich_text → HTML ────────────────────────── */
 
-const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-
-/** 빌더의 `esc()` 와 같다. 노션 텍스트는 반드시 이스케이프한다. */
-function esc(s) {
-  return s.replace(/[&<>"']/g, (c) => ESCAPES[c]);
-}
-
 /** 빌더의 `trim_runs()` 와 같다. 후행 콜론·공백을 뗀다. */
 export function trimRuns(runs) {
   const out = runs.map((r) => ({ ...r }));
@@ -208,6 +201,6 @@ export function blockToHtml(block) {
  * 걸린다면 빌드 뒤에 노션에서 그 줄에 링크나 이모지가 붙은 것이다.
  */
 export function assertEditable(block) {
-  const reason = lockReason(block);
+  const reason = legacyLockReason(block);
   if (reason) throw locked(reason);
 }
