@@ -238,13 +238,6 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
    글로 고칠 수 없으니 통째로 두거나 통째로 지운다 */
 .ed-o{white-space:nowrap}
 .ed-o:not(:has(img)){background:var(--panel-2);border-radius:3px;padding:0 3px}
-/* 잠긴 항목 — 왜 못 고치는지와 어디서 고치는지를 그 자리에서 말해 준다 */
-.ck li[data-lock]>.nx,.ck li[data-lock]>.tgh>.nx{opacity:.62}
-.ed-lk{font-size:10.5px;color:var(--tx-3);margin-left:7px;white-space:nowrap}
-/* 아래 `.ck a` 보다 뒤에 오지 않으므로 한 겹 더 짚는다 — 그러지 않으면
-   잠금 안내가 공지 속 링크 색을 뒤집어쓰고 본문보다 더 크게 외친다 */
-.ck .ed-lk a{color:var(--tx-3);text-decoration:underline}
-.ck .ed-lk a:hover{color:var(--accent)}
 /* 공지 제목 칸. 제목처럼 보이게 두고 손댈 수 있다는 것만 밑줄로 알린다 —
    입력칸 테두리를 두르면 화면 맨 위가 갑자기 서식 화면이 된다 */
 .nti{font-family:inherit;font-size:19px;font-weight:600;letter-spacing:-.025em;
@@ -1681,7 +1674,7 @@ function init(D){
   const edItem = (li, nx, extra) => Object.assign(
     {li, nx, display: '', base: null,
      isNew: false, del: false, checked: false,
-     type: '', home: null, moved: false, retype: null, said: null}, extra);
+     type: '', home: null, moved: false, retype: null}, extra);
   let edWired = false;
 
   /** 공지 제목 칸. {input, base, seen} — 줄이 아니라 공지 한 건의 것이라 따로 둔다 */
@@ -1832,7 +1825,7 @@ function init(D){
       toggle: i.type === 'toggle' && (i.items || []).length ? true : undefined,
     }));
     return {
-      title: doc.title || '', date: doc.date || '', page_url: '',
+      title: doc.title || '', date: doc.date || '',
       sections: (doc.sections || []).map(s => ({
         id: s.id, heading: (s.title || '').trim() || null, items: items(s.items),
       })),
@@ -1848,17 +1841,13 @@ function init(D){
   }
 
   /* 지난번에 붙여 둔 자국을 걷어낸다. 안 걷으면 줄을 하나 보태 다시 불러올
-     때마다 잠긴 줄에 🔒 딱지가 하나씩 늘어난다 */
+     때마다 같은 딱지가 하나씩 늘어난다 */
   function edReset(it){
-    it.locked = null;
-    delete it.li.dataset.lock;
     it.li.classList.remove('ed-fail');
     it.nx.removeAttribute('contenteditable');
-    const tag = it.nx.parentElement.querySelector(':scope>.ed-lk');
-    if(tag) tag.remove();
     const mv = it.nx.parentElement.querySelector(':scope>.nx-mv');
     if(mv) mv.remove();
-    it.retype = it.said = null;
+    it.retype = null;
     edRtChip(it);
     edClearNote(it);
   }
@@ -2166,23 +2155,19 @@ function init(D){
   const edTypeName = t => (ED_TYPES.find(([v]) => v === t) || [, t])[1];
 
   /**
-   * 그 줄의 종류를 적어 둔다. 바꾸는 중이면 「종류 → 번호」, 바꾸고 나면
-   * 「종류: 번호」다.
+   * 바꾸려는 종류를 그 줄에 적어 둔다 — 「종류 → 번호」.
    *
-   * **바꾸고 나서도 적어 두는 까닭**은 클라이언트 화면이 종류를 거의 그리지
-   * 않기 때문이다. 봉투에 실리는 것은 할 일의 체크와 인용의 들여쓰기뿐이라,
-   * 글머리·번호·본문은 재빌드 뒤에도 똑같이 그려진다. 딱지를 걷으면 담당자는
-   * 바뀐 것을 어디서도 확인할 수 없다 — 노션을 열어야 한다.
+   * 저장하고 나면 걷는다. 봉투가 종류를 실어 클라이언트 화면이 그 종류대로
+   * 그리므로, 바뀐 것은 화면 자체가 말해 준다.
    */
   function edRtChip(it){
     const top = it.nx.closest('.tgh') || it.nx;
     const old = top.parentElement.querySelector(':scope>.ed-rt');
     if(old) old.remove();
-    if(!it.retype && !it.said) return;
+    if(!it.retype) return;
     const tag = document.createElement('span');
     tag.className = 'ed-rt';
-    tag.textContent = it.retype ? `종류 → ${edTypeName(it.retype)}`
-                                : `종류: ${edTypeName(it.said)}`;
+    tag.textContent = `종류 → ${edTypeName(it.retype)}`;
     top.parentElement.insertBefore(tag, top.nextSibling);
   }
 
@@ -2773,7 +2758,7 @@ function init(D){
       it.nx.removeAttribute('contenteditable');
       edClearNote(it);
       it.li.classList.remove('ed-fail');
-    } else if(!it.locked){
+    } else {
       it.nx.contentEditable = 'true';
     }
     edDelBtn(it);

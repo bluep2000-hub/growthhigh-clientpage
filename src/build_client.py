@@ -1069,16 +1069,21 @@ NOTICE_KINDS = {"bullet", "number", "todo", "paragraph", "quote", "toggle"}
 
 
 def relay_notice(slug: str) -> dict | None:
-    """저장소에서 그 기업의 최신 공지 문서. 없거나 물어보지 못하면 None.
+    """저장소에서 그 기업의 최신 공지 문서. **아직 이사하지 않았으면 None.**
 
-    실패해도 빌드를 세우지 않는다 — 노션 경로가 아직 살아 있어 그리로 간다.
-    다만 **조용히 넘어가지는 않는다.** 토큰이 빠졌을 때 말없이 노션을 읽으면,
-    담당자는 페이지에서 고친 공지가 왜 안 나가는지 알 길이 없다.
+    None 은 「저장소에 그 기업의 공지가 없다」 하나뿐이다. 그때만 노션으로
+    간다 — 옮겨 가는 동안의 다리다.
+
+    **그 밖의 실패는 빌드를 세운다.** 물어보지 못한 것을 「없다」로 읽으면
+    노션의 지난 공지가 저장소의 새 공지를 덮어쓰며 나간다 — 담당자가 어제
+    고쳐 둔 것이 클라이언트 화면에서 조용히 사라지는 길이다. 원본을 읽지
+    못하는 빌드는 페이지를 만들지 않는 편이 낫다.
     """
     token = os.environ.get("BUILD_TOKEN", "").strip()
     if not token:
-        warn("BUILD_TOKEN 이 없어 저장소를 읽지 못했습니다 — 공지는 노션에서 읽습니다")
-        return None
+        raise ClientFailure(
+            "BUILD_TOKEN 이 없습니다 — 공지의 원본인 저장소를 읽을 수 없습니다."
+            " .env 에 넣어 주세요 (.env.example 참고)")
 
     base = (os.environ.get("RELAY_URL", "").strip() or RELAY_URL_DEFAULT).rstrip("/")
     try:
@@ -1087,20 +1092,16 @@ def relay_notice(slug: str) -> dict | None:
                          headers={"Authorization": f"Bearer {token}"},
                          timeout=30)
     except requests.RequestException as e:
-        warn(f"중계 서버에 닿지 못했습니다 — 공지는 노션에서 읽습니다: {e}")
-        return None
+        raise ClientFailure(f"중계 서버에 닿지 못했습니다: {e}") from e
 
     if r.status_code == 404:
         return None                      # 아직 이사하지 않은 기업. 다리로 간다
     if r.status_code != 200:
-        warn(f"중계 서버가 공지를 주지 않았습니다 ({r.status_code})"
-             " — 공지는 노션에서 읽습니다")
-        return None
+        raise ClientFailure(f"중계 서버가 공지를 주지 않았습니다 ({r.status_code})")
     try:
         return r.json()
     except ValueError as e:
-        warn(f"중계 서버의 공지를 읽지 못했습니다 — 공지는 노션에서 읽습니다: {e}")
-        return None
+        raise ClientFailure(f"중계 서버의 공지를 읽지 못했습니다: {e}") from e
 
 
 def doc_items(items: list[dict]) -> list[dict]:
@@ -1151,10 +1152,10 @@ def notice_from_doc(doc: dict) -> dict | None:
     if not any(sec["items"] for sec in sections):
         return None
 
-    # `page_url` 은 빈 값이다. 저장소의 공지에는 노션 페이지가 없다 —
-    # 「노션에서 고치기」로 보낼 곳도, 잠긴 항목도 함께 없어졌다.
+    # `page_url` 을 싣지 않는다. 저장소의 공지에는 노션 페이지가 없고, 그것을
+    # 읽던 「노션에서 고치기」는 잠긴 항목과 함께 없어졌다.
     return {"title": (doc.get("title") or "").strip() or "공지사항",
-            "date": doc.get("date") or "", "sections": sections, "page_url": ""}
+            "date": doc.get("date") or "", "sections": sections}
 
 
 def fetch_notice(nt: Notion, url: str | None) -> dict | None:
