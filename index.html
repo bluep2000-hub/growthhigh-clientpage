@@ -218,12 +218,49 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 
 /* 자손 선택자다. `.ck>li` 로 쓰면 중첩된 항목이 통째로 빠진다 —
    공지는 4단까지 들어가고, 실제로 고칠 줄은 대부분 안쪽에 있다 */
-.ck li[data-nid]>.nx,.ck li[data-nid]>.tgh>.nx{border-radius:3px;cursor:text}
-.ck li[data-nid]>.nx:hover,.ck li[data-nid]>.tgh>.nx:hover{background:var(--accent-bg)}
-/* 잠긴 항목 — 왜 못 고치는지 그 자리에서 말해 준다 */
-.ck li[data-lock]>.nx{opacity:.62}
-.ck li[data-lock]>.nx::after{content:"🔒 " attr(data-lock);font-size:10.5px;color:var(--tx-3);
-  margin-left:7px;white-space:nowrap}
+.ck li[data-nid]>.nx,.ck li[data-nid]>.tgh>.nx{border-radius:3px}
+/* 고칠 수 있게 된 줄. 중계 서버가 「고칠 수 있다」고 한 뒤에야 이 꼴이 된다 —
+   contenteditable 은 화면이 아니라 중계 서버의 판정으로만 붙는다 */
+.nx[contenteditable]{outline:none;cursor:text;padding:0 3px;margin:0 -3px}
+.nx[contenteditable]:hover{background:var(--accent-bg)}
+.nx[contenteditable]:focus{background:var(--accent-bg);box-shadow:0 0 0 1px var(--accent)}
+/* 고친 줄 — 저장 전까지 눈에 띈다. 무엇이 나갈 것인지가 한눈에 보여야 한다 */
+.ck li.ed-dirty{box-shadow:inset 2px 0 var(--accent);border-radius:3px}
+.ck li.ed-fail{box-shadow:inset 2px 0 var(--no);border-radius:3px}
+/* 노션에서만 만들 수 있는 조각 — 멘션·수식·커스텀 이모지.
+   글로 고칠 수 없으니 통째로 두거나 통째로 지운다 */
+.ed-o{white-space:nowrap}
+.ed-o:not(:has(img)){background:var(--panel-2);border-radius:3px;padding:0 3px}
+/* 잠긴 항목 — 왜 못 고치는지와 어디서 고치는지를 그 자리에서 말해 준다 */
+.ck li[data-lock]>.nx,.ck li[data-lock]>.tgh>.nx{opacity:.62}
+.ed-lk{font-size:10.5px;color:var(--tx-3);margin-left:7px;white-space:nowrap}
+.ed-lk a{color:var(--tx-3);text-decoration:underline}
+.ed-lk a:hover{color:var(--accent)}
+/* 어긋남·실패를 그 줄 밑에 붙인다. 어느 줄 이야기인지 찾게 만들지 않는다 */
+.ed-note{margin:5px 0 7px;padding:7px 9px;font-size:11.5px;line-height:1.6;
+  border:1px solid var(--line-2);border-radius:7px;background:var(--panel-2);color:var(--tx-2)}
+.ed-note.bad{border-color:var(--no)}
+.ed-note .cur{margin:5px 0;padding:6px 8px;background:var(--panel);border-radius:5px;color:var(--tx)}
+.ed-note button{font-size:11px;border-radius:5px;padding:2px 9px;
+  border:1px solid var(--line-2);margin-right:5px}
+/* 저장 창구 — 공지 밑에 붙어 스크롤해도 남는다. 고친 것이 어디로 나가는지
+   한 곳만 보면 되게 한다 */
+.ed-bar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;
+  margin-top:14px;padding:9px 12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:9px;font-size:12px;box-shadow:0 -3px 14px rgba(0,0,0,.07)}
+.ed-bar .cnt{color:var(--tx-3)}
+.ed-bar .msg{margin-left:auto;color:var(--tx-2);text-align:right}
+.ed-bar .msg.bad{color:var(--no)}
+.ed-bar button{font-size:12px;border-radius:6px;padding:4px 13px;border:1px solid var(--line-2)}
+.ed-bar .save{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.ed-bar button[disabled]{opacity:.5;cursor:default}
+/* 서식 막대 — 글자를 고른 자리 위에 뜬다. 안 고르면 없다 */
+.ed-tb{position:absolute;z-index:60;display:none;gap:2px;padding:3px;background:var(--panel);
+  border:1px solid var(--line-2);border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.ed-tb.on{display:flex}
+.ed-tb button{min-width:26px;height:24px;font-size:12px;color:var(--tx-2);border-radius:4px;
+  padding:0 5px}
+.ed-tb button:hover{background:var(--accent-bg);color:var(--accent)}
 .nedit{display:block;margin:2px 0}
 .nedit textarea{display:block;width:100%;min-height:56px;resize:vertical;font-family:inherit;
   font-size:13px;line-height:1.65;color:var(--tx);background:var(--panel-2);
@@ -235,11 +272,12 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .nedit .bad{color:var(--no)}
 
 /* 지우기 — 평소에는 안 보이다가 그 줄에 손이 갈 때만 나온다.
-   늘 떠 있으면 읽는 데 방해가 되고, 잘못 누르기도 쉽다 */
+   늘 떠 있으면 읽는 데 방해가 되고, 잘못 누르기도 쉽다.
+   .nx 바깥에 둔다 — 안에 두면 고치는 글의 일부가 되어 노션에 딸려 들어간다 */
 .nx-del{opacity:0;margin-left:8px;font-size:11px;color:var(--tx-3);padding:0 4px;
   border-radius:4px;vertical-align:.05em}
-.ck li[data-nid]:hover>.nx>.nx-del,
-.ck li[data-nid]:hover>.tgh>.nx>.nx-del{opacity:1}
+.ck li[data-nid]:hover>.nx-del,
+.ck li[data-nid]:hover>.tgh>.nx-del{opacity:1}
 .nx-del:hover{color:var(--no);background:var(--no-bg)}
 .nx-del:focus-visible{opacity:1}
 .nx-del.ask{opacity:1;color:var(--no);font-weight:600}
@@ -1362,13 +1400,12 @@ function init(D){
 
     const body = noticeHtml(it.html);
     let mark = '', text = body;
-    /* 잠금이 먼저다. 이제 잠긴 항목도 주소를 갖는데, 주소를 먼저 보면
-       잠긴 항목이 편집 대상으로 열려 버린다 — 고쳐 저장하는 순간 그 항목의
-       링크·하위 문서가 노션에서 사라진다. 고칠 수 있고 없고는 locked 로만 가른다 */
-    if(edit && it.locked){
-      mark = ` data-lock="${esc(it.locked)}"`;
-      text = `<span class="nx" data-lock="${esc(it.locked)}">${body}</span>`;
-    } else if(edit && it.id){
+    /* 주소만 싣는다. 봉투의 `locked` 는 여기서 쓰지 않는다 —
+       빌더의 잠금 판정과 중계 서버의 판정이 다르고(빌더는 이모지·링크·글자색이
+       든 줄까지 잠근다), 둘을 다 화면에 내면 담당자는 방금 잠겼던 줄이 스스로
+       열리는 것을 본다. 무엇을 고칠 수 있는지는 `GET /notice/tree` 하나가 정하고,
+       그것이 오기 전까지는 어느 줄도 고칠 수 없다 */
+    if(edit && it.id){
       mark = ` data-nid="${esc(it.id)}"`;
       text = `<span class="nx">${body}</span>`;
     }
@@ -1376,17 +1413,18 @@ function init(D){
     /* 노션에서 접어 둔 항목은 접힌 채로 시작한다 — 접어 둔 의도를 따른다 */
     if(it.toggle && sub){
       return `<li class="tg"${mark}><span class="tgh"><i class="tw">▸</i>
-        ${edit && (it.id || it.locked) ? text : `<span>${body}</span>`}</span>${sub}</li>`;
+        ${edit && it.id ? text : `<span>${body}</span>`}</span>${sub}</li>`;
     }
     return `<li class="${cls}"${mark}>${text}${sub}</li>`;
   }
-  function noticeFeed(){
+  /* edit 는 부르는 쪽이 정한다. `ED.on()` 을 여기서 보면 인쇄 화면까지
+     편집용 DOM 이 되어, 담당자가 뽑은 종이에 편집 흔적이 섞여 나간다 */
+  function noticeFeed(edit){
     const sections = (notice && Array.isArray(notice.sections)) ? notice.sections : [];
     if(!sections.length){
       return `<div class="notice"><div class="bd" style="padding-top:13px">
         <p class="empty">등록된 내용이 없습니다.</p></div></div>`;
     }
-    const edit = ED.on();
     /* 기본은 첫 섹션만 열어 둔다. 분량이 많아 다 펼치면 한눈에 안 들어온다 */
     return sections.map((s,si)=>`
       <div class="notice${si===0?' open':''}">${(s.heading_html || s.heading)
@@ -1397,7 +1435,17 @@ function init(D){
          : `<p class="empty">등록된 내용이 없습니다.</p>`}
       </div></div>`).join('')
       /* 보탠 줄은 공지 맨 끝에 붙는다. 그래서 단추도 맨 끝에 둔다 */
-      + (edit ? `<div class="nadd"><button class="nadd-b" data-nadd>＋ 줄 추가</button></div>` : '');
+      + (edit ? `<div class="nadd"><button class="nadd-b" data-nadd>＋ 줄 추가</button></div>
+        ${saveBar()}` : '');
+  }
+
+  /* 저장 창구. 고친 줄이 몇인지, 무엇이 나갔는지가 여기 한 곳에만 뜬다 */
+  function saveBar(){
+    return `<div class="ed-bar" id="edbar">
+      <button class="save" data-edsave disabled>저장</button>
+      <button data-edundo disabled>되돌리기</button>
+      <span class="cnt" data-edcnt>공지를 불러오는 중…</span>
+      <span class="msg" data-edmsg></span></div>`;
   }
 
   /* ══ 편집 모드 ═══════════════════════════════════════════════════
@@ -1457,7 +1505,14 @@ function init(D){
 
   function bindEditSwitch(){
     const off = document.querySelector('[data-edoff]');
-    if(off) off.onclick = () => { sessionStorage.removeItem(EKEY); go('notice'); };
+    /* 붙잡기가 먼저다. 열쇠부터 지우면 담당자가 「두고 나가기」를 취소해도
+       편집 모드는 이미 꺼져 있고, 고쳐 둔 줄은 다음 그리기에 사라진다 */
+    if(off) off.onclick = () => {
+      if(!edMayLeave()) return;
+      edItems = new Map();
+      sessionStorage.removeItem(EKEY);
+      go('notice');
+    };
 
     const on = document.querySelector('[data-edon]');
     if(!on) return;
@@ -1486,56 +1541,617 @@ function init(D){
     };
   }
 
-  /* 항목 하나를 그 자리에서 고친다. 하위 항목은 건드리지 않는다 */
-  /* 지우기 단추는 항목 자기 글 뒤에 붙는다. 저장하면 .nx 를 통째로 다시 그리므로
-     그때마다 도로 붙여야 한다 — 한 군데로 모아 둔다 */
-  const delBtn = () => `<button class="nx-del" data-ndel title="이 줄 지우기">✕</button>`;
-  function paintItem(nx, html){ nx.innerHTML = noticeHtml(html) + delBtn(); bindDelete(nx); }
+  /* ══ 공지 편집기 ═══════════════════════════════════════════════════
+     편집 모드를 켜면 공지 전체가 그 자리에서 편집된다. 고친 것은 화면에
+     쌓였다가 「저장」을 눌러야 한 번에 나간다 — 그래서 저장 전에 되돌릴 수
+     있고, 재빌드도 한 번만 돈다.
+
+     화면에 그려져 있는 글은 봉투에서 온 **표시용** HTML 이라 노션으로 되돌릴
+     수 없다. 빌더가 링크와 글자색을 버리고 커스텀 이모지를 그림으로 바꾸기
+     때문이다. 그래서 편집을 열 때 `GET /notice/tree` 로 **편집용** HTML 을 새로
+     받아 항목마다 갈아 끼운다. 무엇을 고칠 수 있는지도 그 응답만이 정한다.
+
+     저장할 때는 브라우저가 만든 DOM 을 그대로 보내지 않는다. contenteditable
+     은 <b>·<font>·style 을 제멋대로 내놓는데, 중계 서버는 아는 태그만 받고
+     모르는 것이 하나라도 섞이면 그 줄을 통째로 거절한다. edSerialize() 가
+     DOM 을 걸어 다니며 중계 서버가 아는 어휘로만 다시 쓴다. */
+
+  /** 한 번의 저장이 보내는 변경 수. 중계 서버의 상한과 같은 값이다 */
+  const ED_MAX = 20;
+
+  /** 블록 주소 → {li, nx, display, seen, base, locked}. 순서는 화면 순서다 */
+  let edItems = new Map();
+  let edPageId = null;
+  let edWired = false;
+
+  /* 줄바꿈은 태그로 싣는다. 그냥 두면 편집기가 공백으로 뭉갠다 —
+     중계 서버의 escText() 와 같은 규칙이다 */
+  const edEscText = s => esc(s).replace(/\n/g, '<br>');
+
+  /* 글자 하나가 어떤 서식 속에 있는지. 태그 이름만 보지 않고 style 까지 본다 —
+     편집기는 <b> 를 낼 때도 있고 style="font-weight:bold" 를 낼 때도 있다 */
+  function edState(from, root){
+    const st = {bold:false, italic:false, underline:false, strike:false, code:false,
+                href:null, color:null, o:null, ot:''};
+    for(let el = from; el; el = el.parentElement){
+      const tag = el.tagName;
+      if(tag === 'B' || tag === 'STRONG') st.bold = true;
+      else if(tag === 'I' || tag === 'EM') st.italic = true;
+      else if(tag === 'U') st.underline = true;
+      else if(tag === 'S' || tag === 'DEL' || tag === 'STRIKE') st.strike = true;
+      else if(tag === 'CODE') st.code = true;
+      else if(tag === 'A' && st.href === null) st.href = el.getAttribute('href');
+      const d = el.dataset || {};
+      if(d.o !== undefined && st.o === null){ st.o = d.o; st.ot = d.ot || ''; }
+      if(d.c && st.color === null) st.color = d.c;
+      const s = el.style || {};
+      if(/^(bold|[6-9]00)$/.test(s.fontWeight || '')) st.bold = true;
+      if(s.fontStyle === 'italic') st.italic = true;
+      const dec = (s.textDecoration || '') + ' ' + (s.textDecorationLine || '');
+      if(dec.indexOf('underline') >= 0) st.underline = true;
+      if(dec.indexOf('line-through') >= 0) st.strike = true;
+      if(el === root) break;
+    }
+    return st;
+  }
+
+  /* 불투명 조각은 절대 이웃과 합치지 않는다 — 조각 하나가 rich_text 한 칸이다 */
+  const edSame = (a, b) => a.o === null && b.o === null
+    && a.bold === b.bold && a.italic === b.italic && a.underline === b.underline
+    && a.strike === b.strike && a.code === b.code && a.href === b.href && a.color === b.color;
+
+  /** DOM → 중계 서버가 받는 편집용 HTML. 감싸는 순서는 중계 서버와 같다 */
+  function edSerialize(root){
+    const runs = [];
+    const push = (st, text) => {
+      /* 글이 빈 불투명 조각도 싣는다. 빠뜨리면 그 멘션이 노션에서 사라진다 */
+      if(!text && st.o === null) return;
+      const last = runs[runs.length - 1];
+      if(last && edSame(last.st, st)) last.text += text;
+      else runs.push({st, text});
+    };
+    const visit = node => {
+      if(node.nodeType === 3){
+        /* 편집기는 줄 끝 공백을 &nbsp; 로 넣는다. 그대로 실으면 노션에
+           눈에 보이지 않는 글자가 남는다 */
+        push(edState(node.parentElement, root), node.nodeValue.replace(/\u00a0/g, ' '));
+        return;
+      }
+      if(node.nodeType !== 1) return;
+      const d = node.dataset || {};
+      /* 불투명 조각은 안을 들여다보지 않는다. 화면에 무엇이 그려져 있든 —
+         커스텀 이모지는 그림이다 — 중계 서버에 돌아가는 것은 받은 글 그대로다 */
+      if(d.o !== undefined){ push(edState(node, root), d.ot || ''); return; }
+      if(node.tagName === 'BR'){ push(edState(node.parentElement, root), '\n'); return; }
+      /* 편집기가 만들어 낼 수 있는 덩어리. 줄바꿈으로 받는다 — 그냥 지나치면
+         두 줄이 소리 없이 한 줄로 붙는다 */
+      if((node.tagName === 'DIV' || node.tagName === 'P') && runs.length){
+        push(edState(node.parentElement, root), '\n');
+      }
+      for(const kid of node.childNodes) visit(kid);
+    };
+    for(const kid of root.childNodes) visit(kid);
+
+    /* 편집기는 마지막 줄이 보이게 하려고 끝에 가짜 <br> 를 넣는다. 그것까지
+       실으면 저장할 때마다 빈 줄이 하나씩 늘어난다. 기준선도 같은 길로
+       만들므로, 이 손질 때문에 고치지 않은 줄이 고쳐진 것으로 잡히지는 않는다 */
+    const tail = runs[runs.length - 1];
+    if(tail && tail.st.o === null){
+      tail.text = tail.text.replace(/\n+$/, '');
+      if(!tail.text) runs.pop();
+    }
+
+    let out = '';
+    for(const r of runs){
+      const st = r.st;
+      if(st.o !== null){
+        out += `<span data-o="${esc(st.o)}">${edEscText(r.text)}</span>`;
+        continue;
+      }
+      let h = edEscText(r.text);
+      if(st.code) h = `<code>${h}</code>`;
+      if(st.underline) h = `<u>${h}</u>`;
+      if(st.italic) h = `<em>${h}</em>`;
+      if(st.strike) h = `<s>${h}</s>`;
+      if(st.bold) h = `<strong>${h}</strong>`;
+      if(st.color && st.color !== 'default') h = `<span data-c="${esc(st.color)}">${h}</span>`;
+      if(st.href) h = `<a href="${esc(st.href)}">${h}</a>`;
+      out += h;
+    }
+    return out;
+  }
+
+  /* 불투명 조각의 본디 글. textContent 로는 안 된다 — 조각의 글에 줄바꿈이
+     있으면 <br> 로 실려 오는데 textContent 는 그것을 지운다. 지워진 채로
+     돌려보내면 중계 서버가 「손대어졌다」며 그 줄을 영영 거절한다 */
+  function edPlain(el){
+    let out = '';
+    el.childNodes.forEach(n => {
+      if(n.nodeType === 3) out += n.nodeValue;
+      else if(n.nodeType === 1) out += n.tagName === 'BR' ? '\n' : edPlain(n);
+    });
+    return out;
+  }
+
+  /* 편집용 HTML 을 항목에 갈아 끼운다. 불투명 조각은 손댈 수 없게 잠그고,
+     표시용 HTML 에 있던 커스텀 이모지 그림을 도로 얹는다 — 안 그러면 고치는
+     동안만 이모지가 「:도장:」이 되어 보인다 */
+  function edPaint(it, html){
+    const bin = document.createElement('div');
+    bin.innerHTML = it.display;
+    const imgs = Array.from(bin.querySelectorAll('img.cem'));
+
+    it.nx.innerHTML = html;
+    it.nx.querySelectorAll('[data-o]').forEach(sp => {
+      const text = edPlain(sp);
+      sp.dataset.ot = text;
+      sp.className = 'ed-o';
+      sp.contentEditable = 'false';
+      sp.title = '노션에서만 만들 수 있는 조각입니다 — 그대로 남습니다';
+      const hit = imgs.findIndex(im => `:${im.alt}:` === text);
+      if(hit >= 0){ sp.textContent = ''; sp.appendChild(imgs.splice(hit, 1)[0]); }
+    });
+    it.base = edSerialize(it.nx);
+  }
+
+  /* 노션에 있는 편집용 원본을 통째로 받아 온다. 한 번에 다 못 읽으면 응답이
+     `more` 로 못 본 곳을 알려 준다 — 중계 서버가 한 요청에 쓸 수 있는 바깥
+     호출 수에 상한이 있어서다. 그것을 들고 끝까지 이어 읽는다 */
+  async function edFetchTree(){
+    const items = {};
+    let more = '', pageId = null, rounds = 0;
+    do {
+      const out = await ED.call('GET', '/notice/tree' +
+        `?slug=${encodeURIComponent(CLIENT)}` +
+        (more ? `&more=${encodeURIComponent(more)}` : ''));
+      Object.assign(items, out.items || {});
+      pageId = out.pageId;
+      more = (out.more || []).join(',');
+      rounds += 1;
+    } while(more && rounds < 12);
+    return {items, pageId, left: !!more};
+  }
+
+  /* 지난번에 붙여 둔 자국을 걷어낸다. 안 걷으면 줄을 하나 보태 다시 불러올
+     때마다 잠긴 줄에 🔒 딱지가 하나씩 늘어난다 */
+  function edReset(it){
+    it.locked = null;
+    delete it.li.dataset.lock;
+    it.li.classList.remove('ed-fail');
+    it.nx.removeAttribute('contenteditable');
+    const tag = it.nx.parentElement.querySelector(':scope>.ed-lk');
+    if(tag) tag.remove();
+    edClearNote(it);
+  }
+
+  /* 편집을 연다. 고쳐 둔 줄은 다시 받지 않는다 — 덮으면 저장 전에 사라진다 */
+  async function edLoad(){
+    if(!document.getElementById('edbar')) return;
+    const prev = edItems;
+    const dirty = new Map();
+    prev.forEach((it, id) => { if(it.li.classList.contains('ed-dirty')) dirty.set(id, it); });
+
+    const next = new Map();
+    document.querySelectorAll('.ck li[data-nid]').forEach(li => {
+      const nx = li.querySelector(':scope>.nx, :scope>.tgh>.nx');
+      if(!nx) return;
+      const id = li.dataset.nid;
+      const was = prev.get(id);
+      const kept = (was && was.li === li) ? was : null;
+      /* 화면을 다시 그리지 않았으면 처음 그렸던 표시용 HTML 을 지킨다. 지금
+         innerHTML 은 이미 편집용이라, 그것을 display 로 삼으면 커스텀 이모지
+         그림을 꺼내 올 곳이 없어진다 */
+      next.set(id, (kept && dirty.has(id)) ? kept
+        : {li, nx, display: kept ? kept.display : nx.innerHTML,
+           seen: null, base: null, locked: null});
+    });
+    edItems = next;
+    edStatus('공지를 불러오는 중…');
+
+    let tree;
+    try { tree = await edFetchTree(); }
+    catch(e){
+      edMsg(edErr(e, '공지를 불러오지 못했습니다'), true);
+      edStatus('불러오지 못했습니다 — 편집 모드를 껐다 켜 주세요');
+      return;
+    }
+    edPageId = tree.pageId;
+    edItems.forEach((it, id) => { if(!dirty.has(id)) edOpen(it, tree.items[id], tree.left); });
+    edStatus();
+    if(tree.left) edMsg('공지가 깊어 일부는 불러오지 못했습니다 — 그 줄은 노션에서 고쳐 주세요', true);
+  }
+
+  /* 항목 하나를 고칠 수 있게, 또는 왜 못 고치는지 밝히며 잠긴 채로 연다 */
+  function edOpen(it, node, unread){
+    edReset(it);
+    if(!node){
+      /* 다 읽지 못하고 멈췄으면 없는 줄이 아니라 아직 못 본 줄이다.
+         까닭을 뒤바꿔 말하면 담당자는 노션에 멀쩡히 있는 줄을 찾으러 간다 */
+      edLock(it, unread ? '아직 불러오지 못한 줄' : '노션에 없는 줄');
+      return;
+    }
+    it.seen = node.last_edited_time;
+    if(node.locked || typeof node.html !== 'string'){
+      edLock(it, node.locked || '노션 전용');
+      return;
+    }
+    edPaint(it, node.html);
+    it.nx.contentEditable = 'true';
+    it.nx.spellcheck = false;
+    edBindItem(it);
+  }
+
+  /* 못 고치는 줄에는 까닭과 갈 곳을 함께 붙인다. 「고칠 수 없습니다」만
+     남기면 담당자는 노션의 어디를 열어야 하는지 스스로 찾아야 한다 */
+  function edLock(it, why){
+    it.locked = why;
+    it.li.dataset.lock = why;
+    const anchor = it.nx.parentElement.querySelector(':scope>.nx-del') || it.nx;
+    const tag = document.createElement('span');
+    tag.className = 'ed-lk';
+    tag.innerHTML = `🔒 ${esc(why)} · <a target="_blank" rel="noopener" href="${
+      esc(edNotionUrl(it.li.dataset.nid))}">노션에서 고치기</a>`;
+    anchor.parentElement.insertBefore(tag, anchor.nextSibling);
+  }
+
+  /** 그 블록으로 바로 가는 노션 주소 */
+  function edNotionUrl(id){
+    const bare = String(id || '').replace(/-/g, '');
+    const page = (notice && notice.page_url) || '';
+    return page ? `${page}#${bare}` : `https://www.notion.so/${bare}`;
+  }
+
+  function edBindItem(it){
+    const nx = it.nx;
+    nx.oninput = () => edTouch(it);
+    nx.onclick = e => e.stopPropagation();   /* 토글 항목이 접히지 않게 */
+    nx.onkeydown = e => {
+      if(e.key === 'Enter'){
+        /* 줄 안에서의 줄바꿈이다. 새 항목을 만드는 것이 아니다 —
+           항목을 보태고 지우는 것은 아직 ＋·✕ 단추의 몫이다 */
+        e.preventDefault();
+        document.execCommand('insertLineBreak');
+        edTouch(it);
+      }
+      if(e.key === 'Escape') nx.blur();
+    };
+    /* 붙여넣기는 글자만 받는다. 노션·워드에서 복사한 서식을 그대로 넣으면
+       중계 서버가 모르는 태그가 섞여 그 줄이 통째로 거절당한다 */
+    nx.onpaste = e => {
+      e.preventDefault();
+      const t = (e.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, String(t).replace(/\r\n?/g, '\n'));
+    };
+    nx.ondrop = e => e.preventDefault();
+  }
+
+  const edOf = nx => edItems.get((nx.closest('li[data-nid]') || {dataset:{}}).dataset.nid);
+
+  function edTouch(it){
+    const dirty = edSerialize(it.nx) !== it.base;
+    it.li.classList.toggle('ed-dirty', dirty);
+    if(dirty) it.li.classList.remove('ed-fail');
+    edStatus();
+  }
+
+  /* 고친 줄. 화면에 보이는 순서 그대로 — 저장이 상한에서 끊길 때 위에서부터
+     나가야 담당자가 무엇이 남았는지 짚을 수 있다 */
+  function edDirty(){
+    const out = [];
+    edItems.forEach(it => { if(it.li.classList.contains('ed-dirty')) out.push(it); });
+    return out;
+  }
+
+  function edStatus(text){
+    const bar = document.getElementById('edbar');
+    if(!bar) return;
+    const n = edDirty().length;
+    bar.querySelector('[data-edcnt]').textContent =
+      text !== undefined ? text
+      : !n ? '고친 줄 없음'
+      : n > ED_MAX ? `${n}줄 고침 — 한 번에 ${ED_MAX}줄까지 나갑니다`
+      : `${n}줄 고침`;
+    bar.querySelector('[data-edsave]').disabled = !n;
+    bar.querySelector('[data-edundo]').disabled = !n;
+  }
+
+  function edMsg(text, bad){
+    const bar = document.getElementById('edbar');
+    if(!bar) return;
+    const m = bar.querySelector('[data-edmsg]');
+    m.className = 'msg' + (bad ? ' bad' : '');
+    m.textContent = text || '';
+  }
+
+  /* 알림은 그 줄 바로 밑에 붙인다. 항목 안에 넣으면 고치는 글의 일부가 된다 */
+  function edNote(it){
+    edClearNote(it);
+    /* 지우기 단추 뒤에 붙인다. 사이에 끼우면 알림이 한 켜를 차지하면서
+       ✕ 가 다음 줄로 밀려난다 */
+    const top = it.nx.closest('.tgh') || it.nx;
+    const anchor = top.parentElement.querySelector(':scope>.nx-del') || top;
+    const box = document.createElement('div');
+    box.className = 'ed-note bad';
+    anchor.parentElement.insertBefore(box, anchor.nextSibling);
+    return box;
+  }
+  function edClearNote(it){
+    const old = it.li.querySelector(':scope>.ed-note');
+    if(old) old.remove();
+  }
+
+  /* 어긋남 — 화면이 본 뒤에 노션에서 먼저 바뀌었다. 노션의 지금 내용을 그대로
+     보여 주고 어느 쪽을 남길지는 담당자가 고른다. 여기서 자동으로 고르면
+     둘 중 하나가 말없이 사라진다 */
+  function edStale(it, cur){
+    /* 노션 전용 조각은 「지금 rich_text 에서의 자리」로 실려 있다. 노션이
+       먼저 바뀌었으면 그 자리에 다른 것이 들어 있을 수 있어, 고친 대로
+       덮어쓰면 중계 서버가 「조각이 손대어졌다」며 되돌린다. 눌러도 실패할
+       단추를 내놓느니 왜 못 하는지를 말한다 */
+    const opaque = !!it.nx.querySelector('[data-o]');
+    const box = edNote(it);
+    box.innerHTML = `노션에서 먼저 바뀌었습니다. 지금 노션의 내용입니다.
+      <div class="cur"></div>
+      <button data-edtake>노션 내용으로</button>` + (opaque
+        ? `<span>이 줄에는 노션에서만 만드는 조각이 있어 덮어쓸 수 없습니다 —
+           노션 내용을 받아 다시 고쳐 주세요</span>`
+        : `<button data-edmine>내가 고친 대로 덮어쓰기</button>`);
+    box.querySelector('.cur').innerHTML = cur.html || '<i>(빈 줄)</i>';
+    box.querySelector('[data-edtake]').onclick = () => {
+      it.seen = cur.last_edited_time;
+      edPaint(it, cur.html || '');
+      it.li.classList.remove('ed-dirty', 'ed-fail');
+      edClearNote(it);
+      edStatus();
+    };
+    if(opaque) return;
+    box.querySelector('[data-edmine]').onclick = () => {
+      /* 기준선만 노션의 지금 시각으로 옮긴다. 다음 저장이 그대로 덮어쓴다 */
+      it.seen = cur.last_edited_time;
+      it.li.classList.remove('ed-fail');
+      edClearNote(it);
+      edMsg('다시 「저장」을 누르면 내가 고친 대로 덮어씁니다');
+    };
+  }
+
+  function edResult(it, r){
+    if(!it) return;
+    if(r.status === 'ok'){
+      it.seen = r.last_edited_time;
+      /* 노션이 받아들인 모양으로 다시 그린다. 화면과 노션이 어긋난 채로 두면
+         다음 저장이 어긋남으로 튕긴다 */
+      edPaint(it, r.html || '');
+      it.li.classList.remove('ed-dirty', 'ed-fail');
+      return;
+    }
+    it.li.classList.add('ed-fail');
+    if(r.status === 'stale'){ edStale(it, r.current || {}); return; }
+    edNote(it).textContent = r.status === 'locked'
+      ? `노션에서 고칠 수 없는 줄이 되었습니다 — ${r.detail || ''}`
+      : `저장하지 못했습니다 — ${r.detail || ''}`;
+  }
+
+  async function edSave(){
+    const all = edDirty();
+    if(!all.length) return;
+    /* 중계 서버가 한 번에 받는 수까지만 보낸다. 나눠서 몰래 여러 번 보내면
+       재빌드가 그 수만큼 돌아, 클라이언트 화면이 몇 분씩 흔들린다 */
+    const batch = all.slice(0, ED_MAX);
+    batch.forEach(edClearNote);
+    document.querySelector('[data-edsave]').disabled = true;
+    edMsg('저장 중…');
+
+    let out;
+    try {
+      out = await ED.call('POST', '/notice/save', {
+        slug: CLIENT, noticePageId: edPageId,
+        changes: batch.map(it => ({op: 'edit', blockId: it.li.dataset.nid,
+                                   seen: it.seen, html: edSerialize(it.nx)})),
+      });
+    } catch(e){
+      edMsg(edErr(e, '저장하지 못했습니다'), true);
+      edStatus();
+      return;
+    }
+
+    (out.results || []).forEach(r => edResult(batch[r.index], r));
+    const left = all.length - batch.length;
+    const said = [out.failed
+      ? `${out.saved}개 저장됨, ${out.failed}개 실패`
+      : `${out.saved}개 저장됨`];
+    /* 재빌드 신호가 나갔는지는 중계 서버만 안다. 안 나갔는데 「1~2분 뒤 반영」을
+       띄우면 담당자는 닿지 않을 것을 닿았다고 읽는다 */
+    if(out.saved){
+      said.push(out.rebuild === 'sent' ? '1~2분 뒤 반영'
+                : '클라이언트 화면은 다음 빌드에 바뀝니다');
+    }
+    if(left) said.push(`남은 ${left}줄은 「저장」을 한 번 더 눌러 주세요`);
+    edMsg(said.join(' · '), !!out.failed);
+    edStatus();
+  }
+
+  /* 저장 전이라면 되돌린다. 노션에는 아직 아무것도 나가지 않았다 */
+  function edUndo(){
+    const dirty = edDirty();
+    if(!dirty.length) return;
+    if(!confirm(`고친 ${dirty.length}줄을 되돌립니다. 저장 전이라 노션은 그대로입니다.`)) return;
+    dirty.forEach(it => {
+      edPaint(it, it.base);
+      it.li.classList.remove('ed-dirty', 'ed-fail');
+      edClearNote(it);
+    });
+    edStatus();
+    edMsg('');
+  }
+
+  /* 저장하지 않은 것이 있으면 붙잡는다. 화면을 떠나면 그대로 사라진다 */
+  function edMayLeave(){
+    const n = edDirty().length;
+    return !n || confirm(`저장하지 않은 ${n}줄이 있습니다. 두고 나가시겠습니까?`);
+  }
+
+  /* ── 서식 막대 ──
+     글자를 고르면 그 위에 뜬다. 노션이 받는 서식 여섯 가지뿐이다. 글자색
+     고르개는 만들지 않는다(스펙 #18) — 이미 칠해진 색은 고쳐도 그대로 남는다 */
+  let edTb = null;
+  function edToolbar(){
+    if(edTb) return edTb;
+    edTb = document.createElement('div');
+    edTb.className = 'ed-tb';
+    edTb.innerHTML = `
+      <button data-edc="bold" title="굵게 (Ctrl+B)"><b>B</b></button>
+      <button data-edc="italic" title="기울임 (Ctrl+I)"><i>I</i></button>
+      <button data-edc="underline" title="밑줄 (Ctrl+U)"><u>U</u></button>
+      <button data-edc="strikeThrough" title="취소선"><s>S</s></button>
+      <button data-edc="code" title="코드">&lt;&gt;</button>
+      <button data-edc="link" title="링크">🔗</button>`;
+    /* 누를 때 고른 글자가 풀리지 않게 한다 — 풀리면 서식이 갈 곳이 없다 */
+    edTb.onmousedown = e => e.preventDefault();
+    edTb.onclick = e => {
+      const b = e.target.closest('[data-edc]');
+      if(b) edFormat(b.dataset.edc);
+    };
+    document.body.appendChild(edTb);
+    return edTb;
+  }
+
+  /** 노드가 무엇이든 closest() 를 물을 수 있는 요소로 */
+  const edEl = n => n && (n.nodeType === 1 ? n : n.parentElement);
+
+  /** 지금 고른 글자가 든 편집 가능한 항목. 아니면 null */
+  function edEditable(node){
+    const el = edEl(node);
+    return (el && el.closest('.nx[contenteditable="true"]')) || null;
+  }
+
+  function edSelection(){
+    const tb = edToolbar();
+    const sel = document.getSelection();
+    if(!sel || !sel.rangeCount || sel.isCollapsed){ tb.classList.remove('on'); return null; }
+    const nx = edEditable(sel.anchorNode);
+    if(!nx || nx !== edEditable(sel.focusNode)){ tb.classList.remove('on'); return null; }
+    tb.classList.add('on');
+    const r = sel.getRangeAt(0).getBoundingClientRect();
+    tb.style.left = Math.max(8, r.left + r.width / 2 - tb.offsetWidth / 2) + 'px';
+    tb.style.top = Math.max(8, r.top - tb.offsetHeight - 7) + 'px';
+    return nx;
+  }
+
+  function edFormat(cmd){
+    const nx = edSelection();
+    if(!nx) return;
+    if(cmd === 'code') edCodeWrap(nx);
+    else if(cmd === 'link') edLinkWrap(nx);
+    else document.execCommand(cmd);
+    const it = edOf(nx);
+    if(it) edTouch(it);
+    edSelection();
+  }
+
+  /* 인라인 코드. execCommand 에 없어 직접 감싼다 */
+  function edCodeWrap(nx){
+    const sel = document.getSelection();
+    const r = sel.getRangeAt(0);
+    const from = edEl(r.startContainer);
+    const now = from && from.closest('code');
+    if(now && nx.contains(now)){
+      /* 이미 코드다 — 통째로 푼다. 고른 만큼만 푸는 것은 만들지 않는다 */
+      const parent = now.parentNode;
+      while(now.firstChild) parent.insertBefore(now.firstChild, now);
+      parent.removeChild(now);
+      parent.normalize();
+      return;
+    }
+    const code = document.createElement('code');
+    code.appendChild(r.extractContents());
+    r.insertNode(code);
+    const nr = document.createRange();
+    nr.selectNodeContents(code);
+    sel.removeAllRanges();
+    sel.addRange(nr);
+  }
+
+  function edLinkWrap(nx){
+    const sel = document.getSelection();
+    const el = edEl(sel.anchorNode);
+    const now = el && el.closest('a');
+    const url = prompt('링크 주소 — 지우려면 비워 두세요',
+                       (now && nx.contains(now) && now.getAttribute('href')) || 'https://');
+    if(url === null) return;
+    const clean = url.trim();
+    if(!clean){ document.execCommand('unlink'); return; }
+    /* 중계 서버가 받는 주소만 넣는다. 여기서 막지 않으면 저장할 때
+       그 줄만 거절당하고, 담당자는 왜 그 줄만 실패했는지 모른다 */
+    if(!/^(https?:|mailto:)/i.test(clean)){
+      alert('http · https · mailto 주소만 넣을 수 있습니다.');
+      return;
+    }
+    document.execCommand('createLink', false, clean);
+  }
 
   function bindEditItems(){
     if(!ED.on()) return;
-
-    document.querySelectorAll('.ck li[data-lock]>.nx').forEach(nx => {
-      nx.ondblclick = e => {
-        e.stopPropagation();
-        alert(`이 줄은 클라이언트 페이지에서 고칠 수 없습니다 — ${nx.dataset.lock}\n\n` +
-              `노션에서 고쳐 주세요.` +
-              (notice.page_url ? `\n\n${notice.page_url}` : ''));
-      };
-    });
+    /* 편집기가 style 대신 태그를 내게 한다. style 로 내면 되읽을 때
+       중계 서버가 모르는 것이 되어 그 줄이 거절당한다 */
+    try { document.execCommand('styleWithCSS', false, false); } catch(_){}
 
     document.querySelectorAll('.ck li[data-nid]').forEach(li => {
       const nx = li.querySelector(':scope>.nx, :scope>.tgh>.nx');
       if(!nx) return;
-      if(!nx.querySelector('.nx-del')) nx.insertAdjacentHTML('beforeend', delBtn());
+      if(!nx.parentElement.querySelector(':scope>.nx-del'))
+        nx.insertAdjacentHTML('afterend', delBtn());
       bindDelete(nx);
-      nx.ondblclick = e => {
-        e.stopPropagation();                 /* 토글 항목에서 접히지 않게 */
-        if(li.querySelector(':scope>.nedit')) return;
-        openEditor(li, nx);
-      };
     });
 
+    const bar = document.getElementById('edbar');
+    if(bar){
+      bar.querySelector('[data-edsave]').onclick = edSave;
+      bar.querySelector('[data-edundo]').onclick = edUndo;
+    }
     const add = document.querySelector('[data-nadd]');
     if(add) add.onclick = () => openAdder(add.parentElement);
+
+    /* 화면을 다시 그릴 때마다 묶으면 같은 것이 겹쳐 쌓인다 */
+    if(!edWired){
+      edWired = true;
+      document.addEventListener('selectionchange', edSelection);
+      const sc = document.getElementById('scroll');
+      if(sc) sc.addEventListener('scroll', () => { if(edTb) edTb.classList.remove('on'); });
+      window.addEventListener('beforeunload', e => {
+        if(!edDirty().length) return;
+        e.preventDefault();
+        e.returnValue = '';
+      });
+    }
+    edLoad();
   }
 
+  /* 지우기 단추. .nx 바깥에 둔다 — 안에 두면 고치는 글의 일부가 되어
+     노션에 딸려 들어간다 */
+  const delBtn = () => `<button class="nx-del" data-ndel title="이 줄 지우기">✕</button>`;
+
   function bindDelete(nx){
-    const btn = nx.querySelector('.nx-del');
+    const btn = nx.parentElement.querySelector(':scope>.nx-del');
     if(!btn) return;
     btn.onclick = async e => {
       e.stopPropagation();                   /* 토글이 접히지 않게 */
       const li = nx.closest('li[data-nid]');
-      const kids = li.querySelectorAll('li[data-nid],li[data-lock]').length;
-      const text = nx.textContent.replace(/✕$/, '').trim().slice(0, 60);
+      const kids = li.querySelectorAll('li[data-nid]').length;
+      const text = nx.textContent.trim().slice(0, 60);
       /* 노션에서 블록을 지우면 그 안의 줄도 같이 사라진다. 몇 줄이 딸려
-         가는지 먼저 말해 준다 — 지운 뒤에 알면 늦다 */
+         가는지 먼저 말해 준다 — 지운 뒤에 알면 늦다.
+         지우기는 아직 즉시 나간다(#22 에서 저장으로 모인다). 그 줄에 저장하지
+         않은 손질이 있으면 그것까지 함께 사라지므로 여기서 밝힌다 */
+      const held = li.classList.contains('ed-dirty') ? '\n\n이 줄에 저장하지 않은 손질이 있습니다.' : '';
       if(!confirm(`이 줄을 노션에서 지웁니다.\n\n${text}` +
-                  (kids ? `\n\n안에 든 ${kids}줄도 함께 지워집니다.` : ''))) return;
+                  (kids ? `\n\n안에 든 ${kids}줄도 함께 지워집니다.` : '') + held)) return;
       btn.disabled = true;
       try {
         await ED.call('DELETE', '/notice/item', {slug: CLIENT, blockId: li.dataset.nid});
+        li.querySelectorAll('li[data-nid]').forEach(k => edItems.delete(k.dataset.nid));
+        edItems.delete(li.dataset.nid);
         li.remove();
+        edStatus();
         toastSaved('노션에서 지웠습니다');
       } catch(err){
         btn.disabled = false;
@@ -1553,14 +2169,13 @@ function init(D){
          : fallback;
   }
 
-  /* 입력칸 하나. 고치기와 보태기가 같은 것을 쓴다 */
+  /* 줄을 보탤 때 뜨는 입력칸. 여기만 아직 마크다운이다 — 보태기가 저장으로
+     모이는 #22 에서 이 칸도 다른 줄과 같은 편집기가 된다 */
   function editorBox(mount, opts){
     const box = document.createElement('div');
     box.className = 'nedit';
-    box.innerHTML = `<textarea ${opts.initial === null ? '' : 'disabled'}
-        placeholder="${esc(opts.placeholder || '')}">${
-        opts.initial === null ? '' : '불러오는 중…'}</textarea>
-      <div class="row"><button class="save"${opts.initial === null ? '' : ' disabled'}>저장</button>
+    box.innerHTML = `<textarea placeholder="${esc(opts.placeholder || '')}"></textarea>
+      <div class="row"><button class="save">저장</button>
         <button class="cancel">취소</button>
         <span class="hint">**굵게** · ~~취소선~~ · \`코드\` · Esc 취소</span></div>`;
     mount(box);
@@ -1592,49 +2207,17 @@ function init(D){
       if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); commit(); }
     };
 
-    const fill = text => {
-      ta.disabled = false; ta.value = text; save.disabled = false;
-      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
-      ta.style.height = Math.min(320, Math.max(56, ta.scrollHeight)) + 'px';
-    };
-    const fail = msg => {
-      ta.value = ''; hint.className = 'hint bad'; hint.textContent = msg;
-    };
-    if(opts.initial === null) fill('');
-    return {fill, fail, close};
+    ta.focus();
   }
 
-  async function openEditor(li, nx){
-    const id = li.dataset.nid;
-    nx.style.display = 'none';
-    const ui = editorBox(b => nx.parentElement.insertBefore(b, nx.nextSibling), {
-      initial: undefined,
-      onClose(){ nx.style.display = ''; },
-      async onSave(md){
-        const out = await ED.call('PUT', '/notice/item',
-                                  {slug: CLIENT, blockId: id, markdown: md});
-        paintItem(nx, out.html);
-        toastSaved();
-      },
-    });
-
-    /* 화면에 보이는 글이 아니라 노션에 있는 글을 가져온다. 빌드가 후행 콜론을
-       떼기 때문에 둘이 다를 수 있고, 보이는 대로 저장하면 그만큼 사라진다 */
-    try {
-      const got = await ED.call('GET',
-        `/notice/item?slug=${encodeURIComponent(CLIENT)}&blockId=${encodeURIComponent(id)}`);
-      ui.fill(got.markdown);
-    } catch(e){
-      ui.fail(edErr(e, '불러오지 못했습니다'));
-    }
-  }
-
-  /* 공지 맨 끝에 한 줄 보탠다. 새 공지(새 행)를 만드는 것이 아니다 */
+  /* 공지 맨 끝에 한 줄 보탠다. 새 공지(새 행)를 만드는 것이 아니다.
+     보태기는 아직 옛 마크다운 창구를 쓰고 즉시 노션에 나간다 — 저장으로
+     모이는 것은 #22 다. 보탠 뒤에는 편집용 원본을 다시 받아, 그 줄도 다른
+     줄과 똑같이 그 자리에서 고쳐지게 한다 */
   function openAdder(mountAt){
     const btn = mountAt.querySelector('[data-nadd]');
     btn.style.display = 'none';
     editorBox(b => mountAt.appendChild(b), {
-      initial: null,
       placeholder: '미팅에서 나온 한 줄',
       onClose(){ btn.style.display = ''; },
       async onSave(md){
@@ -1645,16 +2228,15 @@ function init(D){
           const li = document.createElement('li');
           li.className = 'plain';
           li.dataset.nid = out.blockId;
-          li.innerHTML = `<span class="nx"></span>`;
+          li.innerHTML = `<span class="nx">${noticeHtml(out.html)}</span>${delBtn()}`;
           last.appendChild(li);
-          const nx = li.querySelector('.nx');
-          paintItem(nx, out.html);
-          nx.ondblclick = e => { e.stopPropagation(); openEditor(li, nx); };
+          bindDelete(li.querySelector('.nx'));
           li.scrollIntoView({block:'nearest'});
         }
         toastSaved(out.dated
           ? `노션에 보탰습니다 — 공지 날짜를 ${out.dated} 로 채웠습니다`
           : undefined);
+        edLoad();
       },
     });
   }
@@ -1825,7 +2407,7 @@ function init(D){
    </div>
 
    ${forPrint
-      ? `${hasPerf ? `<div class="p2row">${psumCard()}</div>` : ''}${noticeFeed()}`
+      ? `${hasPerf ? `<div class="p2row">${psumCard()}</div>` : ''}${noticeFeed(false)}`
       : `<div class="p2row"${hasPerf ? '' : ' style="grid-template-columns:1fr"'}>
           ${psumCard()}${noticeCard()}</div>`}
    ${schedule(forPrint ? Infinity : undefined)}
@@ -1986,16 +2568,7 @@ function init(D){
   V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
     ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
     ${editSwitch()}</div>
-   ${noticeFeed()}`;
-
-  V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
-  V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
-  V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
-
-  V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
-    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
-    ${editSwitch()}</div>
-   ${noticeFeed()}`;
+   ${noticeFeed(ED.on())}`;
 
   V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
@@ -2252,6 +2825,13 @@ function init(D){
   function go(id, opt){
     if(!V[id])return;
     const o = opt || {};
+    /* 화면을 다시 그리면 고쳐 둔 줄이 봉투의 옛 글로 되돌아간다. 노션에는
+       아직 아무것도 안 나갔으므로, 나가기 전에 한 번 붙잡는다 */
+    if(!edMayLeave()){
+      if(o.fromPop) history.pushState({view:'notice'}, '', '#notice');
+      return;
+    }
+    edItems = new Map();
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        기준일은 상단 우측 pill 에만 표시한다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
