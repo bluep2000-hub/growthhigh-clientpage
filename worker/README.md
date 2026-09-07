@@ -46,6 +46,28 @@ npx wrangler secret put GITHUB_DISPATCH_TOKEN   # 재빌드 신호용 (티켓 #1
 로컬에서 돌릴 때는 `.dev.vars` 에 넣는다 (`.gitignore` 에 있다).
 `.dev.vars.example` 을 복사해 쓴다.
 
+### 공지 저장소 (D1)
+
+공지의 원본이 노션에서 이리로 옮겨 온다(`../docs/adr/0004-공지-원본-이사.md`).
+저장소가 없으면 새 창구는 `503 no_store` 로 멈춘다 — 노션 경로는 그대로 돈다.
+
+```bash
+npx wrangler d1 create growthhigh-clientpage-notices
+```
+
+내주는 `database_id` 를 `wrangler.toml` 의 `[[d1_databases]]` 에 붙인다.
+**비밀값이 아니다** — 이 값만으로는 아무것도 열리지 않고, 붙으려면 Cloudflare
+계정 인증이 따로 필요하다. 그다음 표를 세운다.
+
+```bash
+npx wrangler d1 migrations apply growthhigh-clientpage-notices --remote   # 배포본
+npx wrangler d1 migrations apply growthhigh-clientpage-notices --local    # npm run dev
+```
+
+표는 둘이다. `notices` — 기업(슬러그)·날짜·제목·문서·판 번호. `revisions` —
+저장할 때마다 쌓이는 지난 판(#38 이 채운다). **SQL 은 `src/store.js` 한 곳에만
+있다.** 창구 쪽 코드는 표도 열도 모르고, 테스트는 이 모듈을 가짜로 갈아 끼운다.
+
 ## ⚠ curl 로 시험하지 않는다
 
 Windows 콘솔은 UTF-8 이 아니다. 한글이 든 값을 셸 변수에 담아 `curl` 로 보내면
@@ -70,6 +92,8 @@ npm run deploy     # Cloudflare 에 올린다
 | `GET` | `/notice/tree?slug=&more=` | 공지 전체를 편집용 글로 받아 간다 |
 | `POST` | `/notice/save` | 고치고 보태고 지운 것을 한 번에 적용한다 |
 | `POST` | `/notice/new` | 오늘 날짜로 빈 공지 한 건을 만든다 |
+| `GET` | `/notice/doc?slug=` | **저장소**의 최신 공지 문서를 받아 간다 |
+| `PUT` | `/notice/doc` | **저장소**의 공지 문서를 통째로 덮어쓴다 |
 | `GET` | `/notice/item?slug=&blockId=` | (옛 방식) 그 항목의 마크다운 |
 | `PUT` | `/notice/item` | (옛 방식) 그 항목을 고친다 |
 | `POST` | `/notice/item` | (옛 방식) 공지 맨 끝에 한 줄 보탠다 |
@@ -270,6 +294,87 @@ npm run deploy     # Cloudflare 에 올린다
 
 공지 원천이 DB 가 아니라 일반 페이지인 기업은 `422` 다. 행을 만들 곳이 없다.
 
+### 저장소의 공지 문서 — `GET`·`PUT /notice/doc`
+
+공지의 원본이 노션에서 저장소로 옮겨 온다(`../docs/adr/0004-공지-원본-이사.md`).
+**아직 화면은 이 창구를 부르지 않는다** — 노션 경로(`/notice/tree`·`/notice/save`)가
+그대로 살아 있고, 편집 모드는 #34 에서, 빌더는 #35 에서 이리로 갈아탄다.
+
+```
+GET /notice/doc?slug=whiffkorea
+  →  { noticeId, slug, date, title, version, updatedAt, sections: [ … ] }
+```
+
+기업당 공지가 여러 건 쌓이고, 주는 것은 클라이언트 페이지에 오르는 것과 같은
+**날짜가 가장 최근인 한 건**이다. 한 건도 없으면 `404` 다 — 첫 공지를 페이지에서
+만드는 것은 #33 이다.
+
+#### 공지 문서
+
+```
+{ sections: [ { id, title,
+                items: [ { id, type, html, checked?, items: [ … ] } ] } ] }
+```
+
+`type` 은 여섯이다. **노션 블록 이름이 아니라 우리 것이다** — 원본이 우리에게
+온 마당에 남의 낱말을 문서에 실어 둘 까닭이 없다.
+
+| `type` | |
+|---|---|
+| `bullet` | 글머리 |
+| `number` | 번호 |
+| `todo` | 할 일. 이것에만 `checked` 가 실린다 |
+| `paragraph` | 본문 |
+| `quote` | 인용 |
+| `toggle` | 토글 |
+
+`items` 는 **깊이에 제한이 없다.** 하위 항목이 몇 개든 상관없다 — 옮기기가
+배열의 원소를 옮기는 일이 되었기 때문이다.
+
+`html` 은 편집용 HTML 이다(아래 「서식 — 새 방식」과 같은 태그). **아는 태그만
+남기고 나머지는 거절한다** — 클라이언트 페이지가 이 글을 그대로 그리므로,
+확인을 거치지 않은 HTML 이 들어가면 비밀번호 안쪽 화면에 남의 스크립트가 실린다.
+불투명 조각(`data-o`)은 노션의 것이라 여기서는 받지 않는다. **빈 글은 받는다** —
+담당자가 Enter 로 방금 만든 줄이고, 빈 항목은 빌더가 버린다.
+
+`id` 는 **중계 서버가 만든 짧은 이름**이다. 노션 블록 UUID 가 아니다. 화면이
+항목을 짚는 데만 쓰고, 저장은 문서를 통째로 보낸다. 주소 없이 보낸 줄(방금
+보탠 줄)에는 저장하면서 이름이 붙어 응답에 실려 온다 — 화면은 그것으로 갈아
+끼운다. 같은 주소가 둘이면 `422` 다.
+
+#### 저장
+
+```
+PUT /notice/doc
+{ slug, noticeId, version, title, sections: [ … ] }
+  →  200  { noticeId, slug, date, title, version, updatedAt, sections }
+```
+
+**문서를 통째로 덮어쓴다.** 보낸 문서에 없는 줄은 사라진다. 줄마다 따로 보내지
+않으므로 무게 상한도, 부분 실패도, 「이 줄만 저장 안 됨」도 없다 — 통째로
+들어가거나 통째로 거절된다.
+
+날짜는 받지 않는다. 공지의 날짜는 만들 때 정해지고 그 뒤로 바뀌지 않는다 —
+날짜가 바뀌면 화면에 오르는 공지가 소리 없이 다른 것이 된다.
+
+**`version` 은 반드시 싣는다.** 빠뜨리면 `422` 다. 덮어쓰기로 봐주면 어긋남
+판정이 있으나 마나 한 것이 되어, 화면이 한 번 안 실어 보내는 날 남의 저장이
+조용히 사라진다.
+
+```
+409  { error: "stale", detail, current: { …지금 문서 전체… } }
+```
+
+편집 모드가 연 뒤 판이 올랐으면 **아무것도 쓰지 않고** 지금 문서를 함께
+돌려준다. 판정은 줄이 아니라 **공지 한 건 단위**다 — 문서를 통째로 쓰기
+때문이다. 화면은 적어 둔 글을 지우지 않는다. 담당자가 견주고 다시 저장한다.
+
+`slug` 와 `noticeId` 는 **함께 와야 한다.** 짝이 아니면 `404 not_mine` 이고
+아무것도 쓰지 않는다. 주소 하나로 남의 기업 공지를 열 수 있게 두지 않는다.
+
+**재빌드를 부르지 않는다.** 빌더는 아직 노션에서 공지를 읽으므로(#35 가
+갈아탄다) 지금 신호를 던져 봐야 바뀐 것 없는 빌드가 한 번 돌 뿐이다.
+
 ### 비밀번호를 싣는 법
 
 ```
@@ -289,9 +394,10 @@ btoa(String.fromCharCode(...new TextEncoder().encode(password)))
 |---|---|
 | `401` | 비밀번호가 없거나 틀리다 |
 | `404` | 모르는 슬러그 · 공지 항목이 아닌 블록 (`not_found`) · 그 기업 공지 밖의 blockId (`not_mine`) |
-| `409` | 잠긴 항목 (옛 창구만. `/notice/save` 는 결과 목록에 `locked` 로 담는다) |
-| `422` | 닫히지 않은 표시, 빈 내용, 빠진 값 |
+| `409` | 잠긴 항목 (옛 창구만. `/notice/save` 는 결과 목록에 `locked` 로 담는다) · 판이 어긋났다 (`stale`. `/notice/doc` 만) |
+| `422` | 닫히지 않은 표시, 빈 내용, 빠진 값, 모르는 종류 |
 | `502` | 노션이 실패했다 |
+| `503` | 공지 저장소가 붙어 있지 않다 (`no_store`) |
 
 ### 서식 — 새 방식
 

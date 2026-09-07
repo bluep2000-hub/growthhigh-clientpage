@@ -66,6 +66,19 @@ export function blockRuns(block) {
   return Array.isArray(body?.rich_text) ? body.rich_text : [];
 }
 
+/**
+ * 조각의 글자.
+ *
+ * 노션에서 **읽은** 조각은 `plain_text` 를 달고 오고, 노션에 **쓰려고** 지은
+ * 조각은 `text.content` 에만 글을 담는다. 둘 다 받아야 편집용 HTML 을 읽어
+ * 다시 편집용 HTML 로 되돌리는 길이 열린다 — 공지 저장소가 글을 다듬을 때
+ * 그 길로 지나간다(`doc.js`).
+ */
+const runText = (r) => r?.plain_text ?? r?.text?.content ?? "";
+
+/** 조각이 매달고 있는 링크. 위와 같은 까닭으로 두 자리를 다 본다. */
+const runHref = (r) => r?.href ?? r?.text?.link?.url ?? null;
+
 /** 화면이 글로 만들어 낼 수 없는 조각. 그대로 돌려받는 수밖에 없다. */
 function isOpaque(run) {
   return run?.type === "mention" || run?.type === "equation";
@@ -122,10 +135,10 @@ export function runsToEditHtml(runs) {
   let out = "";
   (runs || []).forEach((r, i) => {
     if (isOpaque(r)) {
-      out += `<span data-o="${i}">${escText(r.plain_text ?? "")}</span>`;
+      out += `<span data-o="${i}">${escText(runText(r))}</span>`;
       return;
     }
-    const t = r.plain_text ?? "";
+    const t = runText(r);
     if (!t) return;
     const a = r.annotations || {};
     let h = escText(t);
@@ -136,7 +149,8 @@ export function runsToEditHtml(runs) {
     if (a.bold) h = `<strong>${h}</strong>`;
     const color = a.color || "default";
     if (color !== "default") h = `<span data-c="${esc(color)}">${h}</span>`;
-    if (r.href) h = `<a href="${esc(r.href)}">${h}</a>`;
+    const href = runHref(r);
+    if (href) h = `<a href="${esc(href)}">${h}</a>`;
     out += h;
   });
   return out;

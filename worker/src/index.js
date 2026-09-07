@@ -11,10 +11,16 @@
  *   GET    /notice/tree    편집 모드가 고칠 글을 통째로 받아 간다
  *   POST   /notice/save    고치고 보태고 지운 것을 한 번에 노션에 적용한다
  *   POST   /notice/new     오늘 날짜로 빈 공지 한 건을 만든다
+ *   GET    /notice/doc     저장소의 최신 공지 문서를 받아 간다
+ *   PUT    /notice/doc     저장소의 공지 문서를 통째로 덮어쓴다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
  *   POST   /notice/item    고른 섹션 안에 한 줄 보탠다             (옛 방식)
  *   DELETE /notice/item    그 항목을 지운다                        (옛 방식)
+ *
+ * `/notice/doc` 둘은 공지의 원본이 노션에서 저장소로 옮겨 온 길이다
+ * (`docs/adr/0004-공지-원본-이사.md`). **아직 화면이 부르지 않는다** — 노션
+ * 경로가 그대로 살아 있고, 편집 모드는 #34 에서, 빌더는 #35 에서 갈아탄다.
  *
  * 「옛 방식」 넷은 이제 화면이 부르지 않는다. 고치기·보태기·지우기가 모두
  * `POST /notice/save` 한 곳으로 모였다. 남겨 둔 것은 배포 시차 때문이다 —
@@ -22,8 +28,9 @@
  * 있는 담당자가 있다. #25 에서 마크다운과 함께 걷어낸다.
  */
 
+import { readSections, readTitle } from "./doc.js";
 import {
-  ApiError, foreign, notFound, unauthorized, unprocessable, upstream,
+  ApiError, foreign, noStore, notFound, stale, unauthorized, unprocessable, upstream,
 } from "./error.js";
 import { assertEditable, blockToHtml, markdownToRuns, runsToMarkdown } from "./markdown.js";
 import {
@@ -33,6 +40,7 @@ import {
 } from "./notion.js";
 import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
+import { createStore } from "./store.js";
 
 /** 클라이언트 페이지가 사는 곳. 여기서 오는 요청만 받는다.
     레포의 CNAME 이 client.growthhigh.co.kr 이라 실제 담당자는 그쪽으로 들어온다.
@@ -743,6 +751,31 @@ async function appendItem({ nt, notice, made }, prepared) {
   return { blockId: block.id, status: "ok", ...treeItem(block) };
 }
 
+/* ──────────────────────── 저장소의 공지 문서 ──────────────────────── */
+
+/** 저장소를 연다. 붙어 있지 않으면 여기서 멈춘다 — 배포가 덜 된 것이다. */
+function openStore(env) {
+  const store = createStore(env);
+  if (!store) throw noStore();
+  return store;
+}
+
+/** 저장소의 한 건 → 화면과 빌드가 받는 공지 문서. 주소의 이름만 갈아 끼운다. */
+function noticeDoc({ id, ...rest }) {
+  return { noticeId: id, ...rest };
+}
+
+/**
+ * 화면이 본 판 번호.
+ *
+ * 빠뜨렸다고 덮어쓰기로 봐주지 않는다. 봐주면 어긋남 판정이 있으나 마나 한
+ * 것이 되어, 화면이 한 번 안 실어 보내는 날 남의 저장이 조용히 사라진다.
+ */
+function requireVersion(value) {
+  if (!Number.isInteger(value) || value < 0) throw unprocessable("version 이 필요합니다");
+  return value;
+}
+
 async function route(request, env) {
   const url = new URL(request.url);
   const { pathname } = url;
@@ -875,6 +908,62 @@ async function route(request, env) {
     return json({ pageId: made.id, date: today, page_url: made.url || "" }, 201);
   }
 
+  /**
+   * 저장소의 공지 문서를 읽는다.
+   *
+   * 기업당 여러 건이 쌓이고, 여기서 주는 것은 클라이언트 페이지에 오르는
+   * 것과 같은 한 건 — **날짜가 가장 최근인 것**이다.
+   *
+   * 아직 화면은 이 창구를 부르지 않는다. 노션 경로가 그대로 살아 있고
+   * (`/notice/tree`), 편집 모드는 #34 에서 이리로 갈아탄다.
+   */
+  if (pathname === "/notice/doc" && method === "GET") {
+    requireEditor(request, env);
+    const slug = requireText(url.searchParams.get("slug"), "slug");
+
+    const store = openStore(env);
+    // 슬러그로 찾는다. 화면이 공지 주소를 대는 대로 열어 주면 주소 하나로
+    // 남의 기업 공지를 읽을 수 있게 된다.
+    const row = await store.latest(slug);
+    if (!row) throw notFound("그 기업의 공지가 아직 없습니다");
+    return json(noticeDoc(row), 200);
+  }
+
+  /**
+   * 공지 문서를 통째로 덮어쓴다.
+   *
+   * 줄마다 따로 보내지 않는다. 그래서 무게 상한도, 부분 실패도, 「이 줄만
+   * 저장 안 됨」도 없다 — 통째로 들어가거나 통째로 거절된다.
+   *
+   * **재빌드를 부르지 않는다.** 빌더는 아직 노션에서 공지를 읽으므로
+   * (#35 가 갈아탄다) 지금 신호를 던져 봐야 바뀐 것 없는 빌드가 한 번 돌 뿐이다.
+   */
+  if (pathname === "/notice/doc" && method === "PUT") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const noticeId = requireText(body.noticeId, "noticeId");
+    const version = requireVersion(body.version);
+    // 저장소에 손대기 전에 문서를 다 훑는다. 모양이 어긋나면 아무것도 쓰지 않는다.
+    const title = readTitle(body.title);
+    const sections = readSections(body.sections);
+
+    const store = openStore(env);
+    const mine = await store.byId(noticeId);
+    if (!mine) throw notFound("그런 공지가 없습니다");
+    if (mine.slug !== slug) throw foreign("다른 기업의 공지입니다");
+
+    // 판 번호가 그대로일 때만 쓴다. 읽어 보고 나서 쓰면 그 사이에 다른
+    // 담당자가 저장한 것을 조용히 덮어쓴다.
+    const next = await store.replace({ id: noticeId, expect: version, title, sections });
+    if (!next) {
+      const current = await store.byId(noticeId);
+      throw stale("화면이 편집을 시작한 뒤에 이 공지가 저장되었습니다",
+                  { current: current ? noticeDoc(current) : null });
+    }
+    return json(noticeDoc(next), 200);
+  }
+
   if (pathname === "/notice/item" && method === "GET") {
     requireEditor(request, env);
     const slug = requireText(url.searchParams.get("slug"), "slug");
@@ -963,7 +1052,8 @@ export default {
       return res;
     } catch (e) {
       if (e instanceof ApiError) {
-        return json({ error: e.code, detail: e.detail }, e.status, cors);
+        // 거절하며 건네는 값이 먼저다. 뒤에 오는 둘을 가리지 못한다.
+        return json({ ...e.extra, error: e.code, detail: e.detail }, e.status, cors);
       }
       // 여기 오는 것은 예상 못 한 것이다. 사유를 밖으로 내보내지 않는다.
       console.error(e);
