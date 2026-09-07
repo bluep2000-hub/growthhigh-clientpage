@@ -38,10 +38,19 @@ npm install
 npx wrangler secret put NOTION_TOKEN            # 노션 통합 토큰
 npx wrangler secret put EDITOR_PASSWORD         # 담당자 공용 비밀번호
 npx wrangler secret put GITHUB_DISPATCH_TOKEN   # 재빌드 신호용 (티켓 #14)
+npx wrangler secret put BUILD_TOKEN             # 빌드가 공지를 가져갈 때 (티켓 #35)
 ```
 
 `EDITOR_PASSWORD` 는 **클라이언트 페이지 비밀번호와 다른 값**이어야 한다.
 같으면 기업이 자기 공지를 고칠 수 있게 된다.
+
+`BUILD_TOKEN` 도 **그 둘과 다른 값**이다. 읽기만 하는 자리에 쓰기 권한을 두지
+않는다 — 빌드 서버는 담당자의 로컬 PC 이고, 그 `.env` 가 새면 공지를 고칠
+권한까지 함께 샌다. 아무렇게나 길게 지으면 된다.
+
+```bash
+node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
+```
 
 로컬에서 돌릴 때는 `.dev.vars` 에 넣는다 (`.gitignore` 에 있다).
 `.dev.vars.example` 을 복사해 쓴다.
@@ -94,6 +103,7 @@ npm run deploy     # Cloudflare 에 올린다
 | `GET` | `/notice/doc?slug=` | **저장소**의 최신 공지 문서를 받아 간다 |
 | `POST` | `/notice/doc` | **저장소**에 오늘 날짜의 빈 공지를 만든다 |
 | `PUT` | `/notice/doc` | **저장소**의 공지 문서를 통째로 덮어쓴다 |
+| `GET` | `/notice/export?slug=` | 빌드가 그 기업의 최신 공지 문서를 가져간다 |
 | `GET` | `/notice/item?slug=&blockId=` | (옛 방식) 그 항목의 마크다운 |
 | `PUT` | `/notice/item` | (옛 방식) 그 항목을 고친다 |
 | `POST` | `/notice/item` | (옛 방식) 공지 맨 끝에 한 줄 보탠다 |
@@ -400,6 +410,23 @@ PUT /notice/doc
 
 **재빌드를 부르지 않는다.** 빌더는 아직 노션에서 공지를 읽으므로(#35 가
 갈아탄다) 지금 신호를 던져 봐야 바뀐 것 없는 빌드가 한 번 돌 뿐이다.
+
+### 빌드가 가져간다 — `GET /notice/export`
+
+```
+GET /notice/export?slug=whiffkorea
+Authorization: Bearer <BUILD_TOKEN>
+  →  200  { …공지 문서… }
+     404  그 기업의 공지가 아직 없다 — 빌더는 그때 노션에서 읽는다
+```
+
+주는 것은 `GET /notice/doc` 과 같은 공지 문서다. 창구를 따로 낸 것은 **값을
+가르기 위해서다** — 담당자 공용 비밀번호로는 이 창구가 열리지 않고, 빌드
+토큰으로는 읽기·쓰기 창구가 열리지 않는다.
+
+**빌드 토큰은 base64 를 거치지 않는다.** 그 껍데기는 한글 비밀번호가 HTTP
+헤더에 실리지 않아서 씌운 것이고, 빌드 토큰은 우리가 만드는 ASCII 라 그냥
+실린다. 껍데기가 다르니 한쪽 값을 다른 쪽 창구에 대도 열리지 않는다.
 
 ### 비밀번호를 싣는 법
 

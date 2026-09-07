@@ -14,6 +14,7 @@
  *   GET    /notice/doc     저장소의 최신 공지 문서를 받아 간다
  *   POST   /notice/doc     저장소에 오늘 날짜의 빈 공지를 만든다
  *   PUT    /notice/doc     저장소의 공지 문서를 통째로 덮어쓴다
+ *   GET    /notice/export  빌드가 그 기업의 최신 공지 문서를 가져간다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
  *   POST   /notice/item    고른 섹션 안에 한 줄 보탠다             (옛 방식)
@@ -101,6 +102,7 @@ function passwordMatches(given, expected) {
  */
 function decodeBearer(raw) {
   try {
+    if (typeof raw !== "string") return null;
     const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
@@ -109,12 +111,33 @@ function decodeBearer(raw) {
 }
 
 function requireEditor(request, env) {
-  const header = request.headers.get("authorization") || "";
-  const m = /^Bearer\s+(\S+)$/i.exec(header.trim());
-  const given = m && decodeBearer(m[1]);
-  if (!given || !passwordMatches(given, env.EDITOR_PASSWORD || "")) {
+  const given = bearer(request);
+  if (!given || !passwordMatches(decodeBearer(given), env.EDITOR_PASSWORD || "")) {
     throw unauthorized();
   }
+}
+
+/**
+ * 빌드가 공지를 가져갈 때 대는 값.
+ *
+ * **담당자 공용 비밀번호와 다른 값이다.** 읽기만 하는 자리에 쓰기 권한을 두지
+ * 않는다 — 빌드 서버는 담당자의 로컬 PC 이고, 그 `.env` 가 새면 공지를 고칠
+ * 권한까지 함께 샌다.
+ *
+ * base64 를 거치지 않는다. 그 껍데기는 한글 비밀번호가 HTTP 헤더에 실리지
+ * 않아서 씌운 것이고, 빌드 토큰은 우리가 만드는 ASCII 라 그냥 실린다.
+ * 껍데기가 다르니 한쪽 값을 다른 쪽 창구에 대도 열리지 않는다.
+ */
+function requireBuilder(request, env) {
+  const given = bearer(request);
+  if (!given || !passwordMatches(given, env.BUILD_TOKEN || "")) {
+    throw unauthorized();
+  }
+}
+
+function bearer(request) {
+  const m = /^Bearer\s+(\S+)$/i.exec((request.headers.get("authorization") || "").trim());
+  return m ? m[1] : null;
 }
 
 async function readJson(request) {
@@ -925,6 +948,22 @@ async function route(request, env) {
     const store = openStore(env);
     // 슬러그로 찾는다. 화면이 공지 주소를 대는 대로 열어 주면 주소 하나로
     // 남의 기업 공지를 읽을 수 있게 된다.
+    const row = await store.latest(slug);
+    if (!row) throw notFound("그 기업의 공지가 아직 없습니다");
+    return json(noticeDoc(row), 200);
+  }
+
+  /**
+   * 빌드가 공지를 가져간다.
+   *
+   * 빌더는 이제 공지를 노션에서 읽지 않고 여기서 받아 봉투에 싣는다. 공지가
+   * 없으면 404 이고, 빌더는 그때 노션에서 읽는다 — 옮겨 가는 동안의 다리다.
+   */
+  if (pathname === "/notice/export" && method === "GET") {
+    requireBuilder(request, env);
+    const slug = requireText(url.searchParams.get("slug"), "slug");
+
+    const store = openStore(env);
     const row = await store.latest(slug);
     if (!row) throw notFound("그 기업의 공지가 아직 없습니다");
     return json(noticeDoc(row), 200);
