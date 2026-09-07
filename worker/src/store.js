@@ -75,17 +75,59 @@ export function createStore(env) {
      * **판 번호가 그대로일 때만 쓴다.** 읽어 보고 나서 쓰면 그 사이에 다른
      * 담당자가 저장한 것을 조용히 덮어쓴다. 어긋났으면 null 을 돌려주고
      * 아무것도 쓰지 않는다.
+     *
+     * 쓰기 직전에 **지금 문서를 판으로 남긴다.** 남기는 것이 방금 저장한 것이
+     * 아니라 직전 것인 까닭은, 되돌린다는 말이 「저장하기 전으로」이기
+     * 때문이다. 셋을 한 묶음으로 보내 어느 하나만 들어가는 일이 없게 한다.
      */
     async replace({ id, expect, title, sections }) {
       const at = new Date().toISOString();
+      const [, updated] = await db.batch([
+        // 판 번호가 어긋나면 여기서도 한 줄도 담기지 않는다 — 아래 UPDATE 와
+        // 같은 조건이라, 거절된 저장이 판만 남기는 일이 없다.
+        db.prepare(
+          `INSERT OR IGNORE INTO revisions (notice_id, version, title, doc, saved_at)
+                SELECT id, version, title, doc, updated_at
+                  FROM notices WHERE id = ? AND version = ?`,
+        ).bind(id, expect),
+        db.prepare(
+          `UPDATE notices SET title = ?, doc = ?, version = version + 1, updated_at = ?
+            WHERE id = ? AND version = ? RETURNING *`,
+        ).bind(title, JSON.stringify({ sections }), at, id, expect),
+        // 최근 KEEP 판만 남긴다. 그보다 오래된 것은 되돌릴 목록에도 뜨지 않아
+        // 이고 있어 봐야 저장소만 불어난다.
+        db.prepare(
+          `DELETE FROM revisions WHERE notice_id = ? AND version < (
+             SELECT MIN(version) FROM (SELECT version FROM revisions
+               WHERE notice_id = ? ORDER BY version DESC LIMIT ?))`,
+        ).bind(id, id, KEEP),
+      ]);
+      return toNotice((updated?.results || [])[0]);
+    },
+
+    /** 되돌릴 수 있는 판 목록. 최근 것이 앞이다. 문서는 싣지 않는다. */
+    async revisions(id) {
+      const res = await db.prepare(
+        `SELECT version, title, saved_at FROM revisions
+          WHERE notice_id = ? ORDER BY version DESC LIMIT ?`,
+      ).bind(id, KEEP).all();
+      return (res.results || []).map(
+        (r) => ({ version: r.version, title: r.title ?? "", savedAt: r.saved_at }));
+    },
+
+    /** 그 판의 문서. 없으면 null. */
+    async revision(id, version) {
       const row = await db.prepare(
-        `UPDATE notices SET title = ?, doc = ?, version = version + 1, updated_at = ?
-          WHERE id = ? AND version = ? RETURNING *`,
-      ).bind(title, JSON.stringify({ sections }), at, id, expect).first();
-      return toNotice(row);
+        "SELECT title, doc FROM revisions WHERE notice_id = ? AND version = ?",
+      ).bind(id, version).first();
+      if (!row) return null;
+      return { title: row.title ?? "", sections: readDoc(row.doc) };
     },
   };
 }
+
+/** 공지 하나가 이고 가는 판의 수. ADR 0004 가 정한 스무 판이다. */
+const KEEP = 20;
 
 /** 한 줄 → 공지 한 건. 문서는 열이 아니라 JSON 한 덩어리로 들어 있다. */
 function toNotice(row) {

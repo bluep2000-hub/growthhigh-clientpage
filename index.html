@@ -376,6 +376,12 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ck ul li.ord::before{left:0;top:2px;width:11px;font-size:11.5px;line-height:1.65}
 /* 본문에는 표시가 없다. 앞의 여백은 남겨 다른 줄과 글머리가 맞는다 */
 .ck li.para::before{content:none}
+/* 안에 든 줄이 없는 토글. 펼 것이 없어 접기 손잡이는 달지 않지만, 종류는
+   드러나야 한다 — 글머리와 똑같이 그리면 담당자가 바꾼 것이 화면에서 사라진다 */
+.ck li.tg0::before{content:'▸';position:absolute;left:2px;top:0;
+  font-size:9px;line-height:2.4;color:var(--tx-3);background:none;
+  width:auto;height:auto;border-radius:0}
+.ck ul li.tg0::before{left:3px;line-height:2.3;font-size:8px}
 /* 인용. 노션에서 읽은 봉투는 <blockquote> 를 싣고 저장소에서 온 봉투는 종류를
    싣는다 — 어느 쪽으로 와도 같은 꼴이 되게 둘 다 여기서 그린다 */
 .ck li.qt{padding-left:11px;border-left:2px solid var(--line-2);color:var(--tx-2)}
@@ -393,6 +399,10 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ed-cf .cf-l{font-size:12px;line-height:1.6;color:var(--tx-2);padding:1px 0}
 .ed-cf .cf-e{color:var(--tx-3)}
 .ed-cf .cf-a{display:flex;gap:7px;padding:9px 12px;border-top:1px solid var(--line)}
+.ed-cf .rv-l{display:flex;align-items:center;gap:9px;padding:3px 0;font-size:12px}
+.ed-cf .rv-w{color:var(--tx-3);font-variant-numeric:tabular-nums;flex:none}
+.ed-cf .rv-t{color:var(--tx-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-cf .rv-l .edt-b{margin-left:auto;flex:none}
 .ck s{opacity:.72}
 /* 노션에서는 코드지만 여기서는 그냥 강조어다. 네모를 빼고 밑줄만 둔다 */
 .ck code{font-size:inherit;font-family:inherit;font-weight:600;color:var(--tx);
@@ -710,6 +720,10 @@ body.locked #gate{display:grid}
   .psum .ck li.chk::before{top:8px}
   .psum .ck li.chk.on::before{top:5.5px}
   .psum .ck>li.ord::before{top:2px;width:12px;font-size:9.5px;line-height:1.5}
+  /* 인용은 왼쪽에 붙인다. 위의 `.psum .ck>li` 가 들여쓰기를 되돌려 놓아
+     여기서 다시 짚지 않으면 세로줄과 글이 멀찍이 떨어진다 */
+  .psum .ck>li.qt{padding-left:9px}
+  .psum .ck>li.tg0::before{line-height:2.1}
   .psum .empty{font-size:9.5px}
 
   /* 화면 전용 장치는 뺀다 */
@@ -1454,7 +1468,7 @@ function init(D){
      .nx 로 감싸는 이유는 한 줄을 고칠 때 하위 항목까지 지우지 않기 위해서다 */
   /* 항목의 종류 → 줄 앞에 그릴 표시 */
   const KIND_CLS = { bullet:'plain', number:'ord', paragraph:'para',
-                     quote:'qt', toggle:'plain' };
+                     quote:'qt', toggle:'tg0' };
 
   function noticeItem(it, depth, edit){
     const c = it.checked;
@@ -1474,9 +1488,7 @@ function init(D){
     /* 주소와 종류만 싣는다. 편집 모드는 봉투로 그린 이 화면을 고치지 않는다 —
        저장소의 공지 문서를 받아 화면을 다시 그린 뒤에야 고칠 수 있게 된다 */
     if(edit && it.id){
-      /* 종류를 DOM 에 실어 둔다. 저장이 화면을 걸어 다니며 문서를 다시 짓고,
-         그때 이 값이 그 줄의 종류가 된다 */
-      mark = ` data-nid="${esc(it.id)}"${it.type ? ` data-ntype="${esc(it.type)}"` : ''}`;
+      mark = ` data-nid="${esc(it.id)}"`;
       text = `<span class="nx">${body}</span>`;
     }
 
@@ -1508,9 +1520,12 @@ function init(D){
         </div></div>${edit ? saveBar() : ''}`;
     }
 
-    /* 기본은 첫 섹션만 열어 둔다. 분량이 많아 다 펼치면 한눈에 안 들어온다 */
+    /* 기본은 첫 섹션만 열어 둔다. 분량이 많아 다 펼치면 한눈에 안 들어온다.
+       제목 없는 칸은 늘 열어 둔다 — 접으면 다시 펼 손잡이가 없어 그 줄들이
+       화면에서 통째로 사라진다 */
+    const opened = (s,si) => si===0 || !(s.heading_html || s.heading);
     return sections.map((s,si)=>`
-      <div class="notice${si===0?' open':''}"${edit && s.id ? ` data-nsec="${esc(s.id)}"` : ''}>${(s.heading_html || s.heading)
+      <div class="notice${opened(s,si)?' open':''}"${edit && s.id ? ` data-nsec="${esc(s.id)}"` : ''}>${(s.heading_html || s.heading)
         ? `<h3><i class="tw">▸</i><span>${s.heading_html
             ? noticeHtml(s.heading_html) : esc(s.heading)}</span></h3>` : ''}<div class="bd">
        ${(s.items||[]).length
@@ -1527,6 +1542,7 @@ function init(D){
     return `<div class="ed-bar" id="edbar">
       <button class="save" data-edsave disabled>저장</button>
       <button data-edundo disabled>되돌리기</button>
+      <button data-edrev>지난 판</button>
       <span class="cnt" data-edcnt>공지를 불러오는 중…</span>
       <span class="msg" data-edmsg></span></div>`;
   }
@@ -2367,27 +2383,36 @@ function init(D){
   }
 
   /**
-   * 화면을 걸어 다니며 지금 보이는 그대로를 공지 문서로 다시 짓는다.
+   * 화면을 걸어 다니며 지금 보이는 그대로를 **꾸러미**로 짓는다.
    *
-   * 저장이 문서를 통째로 덮어쓰므로, **여기서 빠뜨린 것은 저장소에서
+   * 꾸러미는 두 몫을 한 자루에 담는다 — 중계 서버로 나갈 문서(`row`)와, 그
+   * 문서의 각 조각이 화면의 어느 마디에서 왔는지(`box`·`li`). 나갈 것과
+   * 화면의 짝을 **한 번에** 정해 두는 까닭은, 둘을 따로 세면 어긋나기
+   * 때문이다 — 빈 칸 하나를 저장 쪽만 빼고 세는 날, 돌아온 문서가 한 칸씩
+   * 밀려 엉뚱한 줄에 남의 주소가 박힌다.
+   *
+   * 저장이 문서를 통째로 덮어쓰므로 **여기서 빠뜨린 것은 저장소에서
    * 사라진다.** 지울 줄과 쓰지 않은 빈 줄만 뺀다.
    */
-  function edViewDoc(){
+  function edParcel(){
     const known = new Map((edDoc && edDoc.sections || []).map(s => [s.id, s]));
     const out = [];
     document.querySelectorAll('.notice').forEach(box => {
       const id = box.dataset.nsec || undefined;
       const was = id ? known.get(id) : null;
       const list = box.querySelector(':scope>.bd>ul.ck');
-      const items = list ? edViewItems(list) : [];
+      const kids = list ? edParcelItems(list) : [];
       /* 줄도 제목도 없는 칸은 내보내지 않는다. 그런 칸은 아무것도 아니다 */
-      if(!items.length && !(was && was.title)) return;
-      out.push({id, title: (was && was.title) || '', items});
+      if(!kids.length && !(was && was.title)) return;
+      out.push({box, list,
+                row: {id, title: (was && was.title) || '',
+                      items: kids.map(k => k.row)},
+                kids});
     });
     return out;
   }
 
-  function edViewItems(list){
+  function edParcelItems(list){
     const out = [];
     [...list.children].forEach(li => {
       if(!li.matches('li[data-nid]')) return;
@@ -2396,12 +2421,12 @@ function init(D){
       if(it.isNew && edEmpty(it.nx)) return;       /* 눌러만 두고 안 쓴 줄 */
       const kind = it.retype || it.type || 'bullet';
       const sub = li.querySelector(':scope>ul');
-      const row = {type: kind, html: edSerialize(it.nx),
-                   items: sub ? edViewItems(sub) : []};
+      const kids = sub ? edParcelItems(sub) : [];
+      const row = {type: kind, html: edSerialize(it.nx), items: kids.map(k => k.row)};
       /* 보탠 줄에는 주소가 없다. 중계 서버가 지어 붙여 돌려준다 */
       if(!it.isNew) row.id = li.dataset.nid;
       if(kind === 'todo') row.checked = !!it.checked;
-      out.push(row);
+      out.push({li, it, row, kids});
     });
     return out;
   }
@@ -2411,46 +2436,36 @@ function init(D){
    *
    * 화면은 다시 그리지 않는다 — 커서와 스크롤이 튀고, 방금 친 글이 화면에서
    * 한 번 사라졌다 돌아온다. 대신 **보탠 줄에 붙은 주소만** 갈아 끼운다.
-   * 문서는 보낸 차례 그대로 돌아오므로 화면과 나란히 걸으면 짝이 맞는다.
+   * 보낸 꾸러미를 그대로 들고 걷기 때문에 짝이 어긋날 수 없다.
    */
-  function edAdoptDoc(doc){
-    const walk = (list, nodes) => {
-      let at = 0;
-      [...list.children].forEach(li => {
-        if(!li.matches('li[data-nid]')) return;
-        const it = edItems.get(li.dataset.nid);
-        if(!it || it.del || (it.isNew && edEmpty(it.nx))) return;
-        const node = nodes[at]; at += 1;
-        if(!node) return;
-        if(it.isNew){
-          edItems.delete(li.dataset.nid);
-          li.dataset.nid = node.id;
-          edItems.set(node.id, it);
-          li.classList.remove('ed-new');
-          it.isNew = false;
-        }
-        it.type = node.type;
-        it.retype = null;
-        it.display = it.base = node.html || '';
-        it.home = edWhereKey(it);
-        it.moved = false;
-        li.classList.remove('ed-dirty', 'ed-fail', 'ed-moved');
-        edClearNote(it);
-        edRtChip(it);
-        const sub = li.querySelector(':scope>ul');
-        if(sub) walk(sub, node.items || []);
-      });
-    };
-    let at = 0;
-    document.querySelectorAll('.notice').forEach(box => {
-      const list = box.querySelector(':scope>.bd>ul.ck');
-      const items = list ? [...list.children].filter(li => li.matches('li[data-nid]')) : [];
-      if(!items.length && !box.dataset.nsec) return;
+  function edAdoptDoc(parcel, doc){
+    const walk = (kids, nodes) => kids.forEach((k, at) => {
+      const node = nodes[at];
+      if(!node) return;
+      const {li, it} = k;
+      if(it.isNew){
+        edItems.delete(li.dataset.nid);
+        li.dataset.nid = node.id;
+        edItems.set(node.id, it);
+        li.classList.remove('ed-new');
+        it.isNew = false;
+      }
+      it.type = node.type;
+      it.retype = null;
+      it.display = it.base = node.html || '';
+      it.home = edWhereKey(it);
+      it.moved = false;
+      li.classList.remove('ed-dirty', 'ed-fail', 'ed-moved');
+      edClearNote(it);
+      edRtChip(it);
+      walk(k.kids, node.items || []);
+    });
+
+    parcel.forEach((p, at) => {
       const sec = (doc.sections || [])[at];
       if(!sec) return;
-      at += 1;
-      if(sec.id) box.dataset.nsec = sec.id;
-      if(list) walk(list, sec.items || []);
+      if(sec.id) p.box.dataset.nsec = sec.id;
+      walk(p.kids, sec.items || []);
     });
     /* 지운 줄은 저장소에서 사라졌다. 화면에서도 걷는다 — 남겨 두면 그어진
        채로 붙어 있으면서 저장 창구가 「1줄 지움」을 영영 세고, 떠날 때
@@ -2475,16 +2490,17 @@ function init(D){
       return;
     }
     edItems.forEach(it => edClearNote(it));
-    edClearConflict();
+    edClearPanels();
     document.querySelector('[data-edsave]').disabled = true;
     edMsg('저장 중…');
 
+    const parcel = edParcel();
     let out;
     try {
       out = await ED.call('PUT', '/notice/doc', {
         slug: CLIENT, noticeId: edDoc.noticeId, version: edDoc.version,
         title: edTitle ? edTitle.input.value.trim() : (edDoc.title || ''),
-        sections: edViewDoc(),
+        sections: parcel.map(p => p.row),
       });
     } catch(e){
       /* 판이 어긋났다 — 다른 담당자가 먼저 저장했다. 화면에 적어 둔 글은
@@ -2499,7 +2515,7 @@ function init(D){
       return;
     }
 
-    edAdoptDoc(out);
+    edAdoptDoc(parcel, out);
     /* 재빌드 신호가 나갔는지는 중계 서버만 안다. 안 나갔는데 「1~2분 뒤 반영」을
        띄우면 담당자는 닿지 않을 것을 닿았다고 읽는다 */
     edMsg(out.rebuild === 'sent' ? '저장했습니다 · 1~2분 뒤 반영'
@@ -2552,6 +2568,101 @@ function init(D){
   function edClearConflict(){
     const old = document.getElementById('edcf');
     if(old) old.remove();
+  }
+
+  /* 저장 시각. 담당자가 사는 시간대로 「09-08 14:30」 */
+  function edWhen(iso){
+    const t = Date.parse(iso || '');
+    if(!Number.isFinite(t)) return '';
+    const d = new Date(t + 9 * 3600 * 1000);
+    const p2 = n => String(n).padStart(2, '0');
+    return `${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())} ` +
+           `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+  }
+
+  /**
+   * 지난 판 목록. 저장할 때마다 **직전** 문서가 한 판씩 쌓인 것이다.
+   *
+   * 노션이 공짜로 주던 버전 기록을 대신한다. 없으면 담당자가 한 번 실수했을
+   * 때 복구할 수단이 아예 없다.
+   */
+  async function edRevisions(){
+    edClearPanels();
+    if(!edDoc){ edMsg('공지가 없습니다', true); return; }
+
+    edMsg('지난 판을 불러오는 중…');
+    let out;
+    try {
+      out = await ED.call('GET', '/notice/doc/revisions' +
+        `?slug=${encodeURIComponent(CLIENT)}` +
+        `&noticeId=${encodeURIComponent(edDoc.noticeId)}`);
+    } catch(e){ edMsg(edErr(e, '지난 판을 불러오지 못했습니다'), true); return; }
+    edMsg('');
+
+    const bar = document.getElementById('edbar');
+    if(!bar) return;
+    const rows = out.revisions || [];
+    const box = document.createElement('div');
+    box.className = 'ed-cf';
+    box.id = 'edrv';
+    box.innerHTML = `<div class="cf-t">지난 판
+        <span class="cf-v">${rows.length ? `${rows.length}개 · 최근 스무 판까지 남습니다`
+                                         : '아직 없습니다'}</span></div>
+      ${rows.length ? `<div class="cf-b">${rows.map(r => `<div class="rv-l">
+        <span class="rv-w">${esc(edWhen(r.savedAt))}</span>
+        <span class="rv-t">${esc(r.title || '(제목 없음)')}</span>
+        <button class="edt-b" data-rv="${r.version}">이 판으로</button>
+      </div>`).join('')}</div>` : ''}
+      <div class="cf-a"><button class="edt-b" data-cfclose>닫기</button></div>`;
+    bar.parentElement.insertBefore(box, bar.nextSibling);
+    box.querySelector('[data-cfclose]').onclick = edClearPanels;
+    box.querySelectorAll('[data-rv]').forEach(b => {
+      b.onclick = () => edRestore(Number(b.dataset.rv));
+    });
+  }
+
+  /**
+   * 그 판으로 되돌린다. **되돌리기도 저장이다** — 새 판이 되므로 되돌린 것도
+   * 다시 되돌릴 수 있고, 재빌드도 똑같이 걸린다.
+   */
+  async function edRestore(version){
+    /* 화면에 손대 둔 것이 있으면 먼저 묻는다. 되돌리면 그것은 사라진다 */
+    if(edPending().length &&
+       !confirm(`손대 둔 ${edPending().length}개가 사라집니다. 그래도 되돌리시겠습니까?`)) return;
+    if(!confirm(`${version} 판으로 되돌립니다.\n\n` +
+                '지금 내용도 판으로 남아 다시 되돌릴 수 있습니다.\n' +
+                '1~2분 뒤 클라이언트 화면에 반영됩니다.')) return;
+
+    edMsg('되돌리는 중…');
+    let out;
+    try {
+      out = await ED.call('POST', '/notice/doc/restore', {
+        slug: CLIENT, noticeId: edDoc.noticeId, version: edDoc.version, revision: version,
+      });
+    } catch(e){
+      if(e.status === 409 && e.data && e.data.current){
+        edConflict(e.data.current);
+        edMsg('다른 담당자가 먼저 저장했습니다 — 아래에서 견주어 주세요', true);
+      } else {
+        edMsg(edErr(e, '되돌리지 못했습니다'), true);
+      }
+      return;
+    }
+
+    edClearPanels();
+    edDoc = out;
+    edLoaded = true;
+    edItems = new Map();
+    edTitle = null;
+    notice = edDocView(out);
+    go('notice');
+    edMsg(`${version} 판으로 되돌렸습니다 · 1~2분 뒤 반영`);
+  }
+
+  function edClearPanels(){
+    edClearConflict();
+    const rv = document.getElementById('edrv');
+    if(rv) rv.remove();
   }
 
   /* 저장 전이라면 되돌린다. 노션에는 아직 아무것도 나가지 않았다 */
@@ -2702,6 +2813,7 @@ function init(D){
     if(bar){
       bar.querySelector('[data-edsave]').onclick = edSave;
       bar.querySelector('[data-edundo]').onclick = edUndo;
+      bar.querySelector('[data-edrev]').onclick = edRevisions;
     }
     const newBtn = document.querySelector('[data-ednew]');
     if(newBtn) newBtn.onclick = edNewNotice;
@@ -2905,7 +3017,7 @@ function init(D){
     try { out = await ED.call('POST', '/notice/doc', {slug: CLIENT}); }
     catch(e){ edMsg(edErr(e, '새 공지를 만들지 못했습니다'), true); return; }
 
-    edClearConflict();
+    edClearPanels();
     edItems = new Map();
     edTitle = null;
     edDoc = out;

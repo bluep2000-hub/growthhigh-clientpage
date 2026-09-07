@@ -14,6 +14,8 @@
  *   GET    /notice/doc     저장소의 최신 공지 문서를 받아 간다
  *   POST   /notice/doc     저장소에 오늘 날짜의 빈 공지를 만든다
  *   PUT    /notice/doc     저장소의 공지 문서를 통째로 덮어쓴다
+ *   GET    /notice/doc/revisions  되돌릴 수 있는 판 목록
+ *   POST   /notice/doc/restore    지난 판으로 되돌린다
  *   GET    /notice/export  빌드가 그 기업의 최신 공지 문서를 가져간다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
@@ -790,6 +792,19 @@ function noticeDoc({ id, ...rest }) {
 }
 
 /**
+ * 그 공지가 이 기업의 것인지 확인하고 집어 온다.
+ *
+ * 슬러그와 공지 주소는 **함께** 와야 한다. 주소 하나로 열어 주면 그것만
+ * 알아낸 사람이 남의 기업 공지를 읽고 되돌린다.
+ */
+async function myNotice(store, slug, noticeId) {
+  const row = await store.byId(noticeId);
+  if (!row) throw notFound("그런 공지가 없습니다");
+  if (row.slug !== slug) throw foreign("다른 기업의 공지입니다");
+  return row;
+}
+
+/**
  * 저장이 끝났으니 다시 만들라는 신호.
  *
  * 줄이 하나도 없는 공지는 던지지 않는다. 빌더가 빈 공지를 아예 싣지 않아
@@ -1037,9 +1052,7 @@ async function route(request, env) {
     const sections = readSections(body.sections);
 
     const store = openStore(env);
-    const mine = await store.byId(noticeId);
-    if (!mine) throw notFound("그런 공지가 없습니다");
-    if (mine.slug !== slug) throw foreign("다른 기업의 공지입니다");
+    await myNotice(store, slug, noticeId);
 
     // 판 번호가 그대로일 때만 쓴다. 읽어 보고 나서 쓰면 그 사이에 다른
     // 담당자가 저장한 것을 조용히 덮어쓴다.
@@ -1047,6 +1060,51 @@ async function route(request, env) {
     if (!next) {
       const current = await store.byId(noticeId);
       throw stale("화면이 편집을 시작한 뒤에 이 공지가 저장되었습니다",
+                  { current: current ? noticeDoc(current) : null });
+    }
+    return json({ ...noticeDoc(next), rebuild: await signalSaved(env, slug, next) }, 200);
+  }
+
+  /**
+   * 되돌릴 수 있는 판 목록. 저장 시각과 그때의 제목만 준다.
+   *
+   * 문서는 싣지 않는다 — 목록을 그리는 데 필요하지 않고, 스무 판을 통째로
+   * 실으면 응답이 공지 스무 벌이 된다.
+   */
+  if (pathname === "/notice/doc/revisions" && method === "GET") {
+    requireEditor(request, env);
+    const slug = requireText(url.searchParams.get("slug"), "slug");
+    const noticeId = requireText(url.searchParams.get("noticeId"), "noticeId");
+
+    const store = openStore(env);
+    await myNotice(store, slug, noticeId);
+    return json({ noticeId, revisions: await store.revisions(noticeId) }, 200);
+  }
+
+  /**
+   * 지난 판으로 되돌린다.
+   *
+   * **되돌리기는 저장이다.** 그 판의 문서를 새 판으로 다시 쓴다 — 판 번호가
+   * 오르므로 되돌린 것도 다시 되돌릴 수 있고, 재빌드도 똑같이 걸린다.
+   */
+  if (pathname === "/notice/doc/restore" && method === "POST") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const noticeId = requireText(body.noticeId, "noticeId");
+    const version = requireVersion(body.version);
+    const want = requireVersion(body.revision);
+
+    const store = openStore(env);
+    await myNotice(store, slug, noticeId);
+    const old = await store.revision(noticeId, want);
+    if (!old) throw notFound(`${want} 판이 없습니다`);
+
+    const next = await store.replace({ id: noticeId, expect: version,
+                                       title: old.title, sections: old.sections });
+    if (!next) {
+      const current = await store.byId(noticeId);
+      throw stale("화면이 판 목록을 받은 뒤에 이 공지가 저장되었습니다",
                   { current: current ? noticeDoc(current) : null });
     }
     return json({ ...noticeDoc(next), rebuild: await signalSaved(env, slug, next) }, 200);

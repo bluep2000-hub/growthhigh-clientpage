@@ -73,8 +73,7 @@ npx wrangler d1 migrations apply growthhigh-clientpage-notices --local    # npm 
 ```
 
 표는 둘이다. `notices` — 기업(슬러그)·날짜·제목·문서·판 번호. `revisions` —
-저장할 때마다 쌓이는 지난 판(#38 이 채운다). **SQL 은 `src/store.js` 한 곳에만
-있다.** 창구 쪽 코드는 표도 열도 모르고, 테스트는 이 모듈을 가짜로 갈아 끼운다.
+저장할 때마다 쌓이는 지난 판. **SQL 은 `src/store.js` 한 곳에만 있다.** 창구 쪽 코드는 표도 열도 모르고, 테스트는 이 모듈을 가짜로 갈아 끼운다.
 
 ## ⚠ curl 로 시험하지 않는다
 
@@ -103,6 +102,8 @@ npm run deploy     # Cloudflare 에 올린다
 | `GET` | `/notice/doc?slug=` | **저장소**의 최신 공지 문서를 받아 간다 |
 | `POST` | `/notice/doc` | **저장소**에 오늘 날짜의 빈 공지를 만든다 |
 | `PUT` | `/notice/doc` | **저장소**의 공지 문서를 통째로 덮어쓴다 |
+| `GET` | `/notice/doc/revisions?slug=&noticeId=` | 되돌릴 수 있는 판 목록 |
+| `POST` | `/notice/doc/restore` | 지난 판으로 되돌린다 |
 | `GET` | `/notice/export?slug=` | 빌드가 그 기업의 최신 공지 문서를 가져간다 |
 | `GET` | `/notice/item?slug=&blockId=` | (옛 방식) 그 항목의 마크다운 |
 | `PUT` | `/notice/item` | (옛 방식) 그 항목을 고친다 |
@@ -413,6 +414,32 @@ PUT /notice/doc
 `empty` 다. 빌더가 빈 공지를 아예 싣지 않아, 그대로 내보내면 그 기업의 공지가
 클라이언트 화면에서 **통째로** 사라진다 — 갓 만든 공지에 제목만 적고 저장했을
 때가 그것이다.
+
+### 판 — `GET /notice/doc/revisions` · `POST /notice/doc/restore`
+
+```
+GET /notice/doc/revisions?slug=whiffkorea&noticeId=…
+  →  { noticeId, revisions: [ { version, title, savedAt }, … ] }
+```
+
+저장이 성공할 때마다 **직전** 문서가 한 판씩 쌓인 것이다. 방금 저장한 것이
+아니라 직전 것인 까닭은, 되돌린다는 말이 「저장하기 전으로」이기 때문이다.
+최근 것이 앞이고 **공지 하나당 스무 판**까지 남는다. 문서는 싣지 않는다 —
+목록을 그리는 데 필요하지 않고, 스무 판을 통째로 실으면 응답이 공지 스무 벌이
+된다.
+
+```
+POST /notice/doc/restore
+{ slug, noticeId, version, revision }
+  →  200  { …되살아난 공지 문서…, rebuild }
+     409  { error: "stale", current }
+```
+
+`version` 은 화면이 들고 있는 지금 판, `revision` 은 되살릴 판이다.
+
+**되돌리기는 저장이다.** 그 판의 문서를 새 판으로 다시 쓴다 — 판 번호가
+오르므로 되돌린 것도 다시 되돌릴 수 있고, 되돌리기 직전 문서도 판으로 남으며,
+재빌드도 똑같이 걸린다.
 
 ### 빌드가 가져간다 — `GET /notice/export`
 

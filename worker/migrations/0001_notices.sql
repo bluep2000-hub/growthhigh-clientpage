@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS notices (
 CREATE INDEX IF NOT EXISTS notices_by_slug ON notices (slug, "date" DESC);
 
 -- 지난 판. 저장이 성공할 때마다 직전 문서가 여기 쌓이고, 공지 하나당 최근
--- 20판만 남는다. 채우는 것은 #38 이다 — 여기서는 자리만 세운다.
+-- 20판만 남는다.
 CREATE TABLE IF NOT EXISTS revisions (
   notice_id TEXT    NOT NULL REFERENCES notices (id) ON DELETE CASCADE,
   version   INTEGER NOT NULL,
