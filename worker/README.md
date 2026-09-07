@@ -72,8 +72,8 @@ npx wrangler d1 migrations apply growthhigh-clientpage-notices --remote   # 배�
 npx wrangler d1 migrations apply growthhigh-clientpage-notices --local    # npm run dev
 ```
 
-표는 둘이다. `notices` — 기업(슬러그)·날짜·제목·문서·판 번호. `revisions` —
-저장할 때마다 쌓이는 지난 판. **SQL 은 `src/store.js` 한 곳에만 있다.** 창구 쪽 코드는 표도 열도 모르고, 테스트는 이 모듈을 가짜로 갈아 끼운다.
+표는 둘이다. `notices` 는 기업(슬러그)·날짜·제목·문서·판 번호를, `revisions` 는
+저장할 때마다 쌓이는 지난 판을 담는다. **SQL 은 `src/store.js` 한 곳에만 있다.** 창구 쪽 코드는 표도 열도 모르고, 테스트는 이 모듈을 가짜로 갈아 끼운다.
 
 ## ⚠ curl 로 시험하지 않는다
 

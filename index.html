@@ -1650,7 +1650,7 @@ function init(D){
        편집 모드는 이미 꺼져 있고, 고쳐 둔 줄은 다음 그리기에 사라진다 */
     if(off) off.onclick = () => {
       if(!edMayLeave()) return;
-      edItems = new Map();
+      edForgetAll();
       sessionStorage.removeItem(EKEY);
       go('notice');
     };
@@ -1713,6 +1713,19 @@ function init(D){
 
   /** 블록 주소 → 항목 하나(`edItem`). 순서는 화면 순서다 */
   let edItems = new Map();
+
+  /**
+   * 손대 둔 것을 통째로 잊는다.
+   *
+   * 화면을 다시 그리기 **직전에** 부른다. 남겨 두면 그 장부가 사라질 DOM 을
+   * 가리킨 채로 「저장하지 않은 것이 있다」고 한 번 더 묻고, 담당자가 거기서
+   * 취소하면 화면과 장부가 서로 다른 것을 가리키게 된다.
+   */
+  function edForgetAll(){
+    edItems = new Map();
+    edSecs = new Map();
+    edTitle = null;
+  }
 
   /**
    * 칸 주소 → 칸 하나. 줄의 장부(`edItems`)와 짝이다.
@@ -1921,7 +1934,8 @@ function init(D){
    * 다시 그리면 이 함수가 또 불리는데, 그때는 문서를 이미 들고 있으므로 화면의
    * 줄에 편집용 글을 갈아 끼우는 일만 한다.
    *
-   * 손대 둔 줄은 다시 받지 않는다 — 덮으면 저장 전에 사라진다.
+   * 손대 둔 것을 지키려 들지 않는다. 화면을 다시 그리는 길은 `go` 하나뿐이고,
+   * 그 앞에 「저장하지 않고 떠나시겠습니까」가 서 있다.
    */
   async function edLoad(){
     if(!document.getElementById('edbar')) return;
@@ -1943,31 +1957,20 @@ function init(D){
       /* 저장소의 문서로 화면을 다시 그린다. 봉투로 그린 화면은 지난 빌드의
          것이라, 그 위에서 고쳐 저장하면 그 사이에 저장된 줄이 사라진다 */
       notice = doc ? edDocView(doc) : null;
-      edItems = new Map();
-      edTitle = null;
+      edForgetAll();
       go('notice');
       return;
     }
 
-    const prev = edItems;
-    const dirty = new Map();
-    prev.forEach((it, id) => {
-      if(it.isNew || it.del || it.moved || it.retype
-         || it.li.classList.contains('ed-dirty')) dirty.set(id, it);
-    });
-
+    /* 화면은 방금 그려졌고 장부는 비어 있다 — `go` 가 함께 버린다. 그래서
+       여기서 하는 일은 지금 화면에 있는 줄을 장부에 올리는 것뿐이다 */
     const next = new Map();
     document.querySelectorAll('.ck li[data-nid]').forEach(li => {
       const nx = li.querySelector(':scope>.nx, :scope>.tgh>.nx');
       if(!nx) return;
-      const id = li.dataset.nid;
-      const was = prev.get(id);
-      const kept = (was && was.li === li) ? was : null;
-      /* 화면을 다시 그리지 않았으면 처음 그렸던 표시용 HTML 을 지킨다. 지금
-         innerHTML 은 이미 편집용이라, 그것을 display 로 삼으면 커스텀 이모지
-         그림을 꺼내 올 곳이 없어진다 */
-      next.set(id, (kept && dirty.has(id)) ? kept
-        : edItem(li, nx, {display: kept ? kept.display : nx.innerHTML}));
+      /* 처음 그려진 **표시용** HTML 을 지켜 둔다. 곧 편집용으로 갈아 끼우므로
+         지금 아니면 커스텀 이모지 그림을 꺼내 올 곳이 없어진다 */
+      next.set(li.dataset.nid, edItem(li, nx, {display: nx.innerHTML}));
     });
     edItems = next;
 
@@ -1980,7 +1983,7 @@ function init(D){
     }
     const index = edDocIndex(edDoc);
     edTitleOpen(edDoc.title || '');
-    edItems.forEach((it, id) => { if(!dirty.has(id)) edOpen(it, index.get(id)); });
+    edItems.forEach((it, id) => edOpen(it, index.get(id)));
     edMvSync();
     edStatus();
   }
@@ -1993,7 +1996,6 @@ function init(D){
   function edTitleOpen(text){
     const inp = document.getElementById('ntitle');
     if(!inp) return;
-    if(edTitle && edTitle.input === inp && edTitleDirty()) return;
     const now = String(text || '');
     inp.value = now;
     edTitle = {input: inp, base: now};
@@ -2059,21 +2061,16 @@ function init(D){
      저장이 화면을 걸어 다니며 문서를 다시 지으므로, 화면의 차례가 곧 문서의
      차례이고 화면에서 지운 칸은 문서에서 사라진다. */
 
-  /** 화면의 칸들을 장부에 올린다. 손대 둔 칸은 그대로 둔다 */
+  /** 지금 화면의 칸들을 장부에 올린다. 줄의 장부와 같이 언제나 새로 짓는다 */
   function edSecsLoad(){
-    const prev = edSecs;
     const next = new Map();
     document.querySelectorAll('.notice').forEach(box => {
       const id = box.dataset.nsec;
       if(id === undefined) return;                 /* 편집 모드가 아닌 상자 */
       const nsx = box.querySelector(':scope>h3>[data-nsx]');
       if(!nsx) return;
-      const was = prev.get(id);
-      const kept = (was && was.box === box) ? was : null;
-      const sec = kept || {box, nsx, base: nsx.textContent.trim(),
-                           home: null, moved: false, isNew: false, del: false};
-      sec.box = box; sec.nsx = nsx;
-      sec.home = edSecWhere(box);
+      const sec = {box, nsx, base: nsx.textContent.trim(),
+                   home: edSecWhere(box), moved: false, isNew: false, del: false};
       next.set(id, sec);
       edSecBind(sec);
     });
@@ -2374,9 +2371,6 @@ function init(D){
   /**
    * 지금 무엇을 누를 수 있는지 다시 셈한다. 줄 하나가 움직이면 그 이웃들의
    * 사정도 함께 바뀌므로 통째로 훑는다.
-   *
-   * 옮기기와 종류 바꾸기는 **한 줄에 하나씩만** 걸린다. 둘 다 지우고 다시
-   * 만들기라, 함께 보내면 뒤엣것이 이미 없는 주소를 짚는다.
    */
   function edMvSync(){
     edItems.forEach(it => {
@@ -2454,8 +2448,7 @@ function init(D){
    * 적어 둔 자리로 돌려놓는다. 발판이던 줄이 화면에 없으면 그대로 둔다 —
    * 억지로 옮기면 담당자가 놓지 않은 자리에 놓인다.
    *
-   * 발판은 사라질 수 있다. 이웃한 줄을 옮기면 그 줄의 노션 주소가 바뀌고,
-   * 적어 둔 자리는 옛 주소를 가리킨 채로 남는다.
+   * 발판은 사라질 수 있다. 그 줄을 지워 두었으면 화면에 없다.
    *
    * @returns {boolean} 돌려놓았는가
    */
@@ -2556,9 +2549,11 @@ function init(D){
     document.querySelectorAll('.ck li[data-nid]').forEach(li => {
       const it = edItems.get(li.dataset.nid);
       if(!it) return;
-      /* 지울 줄 안에 든 줄은 따로 보내지 않는다. 노션이 그릇을 지우면 안엣것도
-         함께 사라져, 따로 보내면 「이미 지운 항목」으로 실패해 돌아온다 */
+      /* 지울 줄 안에 든 줄, 지울 칸 안에 든 줄은 따로 세지 않는다. 그릇이
+         사라지면 함께 사라지므로 손질 하나가 여럿으로 보일 뿐이다 */
       if(li.parentElement.closest('li.ed-del')) return;
+      const sec = edSecs.get((li.closest('.notice') || {dataset:{}}).dataset.nsec);
+      if(sec && sec.del) return;
       if(it.del){ out.push({it, op:'remove'}); return; }
       if(it.isNew){
         if(!edEmpty(it.nx)) out.push({it, op:'add'});
@@ -2729,9 +2724,14 @@ function init(D){
       }
       walk(p.kids, node.items || []);
     });
-    /* 지운 칸도 저장소에서 사라졌다. 화면에서 걷는다.
-       하나도 남지 않으면 `edSecForget` 이 빈 칸을 다시 세운다 */
-    [...edSecs.values()].forEach(sec => { if(sec.del) edSecForget(sec); });
+    /* 지운 칸도, **이름도 줄도 없어져 저장에 나가지 않은 칸**도 저장소에는
+       없다. 화면에서 걷는다 — 남겨 두면 그 칸은 돌아온 문서에 짝이 없어
+       기준선이 낡은 채로 굳고, 저장 창구가 「1칸 이름 고침」을 영영 센다.
+       새로 세워 아직 비어 있는 칸은 적으라고 둔 자리라 그대로 둔다 */
+    const sent = new Set(parcel.map(p => p.box));
+    [...edSecs.values()].forEach(sec => {
+      if(sec.del || (!sent.has(sec.box) && !sec.isNew)) edSecForget(sec);
+    });
     edSecEnsure();
     /* 지운 줄은 저장소에서 사라졌다. 화면에서도 걷는다 — 남겨 두면 그어진
        채로 붙어 있으면서 저장 창구가 「1줄 지움」을 영영 세고, 떠날 때
@@ -2831,8 +2831,7 @@ function init(D){
       if(!confirm('화면에 적어 둔 것을 버리고 저장소의 지금 공지를 엽니다.')) return;
       edClearConflict();
       edLoaded = false;
-      edItems = new Map();
-      edTitle = null;
+      edForgetAll();
       edLoad();
     };
   }
@@ -2924,8 +2923,10 @@ function init(D){
     edClearPanels();
     edDoc = out;
     edLoaded = true;
-    edItems = new Map();
-    edTitle = null;
+    /* 장부를 먼저 비운다. 남겨 두면 `go` 가 「저장하지 않은 것이 있다」고
+       한 번 더 묻고, 담당자가 거기서 취소하면 화면은 되돌리기 전 그대로인데
+       손에 쥔 문서만 새것이 된다 */
+    edForgetAll();
     notice = edDocView(out);
     go('notice');
     edMsg(`${version} 판으로 되돌렸습니다 · 1~2분 뒤 반영`);
@@ -2937,7 +2938,7 @@ function init(D){
     if(rv) rv.remove();
   }
 
-  /* 저장 전이라면 되돌린다. 노션에는 아직 아무것도 나가지 않았다 */
+  /* 저장 전이라면 되돌린다. 저장소에는 아직 아무것도 나가지 않았다 */
   function edUndo(){
     const pend = edPending();
     if(!pend.length) return;
@@ -3127,11 +3128,11 @@ function init(D){
   }
 
   /**
-   * 지울 줄로 표시한다. **노션에는 아직 나가지 않는다** — 저장이 함께 내보낸다.
+   * 지울 줄로 표시한다. **저장소에는 아직 나가지 않는다** — 저장이 함께 내보낸다.
    *
    * 화면에서 치우지 않고 그은 채로 남기는 까닭은 둘이다. 저장 전에 무엇이
    * 사라질지 세어 볼 수 있어야 하고, 잘못 눌렀을 때 되돌릴 곳이 그 자리에
-   * 있어야 한다. 아직 노션에 없던 줄만은 그냥 없앤다 — 되돌릴 것이 없다.
+   * 있어야 한다. 방금 보탠 줄만은 그냥 없앤다 — 되돌릴 것이 없다.
    */
   function edMarkDel(it, on){
     if(on && it.isNew){ edForget(it); return; }
@@ -3292,8 +3293,7 @@ function init(D){
     catch(e){ edMsg(edErr(e, '새 공지를 만들지 못했습니다'), true); return; }
 
     edClearPanels();
-    edItems = new Map();
-    edTitle = null;
+    edForgetAll();
     edDoc = out;
     edLoaded = true;
     notice = edDocView(out);
@@ -3885,7 +3885,10 @@ function init(D){
       if(o.fromPop) history.pushState({view:'notice'}, '', '#notice');
       return;
     }
-    edItems = new Map();
+    /* 장부는 화면을 가리킨다. 화면을 다시 그리면 통째로 버려야 한다 —
+       하나라도 남기면 그 장부가 사라진 DOM 을 가리킨 채로 「손대 둔 것이
+       있다」고 우기고, 그 위에서 저장하면 지금 화면에 없는 것이 나간다 */
+    edForgetAll();
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        기준일은 상단 우측 pill 에만 표시한다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
