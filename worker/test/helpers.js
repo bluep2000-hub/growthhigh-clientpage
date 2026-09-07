@@ -132,11 +132,16 @@ export function installNotion(opts = {}) {
       return reply({ object: "list", results: childrenOf(blocks, cm[1]), has_more: false });
     }
     if (cm && method === "PATCH") {
-      const made = body.children.map((c, i) => ({
-        object: "block", id: `new-block-${i}`, type: c.type,
-        parent: inBlock(cm[1]), [c.type]: { rich_text: toPlain(c[c.type].rich_text) },
+      // 붙인 그릇이 블록이면 block_id, 페이지면 page_id 다. 한쪽으로 몰아
+      // 적으면 새로 만든 줄이 공지 안에 있는지 되물을 때 가짜 노션만
+      // 대답이 달라진다.
+      const into = blocks[cm[1]] ? inBlock(cm[1]) : inPage(cm[1]);
+      const made = body.children.map((c) => ({
+        object: "block", id: `new-block-${(minted += 1)}`, type: c.type,
+        last_edited_time: bumped(), parent: into,
+        [c.type]: { rich_text: toPlain(c[c.type].rich_text) },
       }));
-      for (const b of made) blocks[b.id] = { ...b, parent: inPage(cm[1]) };
+      for (const b of made) blocks[b.id] = b;
       return reply({ results: made });
     }
 
@@ -193,6 +198,9 @@ function withKids(blocks, b) {
 function childrenOf(blocks, id) {
   return kidsOf(blocks, id).map((b) => withKids(blocks, b));
 }
+
+/** 새로 만든 줄에 붙는 번호. 한 번의 저장이 여러 줄을 보태므로 겹치면 안 된다. */
+let minted = 0;
 
 /** 쓰기가 있을 때마다 앞으로 가는 시각. 저장 뒤 기준선이 새것인지 볼 때 쓴다. */
 let clock = 0;

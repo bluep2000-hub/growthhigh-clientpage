@@ -68,14 +68,16 @@ npm run deploy     # Cloudflare 에 올린다
 | `GET` | `/health` | 살아 있는지 |
 | `POST` | `/auth` | 담당자 공용 비밀번호가 맞는지 |
 | `GET` | `/notice/tree?slug=&more=` | 공지 전체를 편집용 글로 받아 간다 |
-| `POST` | `/notice/save` | 고친 것을 한 번에 적용한다 |
+| `POST` | `/notice/save` | 고치고 보태고 지운 것을 한 번에 적용한다 |
 | `GET` | `/notice/item?slug=&blockId=` | (옛 방식) 그 항목의 마크다운 |
 | `PUT` | `/notice/item` | (옛 방식) 그 항목을 고친다 |
 | `POST` | `/notice/item` | (옛 방식) 공지 맨 끝에 한 줄 보탠다 |
 | `DELETE` | `/notice/item` | (옛 방식) 그 항목을 지운다 |
 
-「옛 방식」 넷과 마크다운 변환은 화면이 새 방식으로 옮겨 간 뒤 티켓 #25 에서
-지운다. 새로 붙이는 것은 `/notice/tree` 와 `/notice/save` 만 쓴다.
+**「옛 방식」 넷은 화면이 더는 부르지 않는다.** 고치기·보태기·지우기가 모두
+`/notice/save` 한 곳으로 모였다(#22). 그래도 남겨 둔 것은 배포 시차 때문이다 —
+중계 서버를 먼저 올리고 사본을 나중에 내보내는 동안, 아직 옛 화면을 열고 있는
+담당자가 있다. 마크다운 변환과 함께 티켓 #25 에서 지운다.
 
 ### 공지 전체를 읽는다 — `GET /notice/tree`
 
@@ -99,15 +101,38 @@ npm run deploy     # Cloudflare 에 올린다
 ### 한 번에 저장한다 — `POST /notice/save`
 
 ```
-{ slug, noticePageId?, changes: [ { op: "edit",  blockId, seen, html },
-                                  { op: "check", blockId, seen, checked } ] }
+{ slug, noticePageId?, changes: [ … ] }        // 한 번에 스무 개까지
 ```
+
+| `op` | 싣는 것 | 하는 일 |
+|---|---|---|
+| `edit` | `blockId, seen, html` | 그 줄의 글을 갈아 끼운다 |
+| `check` | `blockId, seen, checked` | 할 일 표시만 바꾼다. 잠긴 줄도 된다 |
+| `add` | `tempId, html`, 자리 하나 | 줄 하나를 보탠다 |
+| `remove` | `blockId` | 그 줄을 지운다. **잠긴 줄도 된다.** 섹션 제목만 안 된다 |
+
+보탤 **자리**는 셋 중 하나로 짚는다. 노션은 이미 있는 블록을 옮기지 못해
+(ADR 0003) 맨 끝에 붙였다가 끌어 올리는 길이 없고, 처음부터 그 자리에 넣어야
+한다. 아무것도 안 주면 공지 맨 끝이다.
+
+| 자리 | 뜻 |
+|---|---|
+| `afterNew` | 같은 저장에서 **앞서 보탠** 줄 다음. 그 줄의 노션 주소는 아직 없다 |
+| `after` | 이미 노션에 있는 줄 다음. 그 줄이 그릇 안에 있으면 보탠 줄도 그 안에 남는다 |
+| `sectionId` | 그 섹션의 끝. 위에 짚을 줄이 없을 때 — 빈 섹션에 처음 보탤 때뿐이다 |
+
+`tempId` 는 화면이 붙이는 임시 이름이다. 노션 주소가 아직 없는 줄을 결과에서
+되짚는 유일한 열쇠라 한 요청 안에서 겹치면 안 된다.
 
 ```
 { pageId, saved, failed, rebuild,
-  results: [ { index, blockId, status, html?, checked?, last_edited_time?,
-               detail?, current? } ] }
+  results: [ { index, blockId?, tempId?, status, html?, checked?, removed?,
+               last_edited_time?, detail?, current? } ] }
 ```
+
+`results` 는 **보낸 차례 그대로**다. `add` 의 결과에는 `tempId` 와 노션이 준
+`blockId` 가 함께 온다 — 화면이 그것으로 임시 이름을 갈아 끼운다.
+`remove` 의 결과에는 `removed: true` 가 온다.
 
 | `status` | 뜻 |
 |---|---|
@@ -119,6 +144,9 @@ npm run deploy     # Cloudflare 에 올린다
 하나가 실패해도 나머지는 간다. 전부 취소인 척하지 않는다 — 노션에 되돌리기가
 없어 거짓말이 된다. **남의 기업 블록 주소가 섞여 오면** 아무것도 쓰지 않고
 통째로 `404 not_mine` 이다.
+
+**지우기는 맨 뒤에 쓴다.** 보낸 차례와 무관하다 — 지울 줄을 발판 삼아 보탠
+줄이 있으면, 먼저 지우는 순간 그 자리를 짚을 수 없다.
 
 재빌드 신호는 **하나라도 성공했을 때 한 번만** 나간다.
 
