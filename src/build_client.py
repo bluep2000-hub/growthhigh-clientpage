@@ -920,14 +920,18 @@ def make_item(b: dict, children: list[dict]) -> dict | None:
     checked = (b.get(t) or {}).get("checked") if t == "to_do" else None
     out = {"checked": checked, "html": html, "children": children}
 
-    # 이 항목이 노션의 어느 블록인지. 편집 모드가 고칠 곳을 찾는 유일한 실마리다.
-    # 잠긴 항목에는 주소를 넣지 않는다 — 없으면 화면이 실수로도 저장 대상으로
-    # 보낼 수 없다. 사유만 남겨 왜 못 고치는지 화면이 말해 줄 수 있게 한다.
+    # 이 항목이 노션의 어느 블록인지. 잠긴 항목에도 남긴다 — 고치지는 못해도
+    # 지울 수는 있어야 하고, 편집 모드가 중계 서버에서 받아 온 편집용 글을
+    # 화면에 갈아 끼울 때 짝을 맞추는 열쇠도 이것뿐이다. 고칠 수 있고 없고는
+    # `locked` 하나로만 가른다 — 주소의 있고 없음으로도 갈랐다가는 그 판단이
+    # 두 군데로 갈라져, 한쪽만 고치는 날 조용히 어긋난다.
+    if b.get("id"):
+        out["id"] = b["id"]
+
+    # 왜 못 고치는지 화면이 말해 줄 수 있게 사유를 남긴다.
     reason = lock_reason(b)
     if reason:
         out["locked"] = reason
-    elif b.get("id"):
-        out["id"] = b["id"]
 
     # 노션에서 접어 둔 항목이다. 화면도 접힌 채로 시작하게 표시만 남긴다.
     if t == "toggle" and children:
@@ -937,8 +941,12 @@ def make_item(b: dict, children: list[dict]) -> dict | None:
 
 def make_block_item(b: dict, html: str) -> dict:
     """표·그림·첨부처럼 통째로 HTML 이 되는 블록. 언제나 잠긴 항목이다."""
-    return {"checked": None, "html": html, "children": [],
-            "locked": BLOCK_LOCK.get(b.get("type"), "노션 전용")}
+    out = {"checked": None, "html": html, "children": [],
+           "locked": BLOCK_LOCK.get(b.get("type"), "노션 전용")}
+    # 잠겨 있어도 주소는 갖는다. 이유는 make_item 을 본다.
+    if b.get("id"):
+        out["id"] = b["id"]
+    return out
 
 
 def block_to_html(nt: Notion, b: dict) -> str:
