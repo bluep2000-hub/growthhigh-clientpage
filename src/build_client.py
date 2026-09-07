@@ -1052,6 +1052,112 @@ def notice_source(nt: Notion, source_id: str) -> dict | None:
     return None
 
 
+# ── 저장소에서 읽는 공지 ────────────────────────────────────────────────
+#
+# 공지의 원본은 이제 노션이 아니라 중계 서버의 저장소다
+# (docs/adr/0004-공지-원본-이사.md). 빌드는 거기서 받아 봉투에 그대로 싣는다.
+#
+# 저장소에 그 기업의 공지가 없으면 지금까지처럼 노션에서 읽는다 — 옮겨 가는
+# 동안의 다리다. 담당자가 페이지에서 첫 공지를 만드는 순간 그 기업은 저장소
+# 쪽으로 넘어가고, 다시 노션으로 돌아가지 않는다.
+
+RELAY_URL_DEFAULT = ("https://growthhigh-clientpage-relay"
+                     ".growthhigh-clientpage-worker.workers.dev")
+
+#: 저장소가 싣는 항목의 종류 → 봉투에 그대로 실린다. 화면이 이 값으로 그린다.
+NOTICE_KINDS = {"bullet", "number", "todo", "paragraph", "quote", "toggle"}
+
+
+def relay_notice(slug: str) -> dict | None:
+    """저장소에서 그 기업의 최신 공지 문서. 없거나 물어보지 못하면 None.
+
+    실패해도 빌드를 세우지 않는다 — 노션 경로가 아직 살아 있어 그리로 간다.
+    다만 **조용히 넘어가지는 않는다.** 토큰이 빠졌을 때 말없이 노션을 읽으면,
+    담당자는 페이지에서 고친 공지가 왜 안 나가는지 알 길이 없다.
+    """
+    token = os.environ.get("BUILD_TOKEN", "").strip()
+    if not token:
+        warn("BUILD_TOKEN 이 없어 저장소를 읽지 못했습니다 — 공지는 노션에서 읽습니다")
+        return None
+
+    base = (os.environ.get("RELAY_URL", "").strip() or RELAY_URL_DEFAULT).rstrip("/")
+    try:
+        r = requests.get(f"{base}/notice/export",
+                         params={"slug": slug},
+                         headers={"Authorization": f"Bearer {token}"},
+                         timeout=30)
+    except requests.RequestException as e:
+        warn(f"중계 서버에 닿지 못했습니다 — 공지는 노션에서 읽습니다: {e}")
+        return None
+
+    if r.status_code == 404:
+        return None                      # 아직 이사하지 않은 기업. 다리로 간다
+    if r.status_code != 200:
+        warn(f"중계 서버가 공지를 주지 않았습니다 ({r.status_code})"
+             " — 공지는 노션에서 읽습니다")
+        return None
+    try:
+        return r.json()
+    except ValueError as e:
+        warn(f"중계 서버의 공지를 읽지 못했습니다 — 공지는 노션에서 읽습니다: {e}")
+        return None
+
+
+def doc_items(items: list[dict]) -> list[dict]:
+    """저장소의 항목 트리 → 봉투의 항목 트리.
+
+    빈 항목은 버린다. 단 하위 항목이 있으면 부모는 살린다 — 노션에서 읽을
+    때와 같은 규칙이고, 편집 모드가 그것을 믿고 빈 줄을 그대로 저장한다.
+    """
+    out: list[dict] = []
+    for it in items:
+        kind = it.get("type")
+        if kind not in NOTICE_KINDS:
+            continue                     # 모르는 종류. 봉투에 실을 그림이 없다
+        children = doc_items(it.get("items") or [])
+        html = it.get("html") or ""
+        if not html and not children:
+            continue
+        # 인용은 노션에서 읽을 때와 같이 여기서 감싼다. 화면의 인용 서식이
+        # 그 태그에 걸려 있어, 종류만 실어 보내면 인용이 본문처럼 그려진다.
+        if kind == "quote" and html:
+            html = f"<blockquote>{html}</blockquote>"
+        row = {"type": kind, "checked": it.get("checked") if kind == "todo" else None,
+               "html": html, "children": children}
+        if it.get("id"):
+            row["id"] = it["id"]
+        # 토글은 접힌 채로 시작한다. 노션에서 읽을 때와 같은 표시다.
+        if kind == "toggle" and children:
+            row["toggle"] = True
+        out.append(row)
+    return out
+
+
+def notice_from_doc(doc: dict) -> dict | None:
+    """저장소의 공지 문서 → 봉투의 `notice`. 줄이 하나도 없으면 None.
+
+    빈 공지를 실으면 클라이언트 화면에 빈 상자가 뜬다. 지금까지 빌더가 빈
+    공지를 아예 싣지 않았고, 화면과 편집 모드가 그 약속 위에 서 있다.
+    """
+    sections = []
+    for s in doc.get("sections") or []:
+        items = doc_items(s.get("items") or [])
+        title = (s.get("title") or "").strip()
+        if not items and not title:
+            continue
+        # 제목이 없는 섹션은 heading 도 없다. 화면이 빈 제목 줄을 그리지 않는다.
+        sections.append({"id": s.get("id") or "", "heading": title or None,
+                         "items": items})
+
+    if not any(sec["items"] for sec in sections):
+        return None
+
+    # `page_url` 은 빈 값이다. 저장소의 공지에는 노션 페이지가 없다 —
+    # 「노션에서 고치기」로 보낼 곳도, 잠긴 항목도 함께 없어졌다.
+    return {"title": (doc.get("title") or "").strip() or "공지사항",
+            "date": doc.get("date") or "", "sections": sections, "page_url": ""}
+
+
 def fetch_notice(nt: Notion, url: str | None) -> dict | None:
     source_id = notice_source_id(url)
     if not source_id:
@@ -2602,7 +2708,15 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     progress = fetch_projects(nt, client["company_page_id"])
     log(f"  프로젝트 {len(progress)}건")
 
-    notice = fetch_notice(nt, client.get("notice_db_url"))
+    # 저장소가 먼저다. 거기 공지가 있으면 노션은 아예 읽지 않는다.
+    doc = relay_notice(slug)
+    notice = notice_from_doc(doc) if doc else None
+    if doc and not notice:
+        log("  공지: 저장소의 공지가 비어 있습니다 — 봉투에서 뺍니다")
+    elif doc:
+        log("  공지를 저장소에서 읽었습니다")
+    else:
+        notice = fetch_notice(nt, client.get("notice_db_url"))
     if notice:
         log(f"  공지: {notice['title']} ({notice['date']}) — 섹션 {len(notice['sections'])}")
 

@@ -323,9 +323,11 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 /* 커스텀 이모지 — 글자 흐름에 얹히는 작은 그림이다 */
 .cem{height:1em;width:auto;vertical-align:-.15em;margin:0 2px;display:inline-block}
 /* 표·그림·코드·구분선은 항목 안에 통째로 들어온다. 앞의 점을 지우고 폭을 채운다 */
-.ck li:has(>table),.ck li:has(>figure),.ck li:has(>pre),.ck li:has(>hr){padding-left:0}
+.ck li:has(>table),.ck li:has(>figure),.ck li:has(>pre),.ck li:has(>hr),
+.ck li:has(>blockquote),.ck li:has(>.nx>blockquote){padding-left:0}
 .ck li:has(>table)::before,.ck li:has(>figure)::before,
-.ck li:has(>pre)::before,.ck li:has(>hr)::before{content:none}
+.ck li:has(>pre)::before,.ck li:has(>hr)::before,
+.ck li:has(>blockquote)::before,.ck li:has(>.nx>blockquote)::before{content:none}
 .ck li>table{width:100%;border-collapse:collapse;margin:7px 0;font-size:12px;
   display:table;table-layout:auto}
 .ck li>table th,.ck li>table td{border:1px solid var(--line);padding:5px 8px;
@@ -369,6 +371,18 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ck ul li.chk.on::before{left:2px;top:6.5px;width:5px;height:8px;border-width:0 2px 2px 0}
 /* 하위 불릿은 상위와 위계가 갈리도록 한 단계 더 죽인다 */
 .ck ul li.plain::before{left:4px;top:9px;width:3px;height:3px;background:var(--line-2)}
+/* ── 항목의 종류 ──
+   봉투가 종류를 실으면 종류대로 그린다. 담당자가 번호 목록으로 바꾼 것이
+   클라이언트에게도 번호로 보여야 바꾼 뜻이 산다. 종류를 싣지 않는 봉투(노션에서
+   읽은 것)는 지금까지처럼 할 일과 그 밖 둘로만 그린다 */
+.ck,.ck ul{counter-reset:nnum}
+.ck li.num{counter-increment:nnum}
+.ck>li.num::before{content:counter(nnum) ".";position:absolute;left:0;top:3px;
+  width:15px;text-align:right;font-size:12px;line-height:1.65;color:var(--tx-3);
+  font-variant-numeric:tabular-nums}
+.ck ul li.num::before{left:0;top:2px;width:11px;font-size:11.5px;line-height:1.65}
+/* 본문에는 표시가 없다. 앞의 여백은 남겨 다른 줄과 글머리가 맞는다 */
+.ck li.para::before{content:none}
 .ck s{opacity:.72}
 /* 노션에서는 코드지만 여기서는 그냥 강조어다. 네모를 빼고 밑줄만 둔다 */
 .ck code{font-size:inherit;font-family:inherit;font-weight:600;color:var(--tx);
@@ -685,6 +699,7 @@ body.locked #gate{display:grid}
   .psum .ck>li{font-size:10px;line-height:1.5;padding:2px 0 2px 18px}
   .psum .ck li.chk::before{top:8px}
   .psum .ck li.chk.on::before{top:5.5px}
+  .psum .ck>li.num::before{top:2px;width:12px;font-size:9.5px;line-height:1.5}
   .psum .empty{font-size:9.5px}
 
   /* 화면 전용 장치는 뺀다 */
@@ -1427,9 +1442,19 @@ function init(D){
   /* edit 가 참일 때만 항목 자기 글을 .nx 로 감싸고 주소를 붙인다.
      평소에는 지금까지와 완전히 같은 DOM 이라 클라이언트 화면은 달라지지 않는다.
      .nx 로 감싸는 이유는 한 줄을 고칠 때 하위 항목까지 지우지 않기 위해서다 */
+  /* 항목의 종류 → 줄 앞에 그릴 표시. 인용은 봉투가 <blockquote> 로 싸 오므로
+     CSS 가 그것을 보고 표시를 뗀다 — 여기서는 글머리와 같이 둔다 */
+  const KIND_CLS = { bullet:'plain', number:'num', paragraph:'para',
+                     quote:'plain', toggle:'plain' };
+
   function noticeItem(it, depth, edit){
     const c = it.checked;
-    const cls = c === true ? 'chk on' : c === false ? 'chk' : 'plain';
+    /* 종류는 저장소에서 온 봉투에만 실린다. 노션에서 읽은 봉투에는 없어,
+       그때는 지금까지처럼 할 일과 그 밖 둘로만 그린다 — 노션 경로를 걷는
+       #39 가 이 갈래도 함께 지운다 */
+    const cls = it.type === 'todo' ? (c === true ? 'chk on' : 'chk')
+      : it.type ? (KIND_CLS[it.type] || 'plain')
+      : c === true ? 'chk on' : c === false ? 'chk' : 'plain';
     /* 노션에 쓴 만큼 다 낸다. depth 상한은 순환 참조를 막는 안전장치일 뿐이다 */
     const kids = depth < 10 ? (it.children || []) : [];
     const sub = kids.length

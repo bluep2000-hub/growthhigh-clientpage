@@ -15,6 +15,7 @@ cp .env.example .env
 | 키 | 없을 때 |
 |---|---|
 | `NOTION_TOKEN` | 빌드 불가 |
+| `BUILD_TOKEN` | 공지를 저장소에서 읽지 못한다. 경고를 남기고 노션에서 읽는다 — 담당자가 페이지에서 고친 공지가 나가지 않는다 |
 | `CALENDAR_ICS_URL` | 일정에서 미팅이 빠진다 |
 | `IMAP_HOST` · `IMAP_USER` · `IMAP_PASS` | `--skip-imap` 으로 우회한다. 기존 소통 내역은 노션에서 읽는다 |
 | `OWN_MAIL_EXTRA` · `GOOGLE_APPLICATION_CREDENTIALS` | 선택이다 |
