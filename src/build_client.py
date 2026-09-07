@@ -757,6 +757,10 @@ def esc(s: str) -> str:
 
 TRAIL_RE = re.compile(r"[\s:：]+$")
 
+# 링크로 만들 수 있는 주소. 중계 서버의 SAFE_SCHEME 과 같은 범위여야 한다 —
+# 담당자가 편집 모드에서 걸 수 있는 것만 클라이언트 화면에도 링크가 된다.
+LINK_SCHEME_RE = re.compile(r"^(https?://|mailto:)", re.I)
+
 
 def trim_runs(runs: list[dict]) -> list[dict]:
     """후행 콜론·공백을 뗀다. 「벤처기업(~10월) :」 → 「벤처기업(~10월)」"""
@@ -868,6 +872,12 @@ def runs_to_html(runs: list[dict]) -> str:
             h = f"<s>{h}</s>"
         if a.get("bold"):
             h = f"<b>{h}</b>"
+
+        # 담당자가 글에 건 링크만 살린다. 멘션의 href 는 노션 워크스페이스
+        # 안쪽 주소여서, 클라이언트는 열 수도 없고 열려서도 안 된다.
+        href = r.get("href") or ""
+        if r.get("type", "text") == "text" and LINK_SCHEME_RE.match(href):
+            h = f'<a href="{esc(href)}" target="_blank" rel="noopener noreferrer">{h}</a>'
         parts.append(h)
     return "".join(parts)
 
