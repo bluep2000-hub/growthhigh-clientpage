@@ -1478,8 +1478,9 @@ function init(D){
     const cls = it.type === 'todo' ? (c === true ? 'chk on' : 'chk')
       : it.type ? (KIND_CLS[it.type] || 'plain')
       : c === true ? 'chk on' : c === false ? 'chk' : 'plain';
-    /* 노션에 쓴 만큼 다 낸다. depth 상한은 순환 참조를 막는 안전장치일 뿐이다 */
-    const kids = depth < 10 ? (it.children || []) : [];
+    /* 적은 만큼 다 낸다. depth 상한은 깊이를 제한하려는 것이 아니라 봉투가
+       망가져 순환이 생겼을 때 멈추는 자리다 — 저장 쪽 상한과 같은 값이다 */
+    const kids = depth < 50 ? (it.children || []) : [];
     const sub = kids.length
       ? `<ul>${kids.map(k=>noticeItem(k, depth+1, edit)).join('')}</ul>` : '';
 
@@ -1978,9 +1979,7 @@ function init(D){
     it.checked = node.type === 'todo' && !!node.checked;
     it.home = edWhereKey(it);
     it.moved = false;
-    /* 안에 든 줄이 있으면 아직 옮기지 않는다. 저장이 문서를 통째로 보내므로
-       옮기지 못할 까닭은 없어졌지만, 그 빗장을 푸는 것은 #36 이다 */
-    if(!(node.items || []).length) edMvBox(it);
+    edMvBox(it);
   }
 
   /* 글이 하나도 없는 줄. 노션 전용 조각과 그림은 글이 없어도 내용이다 */
@@ -2008,12 +2007,15 @@ function init(D){
   }
 
   /* ── 옮기기 · 들여쓰기 · 종류 바꾸기 ──
-     노션 API 에는 블록을 옮기는 창구도 종류를 바꾸는 창구도 없다. 둘 다
-     지우고 다시 만들기라, 안에 든 줄이 있거나 잠긴 줄에는 아예 단추를 내지
-     않는다(ADR 0003). 저장하면 그 줄의 주소가 바뀌어 돌아온다. */
+     **화면에서 옮기면 그것으로 끝이다.** 저장이 화면을 걸어 다니며 문서를 다시
+     지으므로, 옮기기는 배열의 원소를 옮기는 일이고 종류 바꾸기는 값 하나를
+     고치는 일이다. 안에 든 줄이 몇 개든 상관없고, 그 줄의 주소도 바뀌지 않는다.
 
-  /** 옮기기와 종류 바꾸기. 둘 다 지우고 다시 만들기라 규칙이 같다 —
-      중계 서버의 `isRespawn` 과 짝이다 */
+     예전에는 둘 다 「지우고 다시 만들기」였다 — 노션에 블록을 옮기는 창구도
+     종류를 바꾸는 창구도 없었기 때문이다(ADR 0003). 원본이 저장소로 오면서
+     그 제약이 통째로 사라졌다(ADR 0004). */
+
+  /** 글이 아니라 자리와 종류를 손댄 것. 「되돌리기」가 이 둘만 다르게 물린다 */
   const edStruct = op => op === 'move' || op === 'retype';
 
   /** 그 줄의 종류 고르개 */
@@ -2027,14 +2029,11 @@ function init(D){
     return sub;
   }
 
-  /** 화면에서 이웃한 줄. `real` 이면 노션에 이미 있는 줄만 — 아직 없는 줄은
-      발판이 되지 못한다(주소가 없다) */
-  function edSib(li, dir, real){
+  /** 화면에서 이웃한 줄 */
+  function edSib(li, dir){
     const step = s => (dir === 'up' ? s.previousElementSibling : s.nextElementSibling);
     for(let s = step(li); s; s = step(s)){
-      if(!s.matches('li[data-nid]')) continue;
-      if(real && s.classList.contains('ed-new')) continue;
-      return s;
+      if(s.matches('li[data-nid]')) return s;
     }
     return null;
   }
@@ -2043,21 +2042,16 @@ function init(D){
   const edParentLi = li => li.parentElement.closest('li[data-nid]');
 
   /**
-   * 이 줄이 지금 앉은 자리. 중계 서버가 쓰는 낱말 그대로다 —
-   * 「이 줄 다음」 · 「이 줄 앞」 · 「이 줄 안」.
+   * 이 줄이 지금 앉은 자리 — 「이 줄 다음」 · 「이 줄 앞」 · 「이 줄 안」.
    *
-   * 방향(한 칸 위로)으로 보내지 않는 까닭은 **화면의 한 칸과 노션의 한 칸이
-   * 같지 않기 때문**이다. 빌더는 콜아웃을 펴서 그리고 섹션 제목은 화면의 줄이
-   * 아니다. 이웃을 짚어 보내면 그 어긋남이 아예 생기지 않고, 여러 칸을 옮긴
-   * 것도 한 번에 나간다.
+   * 저장에 실려 나가지 않는다. 자리는 화면의 차례가 그대로 문서의 차례가
+   * 되므로 따로 짚을 것이 없다. 여기서 재는 것은 **옮겼는가** 하나뿐이다 —
+   * 처음 앉았던 자리와 견주어 저장 창구가 「1줄 옮김」을 센다.
    */
   function edWhere(li){
     const near = edSib(li, 'up');
-    /* 바로 위가 이번에 함께 보태는 줄이면 임시 이름으로 짚는다. 건너뛰고
-       그 위 줄을 짚으면 노션에서는 보탠 줄보다 **위**로 가 버린다 */
-    if(near && near.classList.contains('ed-new')) return {afterNew: near.dataset.nid};
     if(near) return {after: near.dataset.nid};
-    const next = edSib(li, 'down', true);
+    const next = edSib(li, 'down');
     if(next) return {before: next.dataset.nid};
     const up = edParentLi(li);
     return up ? {into: up.dataset.nid} : null;
@@ -2143,27 +2137,23 @@ function init(D){
     edItems.forEach(it => {
       const box = it.nx && it.nx.parentElement.querySelector(':scope>.nx-mv');
       if(!box) return;
-      /* **바로 위 줄**이다. 「노션에 이미 있는 위 줄」로 재면 안 된다 —
-         들여쓰기가 실제로 들어가는 곳은 바로 위 줄 안이라, 둘이 다르면
-         단추는 살아 있는데 담당자는 방금 보탠 줄 안으로 들어가게 된다 */
-      const near = edSib(it.li, 'up');
-      const nearIt = near && edItems.get(near.dataset.nid);
+      /* 들여쓰면 **바로 위 줄** 안으로 들어간다. 그 줄이 방금 보탠 줄이어도
+         상관없다 — 저장이 화면을 걸어 다니며 문서를 짓기 때문에, 화면에
+         들어가 있으면 문서에도 들어가 있다 */
       const can = {
-        up: !!near,
+        up: !!edSib(it.li, 'up'),
         down: !!edSib(it.li, 'down'),
-        /* 들여쓰면 바로 위 줄 안으로 들어간다. 그림이나 표 안에는 못 들어가고,
-           아직 노션에 없는 줄 안으로도 못 들어간다 — 주소가 없다 */
-        in: !!(nearIt && !nearIt.isNew),
+        in: !!edSib(it.li, 'up'),
         out: !!edParentLi(it.li),
       };
-      const rt = !!it.retype, mv = edMoved(it);
-      /* 노션에 안엣줄이 없어도 화면에서 방금 들여쓴 줄이 있을 수 있다. 그 줄을
-         옮기면 안엣것이 통째로 딸려 가므로 여기서도 다시 본다 */
-      const kids = !!it.li.querySelector('li[data-nid]');
+      /* 안에 든 줄이 있어도 막지 않는다. 옮기기가 배열의 원소를 옮기는 일이
+         되어 안엣것이 딸려 가는 것이 곧 옳은 결과다. 옮기기와 종류 바꾸기를
+         함께 걸어도 된다 — 지우고 다시 만들기가 아니라 값 하나를 고치는
+         일이라 서로를 밟지 않는다 */
       box.querySelectorAll('[data-nmv]').forEach(b => {
-        b.disabled = it.del || rt || kids || !can[b.dataset.nmv];
+        b.disabled = it.del || !can[b.dataset.nmv];
       });
-      box.querySelector('[data-nrt]').disabled = it.del || mv || kids;
+      box.querySelector('[data-nrt]').disabled = it.del;
     });
   }
 
@@ -2226,10 +2216,10 @@ function init(D){
    */
   function edPlaceAt(li, home){
     if(!home) return false;
-    const id = home.after || home.afterNew || home.before || home.into;
+    const id = home.after || home.before || home.into;
     const ref = document.querySelector(`.ck li[data-nid="${id}"]`);
     if(!ref || ref === li || li.contains(ref)) return false;
-    if(home.after || home.afterNew) ref.parentElement.insertBefore(li, ref.nextSibling);
+    if(home.after) ref.parentElement.insertBefore(li, ref.nextSibling);
     else if(home.before) ref.parentElement.insertBefore(li, ref);
     else edSubList(ref).appendChild(li);
     return true;
@@ -2318,11 +2308,11 @@ function init(D){
         return;
       }
       if(li.classList.contains('ed-dirty')) out.push({it, op:'edit'});
-      /* 옮기기와 종류 바꾸기는 한 줄에 하나씩만 걸린다 — 둘 다 지우고 다시
-         만들기라, 함께 보내면 뒤엣것이 이미 없는 주소를 짚는다.
-         고치기와는 함께 나간다. 중계 서버가 고친 글을 안고 옮겨 준다 */
+      /* 한 줄에 셋이 함께 걸릴 수 있다 — 글을 고치고, 자리를 옮기고, 종류를
+         바꾸는 것이 저장할 때는 문서 한 벌의 서로 다른 자리일 뿐이다.
+         저장 창구는 담당자가 한 대로 세어 보여 준다 */
       if(edMoved(it)) out.push({it, op:'move'});
-      else if(it.retype) out.push({it, op:'retype'});
+      if(it.retype) out.push({it, op:'retype'});
     });
     return out;
   }
@@ -2983,6 +2973,9 @@ function init(D){
     nx.spellcheck = false;
     edBindItem(it);
     bindDelete(nx);
+    /* 보탠 줄도 저장 전에 옮기고 들여쓴다. 화면에 놓인 자리가 곧 저장될
+       자리라, 주소가 아직 없다는 것은 아무 상관이 없다 */
+    edMvBox(it);
     li.scrollIntoView({block: 'nearest'});
     edFocusEnd(nx);
     edMvSync();   /* 이웃들의 사정이 바뀐다 — 보탠 줄은 발판이 되지 못한다 */
