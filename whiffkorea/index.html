@@ -1363,12 +1363,15 @@ function init(D){
 
     const body = noticeHtml(it.html);
     let mark = '', text = body;
-    if(edit && it.id){
-      mark = ` data-nid="${esc(it.id)}"`;
-      text = `<span class="nx">${body}</span>`;
-    } else if(edit && it.locked){
+    /* 잠금이 먼저다. 이제 잠긴 항목도 주소를 갖는데, 주소를 먼저 보면
+       잠긴 항목이 편집 대상으로 열려 버린다 — 고쳐 저장하는 순간 그 항목의
+       링크·하위 문서가 노션에서 사라진다. 고칠 수 있고 없고는 locked 로만 가른다 */
+    if(edit && it.locked){
       mark = ` data-lock="${esc(it.locked)}"`;
       text = `<span class="nx" data-lock="${esc(it.locked)}">${body}</span>`;
+    } else if(edit && it.id){
+      mark = ` data-nid="${esc(it.id)}"`;
+      text = `<span class="nx">${body}</span>`;
     }
 
     /* 노션에서 접어 둔 항목은 접힌 채로 시작한다 — 접어 둔 의도를 따른다 */
