@@ -790,6 +790,21 @@ function noticeDoc({ id, ...rest }) {
 }
 
 /**
+ * 저장이 끝났으니 다시 만들라는 신호.
+ *
+ * 줄이 하나도 없는 공지는 던지지 않는다. 빌더가 빈 공지를 아예 싣지 않아
+ * (`notice_from_doc` 의 「줄이 하나도 없으면 None」) 그대로 내보내면 그 기업의
+ * 공지가 클라이언트 화면에서 통째로 사라진다. 갓 만든 공지에 제목만 적고
+ * 저장했을 때가 바로 그것이다.
+ */
+async function signalSaved(env, slug, row) {
+  const written = (items) => (items || []).some(
+    (i) => (i.html || "").trim() || written(i.items));
+  const any = (row.sections || []).some((s) => written(s.items));
+  return any ? await requestRebuild(env, slug) : "empty";
+}
+
+/**
  * 화면이 본 판 번호.
  *
  * 빠뜨렸다고 덮어쓰기로 봐주지 않는다. 봐주면 어긋남 판정이 있으나 마나 한
@@ -1007,8 +1022,9 @@ async function route(request, env) {
    * 줄마다 따로 보내지 않는다. 그래서 무게 상한도, 부분 실패도, 「이 줄만
    * 저장 안 됨」도 없다 — 통째로 들어가거나 통째로 거절된다.
    *
-   * **재빌드를 부르지 않는다.** 빌더는 아직 노션에서 공지를 읽으므로
-   * (#35 가 갈아탄다) 지금 신호를 던져 봐야 바뀐 것 없는 빌드가 한 번 돌 뿐이다.
+   * 저장 한 번이 **재빌드 한 번**을 부른다. 다만 줄이 하나도 없는 문서는
+   * 던지지 않는다 — 빌더가 빈 공지를 아예 싣지 않아, 그대로 내보내면 그
+   * 기업의 공지가 클라이언트 화면에서 통째로 사라진다.
    */
   if (pathname === "/notice/doc" && method === "PUT") {
     requireEditor(request, env);
@@ -1033,7 +1049,7 @@ async function route(request, env) {
       throw stale("화면이 편집을 시작한 뒤에 이 공지가 저장되었습니다",
                   { current: current ? noticeDoc(current) : null });
     }
-    return json(noticeDoc(next), 200);
+    return json({ ...noticeDoc(next), rebuild: await signalSaved(env, slug, next) }, 200);
   }
 
   if (pathname === "/notice/item" && method === "GET") {

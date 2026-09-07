@@ -20,13 +20,13 @@
  * 테스트는 창구로만 두드린다.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/store.js", () => import("./fake-store.js"));
 
 import worker from "../src/index.js";
 import { all, reset, seed, stored } from "./fake-store.js";
-import { ENV } from "./helpers.js";
+import { dispatches, ENV, installNotion } from "./helpers.js";
 
 const b64 = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 const good = ENV.EDITOR_PASSWORD;
@@ -62,6 +62,8 @@ function whiff(extra = {}) {
   });
 }
 
+const realFetch = globalThis.fetch;
+afterEach(() => { globalThis.fetch = realFetch; });
 beforeEach(() => { reset(); });
 
 describe("GET /notice/doc", () => {
@@ -258,6 +260,29 @@ describe("PUT /notice/doc", () => {
                               sections: [{ title: "칸", items: [item({ html })] }] });
 
     expect((await res.json()).sections[0].items[0].html).toBe(html);
+  });
+
+  it("저장 한 번이 재빌드 한 번을 부른다", async () => {
+    const { calls } = installNotion();
+    whiff();
+
+    const res = await write({ slug: "whiffkorea", noticeId: "notice-1", version: 3,
+                              title: "제목", sections: [section()] });
+
+    await expect(res.json()).resolves.toMatchObject({ rebuild: "sent" });
+    expect(dispatches(calls)).toHaveLength(1);
+  });
+
+  it("줄이 하나도 없으면 재빌드를 부르지 않는다 — 공지가 통째로 사라진다", async () => {
+    const { calls } = installNotion();
+    whiff();
+
+    const res = await write({ slug: "whiffkorea", noticeId: "notice-1", version: 3,
+                              title: "제목만 적었다",
+                              sections: [{ title: "칸", items: [item({ html: "" })] }] });
+
+    await expect(res.json()).resolves.toMatchObject({ rebuild: "empty" });
+    expect(dispatches(calls)).toHaveLength(0);
   });
 
   it("빈 줄도 받는다 — 담당자가 방금 만든 줄이다", async () => {
