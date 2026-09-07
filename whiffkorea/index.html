@@ -245,6 +245,13 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
    잠금 안내가 공지 속 링크 색을 뒤집어쓰고 본문보다 더 크게 외친다 */
 .ck .ed-lk a{color:var(--tx-3);text-decoration:underline}
 .ck .ed-lk a:hover{color:var(--accent)}
+/* 공지 제목 칸. 제목처럼 보이게 두고 손댈 수 있다는 것만 밑줄로 알린다 —
+   입력칸 테두리를 두르면 화면 맨 위가 갑자기 서식 화면이 된다 */
+.nti{font-family:inherit;font-size:19px;font-weight:600;letter-spacing:-.025em;
+  color:var(--tx);background:none;border:none;border-bottom:1px dashed var(--line-2);
+  padding:0 2px 1px;min-width:220px;max-width:min(560px,60vw)}
+.nti:focus{outline:none;border-bottom-color:var(--accent)}
+.nti::placeholder{color:var(--tx-3);font-weight:500}
 /* 어긋남·실패를 그 줄 밑에 붙인다. 어느 줄 이야기인지 찾게 만들지 않는다 */
 .ed-note{margin:5px 0 7px;padding:7px 9px;font-size:11.5px;line-height:1.6;
   border:1px solid var(--line-2);border-radius:7px;background:var(--panel-2);color:var(--tx-2)}
@@ -1093,7 +1100,10 @@ function init(D){
       preview: (t.preview || '').trim() || null }))
     .map(t => ({ ...t, hasBody: !!(t.body || t.body_html) }));
   const kpi = D.kpi || {};
-  const notice = D.notice;
+  /* let 인 까닭은 「＋ 새 공지」다. 새로 만들면 화면에 떠 있는 공지가 그 자리에서
+     바뀌어야 한다 — 지금 그려진 줄들은 지난 공지의 것이라, 그대로 두면 담당자가
+     노션에 없는 공지에 적는다 */
+  let notice = D.notice;
   /* 조달현황 — build_client 가 진행내역에서 만든다. 하드코딩이 아니다.
      값이 없으면 null 이고 메뉴·요약 카드·화면이 통째로 빠진다 */
   const PERF = (D.perf && (D.perf.programs || []).length) ? D.perf : null;
@@ -1429,16 +1439,22 @@ function init(D){
      편집용 DOM 이 되어, 담당자가 뽑은 종이에 편집 흔적이 섞여 나간다 */
   function noticeFeed(edit){
     const sections = (notice && Array.isArray(notice.sections)) ? notice.sections : [];
-    if(!sections.length){
-      return `<div class="notice"><div class="bd" style="padding-top:13px">
-        <p class="empty">등록된 내용이 없습니다.</p></div></div>`;
-    }
     /* 섹션 주소를 실은 봉투로 열었으면 단추를 섹션마다 둔다. 미팅에서 나온
        한 줄은 대개 어느 섹션에 속하고, 맨 끝에만 붙일 수 있으면 담당자는
        보탠 뒤 노션을 열어 그 줄을 끌어 올려야 한다 */
     const perSection = edit && sections.some(s => s.id);
     const addBtn = at => `<div class="nadd"><button class="nadd-b"
       data-nadd="${esc(at)}">＋ 줄 추가</button></div>`;
+
+    /* 갓 만든 공지가 여기다. 섹션이 하나도 없어도 편집 모드에서는 단추와 저장
+       창구를 내야 한다 — 안 그러면 「＋ 새 공지」로 만들어 놓고 첫 줄을 적을
+       곳이 없다. 클라이언트에게는 지금까지와 같은 빈 상자다 */
+    /* `open` 을 붙여 둔다. 섹션 제목이 없어 접으면 다시 펼 손잡이가 없다 */
+    if(!sections.length){
+      return `<div class="notice open"><div class="bd" style="padding-top:13px">
+        <p class="empty">등록된 내용이 없습니다.</p>${edit ? addBtn('') : ''}
+        </div></div>${edit ? saveBar() : ''}`;
+    }
 
     /* 기본은 첫 섹션만 열어 둔다. 분량이 많아 다 펼치면 한눈에 안 들어온다 */
     return sections.map((s,si)=>`
@@ -1584,6 +1600,9 @@ function init(D){
   let edPageId = null;
   let edWired = false;
 
+  /** 공지 제목 칸. {input, base, seen} — 줄이 아니라 공지 한 건의 것이라 따로 둔다 */
+  let edTitle = null;
+
   /* 줄바꿈은 태그로 싣는다. 그냥 두면 편집기가 공백으로 뭉갠다 —
      중계 서버의 escText() 와 같은 규칙이다 */
   const edEscText = s => esc(s).replace(/\n/g, '<br>');
@@ -1719,17 +1738,18 @@ function init(D){
      호출 수에 상한이 있어서다. 그것을 들고 끝까지 이어 읽는다 */
   async function edFetchTree(){
     const items = {};
-    let more = '', pageId = null, rounds = 0;
+    let more = '', pageId = null, title = '', rounds = 0;
     do {
       const out = await ED.call('GET', '/notice/tree' +
         `?slug=${encodeURIComponent(CLIENT)}` +
         (more ? `&more=${encodeURIComponent(more)}` : ''));
       Object.assign(items, out.items || {});
       pageId = out.pageId;
+      title = out.title || '';
       more = (out.more || []).join(',');
       rounds += 1;
     } while(more && rounds < 12);
-    return {items, pageId, left: !!more};
+    return {items, pageId, title, left: !!more};
   }
 
   /* 지난번에 붙여 둔 자국을 걷어낸다. 안 걷으면 줄을 하나 보태 다시 불러올
@@ -1779,10 +1799,34 @@ function init(D){
       return;
     }
     edPageId = tree.pageId;
+    edTitleOpen(tree.title);
     edItems.forEach((it, id) => { if(!dirty.has(id)) edOpen(it, tree.items[id], tree.left); });
     edStatus();
     if(tree.left) edMsg('공지가 깊어 일부는 불러오지 못했습니다 — 그 줄은 노션에서 고쳐 주세요', true);
   }
+
+  /* 제목 칸에 노션의 지금 제목을 넣는다. 봉투의 제목은 지난 빌드의 것이고,
+     빌더가 빈 제목을 「공지사항」으로 갈아 끼우기까지 해서 그대로 두면
+     담당자가 손대지 않은 글자가 노션에 들어간다.
+
+     손대 둔 제목은 덮지 않는다 — 기준선도 그대로 둔다. 그래야 그 사이에 남이
+     노션에서 제목을 고쳤을 때 저장이 어긋남으로 잡아 준다 */
+  function edTitleOpen(text){
+    const inp = document.getElementById('ntitle');
+    if(!inp) return;
+    if(edTitle && edTitle.input === inp && edTitleDirty()) return;
+    const now = String(text || '');
+    inp.value = now;
+    edTitle = {input: inp, base: now, seen: now};
+    inp.oninput = () => edStatus();
+    /* Enter 로 줄을 만들지 않는다. 제목은 한 줄이고, 다음 손놀림은 본문이다 */
+    inp.onkeydown = e => { if(e.key === 'Enter' || e.key === 'Escape'){
+      e.preventDefault(); inp.blur(); } };
+  }
+
+  /** 제목이 손대어졌는가. 화면을 다시 그리면 그 칸은 사라진다 */
+  const edTitleDirty = () =>
+    !!(edTitle && edTitle.input.isConnected && edTitle.input.value.trim() !== edTitle.base);
 
   /* 항목 하나를 고칠 수 있게, 또는 왜 못 고치는지 밝히며 잠긴 채로 연다 */
   function edOpen(it, node, unread){
@@ -1915,6 +1959,9 @@ function init(D){
    */
   function edPending(){
     const out = [];
+    /* 제목이 맨 앞이다. 중계 서버도 제목부터 쓴다 — 저장이 상한에서 끊겨도
+       공지의 이름만은 먼저 자리를 잡는다 */
+    if(edTitleDirty()) out.push({op:'title'});
     document.querySelectorAll('.ck li[data-nid]').forEach(li => {
       const it = edItems.get(li.dataset.nid);
       if(!it) return;
@@ -1954,9 +2001,10 @@ function init(D){
     const n = pend.length;
     /* 무엇이 몇 줄 나가는지를 갈라서 센다. 「5줄 바뀜」으로 뭉치면 담당자는
        그 안에 지우기가 몇 줄인지 모른 채 저장을 누른다 */
-    const said = [['edit','고침'], ['add','보탬'], ['remove','지움']]
-      .map(([op, word]) => [pend.filter(p => p.op === op).length, word])
-      .filter(([c]) => c).map(([c, word]) => `${c}줄 ${word}`).join(' · ');
+    const said = (pend.some(p => p.op === 'title') ? ['제목'] : [])
+      .concat([['edit','고침'], ['add','보탬'], ['remove','지움']]
+        .map(([op, word]) => [pend.filter(p => p.op === op).length, word])
+        .filter(([c]) => c).map(([c, word]) => `${c}줄 ${word}`)).join(' · ');
     bar.querySelector('[data-edcnt]').textContent =
       text !== undefined ? text
       : !n ? '바뀐 것 없음'
@@ -2065,7 +2113,77 @@ function init(D){
     edItems.set(r.blockId, it);
   }
 
+  /**
+   * 제목에 붙는 알림 상자를 만들어 돌려준다. 줄에 붙는 `edNote` 와 짝이다.
+   *
+   * 머리말 바로 밑에 놓는다. 저장 창구는 공지 맨 아래에 있어, 거기에만 적으면
+   * 담당자는 제목이 왜 안 나갔는지 화면 끝까지 내려가 읽는다.
+   */
+  function edTitleNote(){
+    edClearTitleNote();
+    const vh = edTitle && edTitle.input.closest('.vh');
+    if(!vh) return null;
+    const box = document.createElement('div');
+    box.className = 'ed-note bad';
+    box.id = 'ntnote';
+    vh.parentElement.insertBefore(box, vh.nextSibling);
+    return box;
+  }
+  function edClearTitleNote(){
+    const old = document.getElementById('ntnote');
+    if(old) old.remove();
+  }
+
+  /**
+   * 제목 저장의 결과를 화면에 반영한다. 세 갈래다 — 들어갔거나, 그 사이에
+   * 노션에서 먼저 바뀌었거나(`stale`), 노션이 거절했거나.
+   *
+   * 들어갔으면 기준선을 그 값으로 옮긴다. 안 옮기면 다음 저장이 방금 내가 쓴
+   * 제목을 어긋남으로 읽는다.
+   */
+  function edTitleResult(r){
+    if(!edTitle) return;
+    edClearTitleNote();
+    if(r.status === 'ok'){
+      edTitle.base = edTitle.seen = r.title || '';
+      edTitle.input.value = edTitle.base;
+      /* 봉투에도 적어 둔다. 편집 모드를 끄면 이 값으로 제목을 다시 그린다 —
+         빌더가 빈 제목에 붙이는 이름이 「공지사항」이다 */
+      if(notice) notice.title = edTitle.base || '공지사항';
+      return;
+    }
+    const box = edTitleNote();
+    if(!box) return;
+    if(r.status !== 'stale'){
+      box.textContent = `제목을 저장하지 못했습니다 — ${r.detail || ''}`;
+      return;
+    }
+    /* 어긋남 — 그 사이에 노션에서 제목이 먼저 바뀌었다. 어느 쪽을 남길지는
+       담당자가 고른다. 여기서 자동으로 고르면 둘 중 하나가 말없이 사라진다 */
+    const mine = edTitle.input.value.trim();
+    const now = (r.current && r.current.title) || '';
+    box.innerHTML = `제목이 노션에서 먼저 바뀌었습니다. 지금 제목입니다.
+      <div class="cur"></div>
+      <button data-edttake>노션 제목으로</button>
+      <button data-edtmine>내가 쓴 대로 덮어쓰기</button>`;
+    box.querySelector('.cur').textContent = now || '(빈 제목)';
+    box.querySelector('[data-edttake]').onclick = () => {
+      edTitle.base = edTitle.seen = now;
+      edTitle.input.value = now;
+      edClearTitleNote();
+      edStatus();
+    };
+    box.querySelector('[data-edtmine]').onclick = () => {
+      /* 기준선만 노션의 지금 제목으로 옮긴다. 다음 저장이 그대로 덮어쓴다 */
+      edTitle.seen = now;
+      edTitle.input.value = mine;
+      edClearTitleNote();
+      edMsg('다시 「저장」을 누르면 제목을 내가 쓴 대로 덮어씁니다');
+    };
+  }
+
   function edResult(p, r){
+    if(p && p.op === 'title') return edTitleResult(r);
     const it = p && p.it;
     if(!it) return;
     if(r.status === 'ok'){
@@ -2089,6 +2207,10 @@ function init(D){
 
   /* 변경 하나를 중계 서버가 받는 모양으로 */
   function edChange(p){
+    /* 제목의 기준선은 수정시각이 아니라 제목 글자 자체다. 페이지의 수정시각은
+       안에 든 줄을 하나 고쳐도 움직여, 기준선으로 쓰면 제목이 늘 어긋난다 */
+    if(p.op === 'title') return {op:'title', text: edTitle.input.value.trim(),
+                                 seen: edTitle.seen};
     const id = p.it.li.dataset.nid;
     /* 지우기도 기준선을 싣는다. ✕ 를 누른 뒤 저장하기까지 몇 분이 흐르고,
        그 사이에 다른 담당자가 그 줄을 새로 썼을 수 있다 */
@@ -2111,7 +2233,8 @@ function init(D){
     /* 중계 서버가 한 번에 받는 수까지만 보낸다. 나눠서 몰래 여러 번 보내면
        재빌드가 그 수만큼 돌아, 클라이언트 화면이 몇 분씩 흔들린다 */
     const batch = all.slice(0, ED_MAX);
-    batch.forEach(p => edClearNote(p.it));
+    batch.forEach(p => { if(p.it) edClearNote(p.it); });
+    edClearTitleNote();
     document.querySelector('[data-edsave]').disabled = true;
     edMsg('저장 중…');
 
@@ -2134,7 +2257,10 @@ function init(D){
     /* 재빌드 신호가 나갔는지는 중계 서버만 안다. 안 나갔는데 「1~2분 뒤 반영」을
        띄우면 담당자는 닿지 않을 것을 닿았다고 읽는다 */
     if(out.saved){
+      /* 빈 공지는 빌더가 싣지 않아 재빌드를 걸지 않는다. 「다음 빌드에」라고
+         하면 담당자는 한 줄도 없는 공지가 언젠가 오른다고 읽는다 */
       said.push(out.rebuild === 'sent' ? '1~2분 뒤 반영'
+                : out.rebuild === 'empty' ? '한 줄 이상 적어야 화면에 오릅니다'
                 : '클라이언트 화면은 다음 빌드에 바뀝니다');
     }
     if(left) said.push(`남은 ${left}줄은 「저장」을 한 번 더 눌러 주세요`);
@@ -2146,8 +2272,14 @@ function init(D){
   function edUndo(){
     const pend = edPending();
     if(!pend.length) return;
-    if(!confirm(`손댄 ${pend.length}줄을 되돌립니다. 저장 전이라 노션은 그대로입니다.`)) return;
+    /* 「줄」이라 하지 않는다 — 제목도 여기에 함께 세어져 있다 */
+    if(!confirm(`손댄 것 ${pend.length}개를 되돌립니다. 저장 전이라 노션은 그대로입니다.`)) return;
     pend.forEach(p => {
+      if(p.op === 'title'){
+        edTitle.input.value = edTitle.base;
+        edClearTitleNote();
+        return;
+      }
       if(p.op === 'add'){ edForget(p.it); return; }
       if(p.op === 'remove'){ edMarkDel(p.it, false); return; }
       edPaint(p.it, p.it.base);
@@ -2162,7 +2294,7 @@ function init(D){
   /* 저장하지 않은 것이 있으면 붙잡는다. 화면을 떠나면 그대로 사라진다 */
   function edMayLeave(){
     const n = edPending().length;
-    return !n || confirm(`저장하지 않은 ${n}줄이 있습니다. 두고 나가시겠습니까?`);
+    return !n || confirm(`저장하지 않은 것이 ${n}개 있습니다. 두고 나가시겠습니까?`);
   }
 
   /* ── 서식 막대 ──
@@ -2283,11 +2415,15 @@ function init(D){
       bar.querySelector('[data-edsave]').onclick = edSave;
       bar.querySelector('[data-edundo]').onclick = edUndo;
     }
+    const newBtn = document.querySelector('[data-ednew]');
+    if(newBtn) newBtn.onclick = edNewNotice;
     document.querySelectorAll('[data-nadd]').forEach(b => {
       b.onclick = () => {
         /* 섹션 끝에 빈 줄 하나를 세우고 커서를 그리로 보낸다. 노션에는
-           저장을 눌러야 나간다 — 다른 줄과 같은 규칙이다 */
-        const list = b.dataset.nadd ? sectionList(b) : lastList();
+           저장을 눌러야 나간다 — 다른 줄과 같은 규칙이다.
+           `sectionList` 가 null 이면 단추가 섹션 밖에 있는 것이다 — 옛 봉투로
+           열렸을 때다. 그때는 예전처럼 마지막 구역의 끝에 붙인다 */
+        const list = sectionList(b) || lastList();
         if(list) edAdd(li => list.appendChild(li), b.dataset.nadd);
       };
     });
@@ -2457,6 +2593,44 @@ function init(D){
     edFocusEnd(nx);
     edStatus();
     return it;
+  }
+
+  /**
+   * 오늘 날짜로 새 공지를 만들고 그 자리에서 연다.
+   *
+   * 날짜를 고르는 창은 띄우지 않는다 — 미팅 직후 기록이 목적이라 거의 언제나
+   * 오늘이고, 아니면 만든 뒤 노션에서 고치는 편이 손이 덜 간다.
+   *
+   * 만들면 화면에 떠 있던 줄들을 통째로 버린다. 그 줄들은 지난 공지의 것이고,
+   * 저장 창구는 이제 새 공지를 가리킨다 — 그대로 두면 담당자는 화면에 보이는
+   * 줄을 고치고서 「그 공지가 아닙니다」를 듣는다.
+   */
+  async function edNewNotice(){
+    if(!edMayLeave()) return;
+    /* 빌더는 가장 최근 공지 하나만 페이지에 올린다. 만드는 순간 지난 공지는
+       클라이언트 화면에서 내려간다 — 누르기 전에 그것부터 말한다 */
+    if(!confirm('오늘 날짜로 새 공지를 만듭니다.\n\n' +
+                '다음 빌드부터 클라이언트에게는 이 공지가 보입니다. ' +
+                '지금 공지는 노션에 그대로 남습니다.\n\n' +
+                '제목과 내용을 적고 「저장」을 눌러 주세요.')) return;
+
+    edMsg('새 공지를 만드는 중…');
+    let out;
+    try { out = await ED.call('POST', '/notice/new', {slug: CLIENT}); }
+    catch(e){ edMsg(edErr(e, '새 공지를 만들지 못했습니다'), true); return; }
+
+    edItems = new Map();
+    edTitle = null;
+    edPageId = out.pageId;
+    notice = {title: '', date: out.date, page_url: out.page_url || '', sections: []};
+    go('notice');
+    /* 제목 칸을 **여기서** 연다. `go` 가 부른 edLoad 는 아직 노션을 기다리는
+       중이고, 그 사이에 담당자는 이미 타이핑하고 있다 — 늦게 도착한 edLoad 가
+       빈 제목으로 덮어쓰지 않게 지금 기준선을 잡아 둔다 */
+    edTitleOpen('');
+    if(edTitle) edTitle.input.focus();
+    edMsg(out.existing ? '오늘 만들어 둔 빈 공지가 있어 그리로 왔습니다'
+                       : '새 공지를 만들었습니다');
   }
 
   /* 공지 요약 카드 — 조달현황 옆자리. 섹션 제목을 접었다 펴는 형태다.
@@ -2765,9 +2939,18 @@ function init(D){
     </div>
    </div>`;
 
-  V.notice=()=>`<div class="vh"><h1>${esc((notice&&notice.title)||'공지사항')}</h1>
+  /* 제목도 그 자리에서 고친다. 편집 모드가 아닐 때는 지금까지와 같은 h1 이다 —
+     클라이언트가 보는 화면에 입력칸이 뜨면 안 된다.
+     여기 넣는 값은 임시다. 진짜 값은 `edTitleOpen` 이 정한다 */
+  const noticeTitleBox = () => ED.on()
+    ? `<h1><input class="nti" id="ntitle" placeholder="공지 제목"
+         aria-label="공지 제목" maxlength="200" autocomplete="off"
+         value="${esc((notice&&notice.title)||'')}"></h1>`
+    : `<h1>${esc((notice&&notice.title)||'공지사항')}</h1>`;
+
+  V.notice=()=>`<div class="vh">${noticeTitleBox()}
     ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
-    ${editSwitch()}</div>
+    ${editSwitch()}${ED.on() ? `<button class="edt-b" data-ednew>＋ 새 공지</button>` : ''}</div>
    ${noticeFeed(ED.on())}`;
 
   V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
