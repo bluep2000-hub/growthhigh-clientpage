@@ -148,6 +148,12 @@ async function pickItem(nt, slug, blockId) {
   return { block, notice };
 }
 
+/** 「이 줄 다음」. 노션에 자리를 짚어 보내는 유일한 모양이라 한 곳에서 짓는다. */
+const afterSpot = (block) => ({
+  parentId: parentIdOf(block),
+  position: { type: "after_block", after_block: { id: block.id } },
+});
+
 /** 고른 섹션. 안 골랐으면 빈 문자열 — 공지 맨 끝을 뜻한다. */
 const requireSection = (v) => (typeof v === "string" ? v.trim() : "");
 
@@ -253,28 +259,37 @@ async function signalRebuild(env, slug, body) {
 const TREE_BUDGET = 40;
 
 /**
- * 한 번의 저장이 받는 변경 수. 바깥 호출 상한 때문에 둔다 — 변경 하나가
- * 조회 한 번에 쓰기 한 번이라, 스무 개면 공지를 찾아가는 세 번을 더해
- * 무료 상한에 닿는다.
+ * 한 번의 저장이 지는 무게. 바깥 호출 상한 때문에 둔다 — 한 칸이 조회 한 번에
+ * 쓰기 한 번이라, 스무 칸이면 공지를 찾아가는 세 번을 더해 무료 상한에 닿는다.
+ *
+ * **개수가 아니라 무게를 센다.** 옮기기 하나는 그 줄을 읽고, 발판을 읽고,
+ * 만들고, 지운다 — 고치기의 두세 배다. 개수만 세면 스무 줄짜리 저장이 상한에
+ * 부딪혀 절반만 들어간 채로 끊긴다. `OP_WEIGHT` 가 그 값을 적어 둔 곳이다.
  *
  * 하나만 더 든다. `sectionId` 로 자리를 짚는 보태기는 그 섹션의 형제를 세느라
  * 조회가 한둘 더 붙는다. 그것은 **빈 섹션에 처음 보탤 때뿐**이다 — 그 다음
  * 줄부터는 바로 위 줄이 발판이라 다른 변경과 값이 같다. 섹션 수만큼만
- * 생기는 셈이라 스무 개를 다 채워도 상한 안이다.
+ * 생기는 셈이라 스무 칸을 다 채워도 상한 안이다.
  *
  * 재빌드 신호는 **요청 하나에 한 번**이다. 화면이 여기 걸려 저장을 쪼개면
  * 쪼갠 수만큼 신호가 나간다. 미팅 뒤에 고치는 줄은 열 줄을 넘지 않아 실제로는
  * 닿지 않지만, 넘으면 쪼개는 대신 담당자에게 알리는 편이 낫다.
  */
-const SAVE_MAX_CHANGES = 20;
+const SAVE_MAX_WEIGHT = 20;
+
+/** 한 칸이 아닌 변경. 적지 않은 것은 한 칸이다. */
+const OP_WEIGHT = { move: 3, retype: 2 };
+const opWeight = (change) => OP_WEIGHT[change?.op] ?? 1;
 
 /**
- * 이 창구가 받는 변경. 옮기기·종류 바꾸기·표는 뒤 티켓에서 붙는다.
+ * 이 창구가 받는 변경. 표는 뒤 티켓(#26)에서 붙는다.
  *
  *   title   공지의 제목을 갈아 끼운다     { seen, text }
  *   edit    그 줄의 글을 갈아 끼운다      { blockId, seen, html }
  *   check   할 일 표시만 바꾼다           { blockId, seen, checked }
  *   add     줄 하나를 보탠다              { tempId, html, after|afterNew|sectionId }
+ *   move    그 줄을 다른 자리로 옮긴다    { blockId, seen, after|before|into|out }
+ *   retype  그 줄의 종류를 바꾼다         { blockId, seen, type }
  *   remove  그 줄을 지운다                { blockId, seen }
  *
  * 보탤 자리는 셋 중 하나로 짚는다 — 화면이 아는 것이 그때그때 다르다.
@@ -283,7 +298,7 @@ const SAVE_MAX_CHANGES = 20;
  *   after     이미 노션에 있는 줄 다음
  *   sectionId 그 섹션의 끝. 빈 섹션에 처음 보탤 때뿐이다
  */
-const SAVE_OPS = new Set(["title", "edit", "check", "add", "remove"]);
+const SAVE_OPS = new Set(["title", "edit", "check", "add", "move", "retype", "remove"]);
 
 /**
  * 편집 모드가 한 항목에 대해 알아야 할 전부.
@@ -296,6 +311,9 @@ function treeItem(block) {
   const out = { type: block.type, last_edited_time: block.last_edited_time };
   if (ITEM_TYPES.has(block.type)) out.html = runsToEditHtml(blockRuns(block));
   if (block.type === "to_do") out.checked = Boolean(block.to_do?.checked);
+  // 안에 든 줄이 있으면 옮길 수 없다 — 옮기기가 지우고 다시 만들기라 안엣것이
+  // 통째로 딸려 간다. 화면은 이 값을 보고 그런 줄에 ↑↓ 를 아예 그리지 않는다.
+  if (block.has_children) out.has_children = true;
   const reason = lockReason(block);
   if (reason) out.locked = reason;
   return out;
@@ -315,9 +333,10 @@ function treeRoots(raw, pageId) {
  *
  * `afterNew` 만은 남겨 둔다 — 그 줄의 노션 주소는 쓰는 중에야 생긴다.
  *
- * @param {Set<string>} placed 지금까지 자리를 잡은 tempId. 겹침과 헛짚음을 여기서 가른다
+ * @param {object} scope 이 저장이 여기까지 알아낸 것. `살펴보기 장부` 를 본다
  */
-async function planAdd(nt, notice, change, ancestors, placed) {
+async function planAdd(nt, notice, change, scope) {
+  const { ancestors, placed } = scope;
   const tempId = requireText(change.tempId, "tempId");
   // 화면은 tempId 로 결과를 되짚어 어느 줄에 노션 주소를 달지 정한다.
   // 겹치면 엉뚱한 줄에 달리므로, 뒤엣것을 받지 않는다.
@@ -340,8 +359,7 @@ async function planAdd(nt, notice, change, ancestors, placed) {
     // 짚은 줄의 형제로 넣는다. 그 줄이 그릇 안에 있으면 보탠 줄도 그 안에
     // 남는다 — 페이지 밑에 붙이면 화면에서 한 칸 튀어나온다.
     const anchor = await assertBlockInPage(nt, after, notice.pageId, ancestors);
-    spot = { parentId: parentIdOf(anchor),
-             position: { type: "after_block", after_block: { id: anchor.id } } };
+    spot = afterSpot(anchor);
   } else {
     spot = await sectionSpot(nt, notice.pageId, requireSection(change.sectionId));
   }
@@ -363,12 +381,114 @@ async function planAdd(nt, notice, change, ancestors, placed) {
  * 담당자가 ✕ 를 누른 뒤 저장하기까지 몇 분이 흐르고, 그 사이에 다른 담당자가
  * 그 줄을 새로 써 두었으면 지우기는 그것을 통째로 가져간다. 되돌리기는 없다.
  */
-async function planRemove(nt, notice, change, ancestors) {
+async function planRemove(nt, notice, change, scope) {
   const blockId = requireText(change.blockId, "blockId");
   const seen = requireText(change.seen, "seen");
-  const block = await assertBlockInPage(nt, blockId, notice.pageId, ancestors);
+  const block = await assertBlockInPage(nt, blockId, notice.pageId, scope.ancestors);
   if (HEADING_TYPES.has(block.type)) throw unprocessable("섹션 제목은 지울 수 없습니다");
   return { blockId, block, seen, remove: true };
+}
+
+/** 옮기기와 종류 바꾸기. 둘 다 지우고 다시 만들기라 값도 규칙도 같다. */
+const isRespawn = (op) => op === "move" || op === "retype";
+
+/**
+ * 이 줄을 옮기거나 종류를 바꿀 수 없게 만드는 것. 없으면 null.
+ *
+ * 노션에는 블록을 옮기는 창구도 종류를 바꾸는 창구도 없다. 둘 다 **지우고
+ * 다시 만들기**여서, 안에 든 줄이 있으면 그것까지 통째로 다시 만들어야 하고
+ * 그 줄들의 주소가 전부 바뀐다. 노션 댓글도 사라진다. 그래서 안 한다.
+ *
+ * 잠긴 줄이 걸리는 것은 같은 까닭이다 — 다시 만들 수 없는 것(링크 카드·표·
+ * 첨부)은 옮길 수도 없다.
+ *
+ * 화면도 그런 줄에는 ↑↓ 를 그리지 않는다. 여기 판정은 화면을 믿지 않기
+ * 위한 이중 확인이다.
+ */
+function respawnLock(block) {
+  return lockReason(block) || (block.has_children ? "안에 든 줄이 있습니다" : null);
+}
+
+/** 옮길 자리를 짚는 방법. 하나만 골라 보낸다. */
+const MOVE_SPOTS = ["after", "afterNew", "before", "into"];
+
+/**
+ * 옮긴 줄이 놓일 자리. **방향이 아니라 이웃으로 짚는다.**
+ *
+ *   after     그 줄 다음으로
+ *   afterNew  같은 저장에서 방금 보탠 줄 다음으로. 노션 주소가 아직 없다
+ *   before    그 줄 앞으로
+ *   into      그 줄 안 맨 끝으로 (들여쓰기)
+ *
+ * 내어쓰기에 따로 낱말을 두지 않는다 — 밖으로 나온 줄은 품고 있던 줄 바로
+ * 다음에 놓이므로 `after` 로 그 줄을 짚으면 그것이 곧 내어쓰기다.
+ *
+ * 「한 칸 위로」를 그대로 받지 않는 까닭은, 화면의 한 칸과 노션의 한 칸이 같지
+ * 않기 때문이다. 빌더는 콜아웃을 펴서 그리고 섹션 제목은 화면의 줄이 아니다 —
+ * 화면이 세는 칸과 노션이 세는 칸이 어긋나면 줄은 담당자가 놓은 곳이 아닌
+ * 데로 간다. 화면이 「이 줄 다음」을 짚어 보내면 그 어긋남이 아예 생기지 않고,
+ * 여러 칸을 옮긴 것도 한 번에 실린다.
+ */
+async function moveSpot(nt, notice, block, change, scope) {
+  const named = MOVE_SPOTS.filter((k) => change[k]);
+  if (named.length !== 1) throw unprocessable("옮길 자리를 하나만 짚어 주세요");
+  const key = named[0];
+
+  if (key === "afterNew") {
+    // 그 줄의 노션 주소는 쓰는 중에야 생긴다. 여기서는 이름만 확인하고
+    // 자리는 `respawnItem` 이 짚는다 — 보태기가 옮기기보다 먼저 나간다.
+    const tempId = requireText(change.afterNew, "afterNew");
+    if (!scope.placed.has(tempId)) throw unprocessable(`모르는 자리: ${tempId}`);
+    return { afterNew: tempId };
+  }
+
+  const anchorId = requireText(change[key], key);
+  if (sameId(anchorId, block.id)) throw unprocessable("자기 자신을 발판으로 삼을 수 없습니다");
+  // 발판도 그 기업의 공지 안이어야 한다. 아니면 주소 하나로 남의 페이지에
+  // 줄을 옮겨 심을 수 있다.
+  const anchor = await assertBlockInPage(nt, anchorId, notice.pageId, scope.ancestors);
+
+  if (key === "into") {
+    // 그림이나 표 안에는 줄이 들어가지 않는다.
+    if (!ITEM_TYPES.has(anchor.type)) throw unprocessable("그 줄 안에는 넣을 수 없습니다");
+    return { parentId: anchor.id, position: null };
+  }
+  if (key === "after") return afterSpot(anchor);
+
+  // before — 노션은 「이 줄 앞」을 받지 않는다. 그 앞 줄을 찾아 발판으로 삼고,
+  // 앞 줄이 없으면 그릇의 처음이다. 옮길 줄 자신은 발판에서 뺀다 — 곧 지운다.
+  const parentId = parentIdOf(anchor);
+  const kids = await listChildren(nt, parentId);
+  const at = kids.findIndex((b) => sameId(b.id, anchor.id));
+  if (at < 0) throw upstream("발판을 그 그릇에서 찾지 못했습니다");
+  const prev = kids.slice(0, at).filter((b) => !sameId(b.id, block.id)).pop();
+  return { parentId,
+           position: prev ? { type: "after_block", after_block: { id: prev.id } }
+                          : { type: "start" } };
+}
+
+/** 바꿔 달라는 종류. 공지 항목이 되는 여섯 가지 사이에서만 바꾼다. */
+function retypeTarget(block, change) {
+  const type = requireText(change.type, "type");
+  if (!ITEM_TYPES.has(type)) throw unprocessable(`${type} 로는 바꿀 수 없습니다`);
+  if (type === block.type) throw unprocessable("이미 그 종류입니다");
+  return type;
+}
+
+/**
+ * 그 줄을 그대로 다시 만드는 재료.
+ *
+ * 글자색은 함께 옮긴다. 옮겼다고 강조가 풀리면 담당자는 자기가 지운 줄 모른다.
+ */
+function remadeBlock(block, type) {
+  const src = block[block.type] || {};
+  const body = { rich_text: blockRuns(block) };
+  if (src.color) body.color = src.color;
+  // 할 일로 **바꾸는** 것은 꺼진 채로 시작한다. 옮기기는 켜 둔 것을 안고 간다.
+  if (type === "to_do") {
+    body.checked = block.type === "to_do" ? Boolean(src.checked) : false;
+  }
+  return { object: "block", type, [type]: body };
 }
 
 /**
@@ -432,7 +552,7 @@ function staleResult(at, block, seen) {
  * 멈추면 담당자는 관계없는 줄까지 다시 적어야 하고, 전부 취소인 척하면
  * 거짓말이 된다 — 노션에는 되돌리기가 없다.
  */
-async function inspectChange(nt, notice, change, index, ancestors, placed) {
+async function inspectChange(nt, notice, change, index, scope) {
   const op = change?.op;
   const at = nameOf(index, change);
   const blockId = at.blockId || "";
@@ -447,16 +567,34 @@ async function inspectChange(nt, notice, change, index, ancestors, placed) {
         : { ...at, op, ...plan };
     }
     if (op === "add") {
-      return { ...at, op, ...await planAdd(nt, notice, change, ancestors, placed) };
+      return { ...at, op, ...await planAdd(nt, notice, change, scope) };
     }
     if (op === "remove") {
-      const plan = await planRemove(nt, notice, change, ancestors);
+      const plan = await planRemove(nt, notice, change, scope);
       return staleResult(at, plan.block, plan.seen) ?? { ...at, op, ...plan };
     }
     if (!blockId) return fail("blockId 가 필요합니다");
     const seen = requireText(change.seen, "seen");
 
-    const block = await assertBlockInPage(nt, blockId, notice.pageId, ancestors);
+    const block = await assertBlockInPage(nt, blockId, notice.pageId, scope.ancestors);
+
+    if (isRespawn(op)) {
+      // 안전 판정이 먼저다. 어긋남보다 앞세우는 것은, 어긋남은 다시 눌러 볼
+      // 여지가 있지만 이것은 아무리 다시 눌러도 안 되는 것이기 때문이다.
+      const why = respawnLock(block);
+      if (why) return { ...at, result: { ...at, status: "locked", detail: why } };
+      const stale = staleResult(at, block, seen);
+      if (stale) return stale;
+      // 한 줄을 두 번 지웠다 만들면 뒤엣것은 이미 없는 주소를 짚는다.
+      if (scope.moved.has(blockId)) {
+        return fail("한 줄에 옮기기·종류 바꾸기는 한 번만 보냅니다");
+      }
+      scope.moved.add(blockId);
+      return op === "move"
+        ? { ...at, op, block, spot: await moveSpot(nt, notice, block, change, scope) }
+        : { ...at, op, block, type: retypeTarget(block, change) };
+    }
+
     if (!ITEM_TYPES.has(block.type)) return fail(`${block.type} 은 공지 항목이 아닙니다`);
 
     const stale = staleResult(at, block, seen);
@@ -484,17 +622,20 @@ async function inspectChange(nt, notice, change, index, ancestors, placed) {
 }
 
 /**
- * 쓰는 차례. 스펙 #18 이 정한 대로 **제목 → 고침 → 보탬 → 지움** 이다.
+ * 쓰는 차례. 스펙 #18 이 정한 대로 **제목 → 고침 → 보탬 → 옮김 → 지움** 이다.
  *
  * 지우기가 맨 뒤인 것이 이 중 유일하게 값을 치른다 — 지울 줄을 발판 삼아
- * 보탠 줄이 있으면, 먼저 지우는 순간 그 자리를 짚을 수 없다. 나머지는 그만큼
- * 급하지 않지만, 종류마다 차례를 못 박아 두면 뒤에 붙는 옮기기(#23)가 어디에
- * 끼어야 하는지가 이미 정해져 있다.
+ * 보탠 줄이 있으면, 먼저 지우는 순간 그 자리를 짚을 수 없다.
+ *
+ * 옮기기가 고치기보다 뒤인 것은 값을 치르는 쪽이 반대다. 옮기기는 그 줄을
+ * 지우고 다시 만들어 주소를 갈아 치우므로, 먼저 옮기면 같은 저장의 고치기가
+ * 없는 주소를 짚는다. 뒤에 두면 **고친 글을 안고** 옮겨 간다.
  *
  * 같은 종류끼리는 보낸 차례 그대로다(정렬이 안정적이다). 이어 보탠 줄이
  * 앞 줄을 발판으로 삼으므로 그 차례가 흐트러지면 안 된다.
  */
-const WRITE_RANK = { title: 0, edit: 1, check: 1, add: 2, remove: 3 };
+const WRITE_RANK = { title: 0, edit: 1, check: 1, add: 2,
+                     move: 3, retype: 3, remove: 4 };
 /* 모르는 종류는 맨 뒤다. `SAVE_OPS` 가 먼저 걸러 여기 닿지 않지만, 기본값이
    맨 앞이면 뒤에 붙는 종류를 표에 적는 것을 잊었을 때 그것이 제목보다도
    먼저 나간다 */
@@ -503,7 +644,8 @@ const writeRank = (p) => WRITE_RANK[p.op] ?? 99;
 /**
  * 살펴본 것을 노션에 쓴다. 쓰다 실패해도 나머지는 계속 간다.
  *
- * @param {object} ctx  { nt, notice, made } — `made` 는 tempId → 방금 만든 줄
+ * @param {object} ctx  { nt, notice, made, fresh } — `made` 는 tempId → 방금
+ *                      만든 줄, `fresh` 는 주소 → 방금 고쳐 둔 줄
  */
 async function writeChange(ctx, prepared) {
   const { nt, notice } = ctx;
@@ -521,12 +663,58 @@ async function writeChange(ctx, prepared) {
       return { ...at, status: "ok", removed: true };
     }
     if (prepared.op === "add") return { ...at, ...await appendItem(ctx, prepared) };
+    if (isRespawn(prepared.op)) return { ...at, ...await respawnItem(ctx, prepared) };
     const updated = await nt.patch(`/blocks/${prepared.blockId}`, prepared.patch);
+    // 같은 저장에서 이 줄을 옮기기도 하면 그쪽이 이 값을 안고 간다.
+    ctx.fresh.set(prepared.blockId, updated);
     return { ...at, status: "ok", ...treeItem(updated) };
   } catch (e) {
     if (e instanceof ApiError) return { ...at, status: "failed", detail: e.detail || e.code };
     throw e;
   }
+}
+
+/**
+ * 그 줄을 새 자리에, 또는 새 종류로 다시 만들고 옛 줄을 지운다.
+ *
+ * **만들고 나서 지운다.** 뒤집으면 붙이기가 실패하는 순간 그 줄이 노션에서
+ * 사라지고, 노션에 되돌리기는 없다. 이 차례라면 최악이 「같은 줄이 두 개」다 —
+ * 눈에 보이고 지울 수 있다.
+ *
+ * 종류만 바꿀 때는 옛 줄 바로 다음이 그 자리다. 옛 줄을 지우고 나면 새 줄이
+ * 있던 자리에 그대로 남는다.
+ */
+async function respawnItem({ nt, fresh, made }, prepared) {
+  // 같은 저장에서 방금 고친 글이 있으면 그것을 안고 간다. 살펴볼 때 읽어 둔
+  // 것을 쓰면 옮기는 순간 그 고침이 사라진다.
+  const block = fresh.get(prepared.blockId) || prepared.block;
+  let spot = prepared.spot || afterSpot(block);
+  if (spot.afterNew) {
+    const anchor = made.get(spot.afterNew);
+    if (!anchor) throw unprocessable("앞 줄이 들어가지 않아 자리를 짚지 못했습니다");
+    spot = { parentId: anchor.parentId,
+             position: { type: "after_block", after_block: { id: anchor.blockId } } };
+  }
+
+  const res = await nt.patch(`/blocks/${spot.parentId}/children`, {
+    children: [remadeBlock(block, prepared.type || block.type)],
+    ...(spot.position ? { position: spot.position } : {}),
+  });
+  const born = (res.results || [])[0];
+  if (!born) throw upstream("노션이 옮긴 줄을 돌려주지 않았습니다");
+
+  try {
+    await nt.del(`/blocks/${prepared.blockId}`);
+  } catch (e) {
+    // 새 줄은 이미 들어갔다. 「실패」로만 말하면 화면은 옛 주소를 쥔 채로
+    // 남고, 담당자가 다시 「저장」을 누를 때마다 사본이 하나씩 는다.
+    // 새 주소를 함께 돌려주어 화면이 그 줄로 갈아타게 하고, 노션에 남은
+    // 옛 줄을 담당자에게 알린다.
+    const why = e instanceof ApiError ? (e.detail || e.code) : "알 수 없는 실패";
+    return { status: "failed", newBlockId: born.id, ...treeItem(born),
+             detail: `옮겼지만 옛 줄이 노션에 남았습니다 — 거기서 지워 주세요 (${why})` };
+  }
+  return { status: "ok", newBlockId: born.id, ...treeItem(born) };
 }
 
 /** 제목은 글자만 담는다. 빈 제목은 빈 목록이다 — 노션이 그렇게 준다. */
@@ -595,8 +783,10 @@ async function route(request, env) {
     if (!Array.isArray(changes) || !changes.length) {
       throw unprocessable("changes 가 필요합니다");
     }
-    if (changes.length > SAVE_MAX_CHANGES) {
-      throw unprocessable(`한 번에 ${SAVE_MAX_CHANGES}개까지 보냅니다`);
+    // 개수가 아니라 무게다. 옮기기 하나가 고치기 셋의 값을 치른다.
+    if (changes.reduce((sum, c) => sum + opWeight(c), 0) > SAVE_MAX_WEIGHT) {
+      throw unprocessable(`한 번에 ${SAVE_MAX_WEIGHT}개까지 보냅니다`
+        + " — 옮기기는 세 개, 종류 바꾸기는 두 개로 셉니다");
     }
 
     const nt = createNotion(env);
@@ -608,16 +798,18 @@ async function route(request, env) {
     }
 
     // ① 전부 살펴본다. 남의 기업 주소가 섞여 있으면 여기서 통째로 멈춘다.
-    const ancestors = new Map();
-    const placed = new Set();
+    /* 살펴보기 장부. 이 저장이 여기까지 알아낸 것을 한 자루에 담아 나른다 —
+       `ancestors` 는 타고 오른 조상, `placed` 는 자리를 잡은 tempId,
+       `moved` 는 이미 옮기기·종류 바꾸기가 걸린 줄이다 */
+    const scope = { ancestors: new Map(), placed: new Set(), moved: new Set() };
     const prepared = [];
     for (let i = 0; i < changes.length; i += 1) {
-      prepared.push(await inspectChange(nt, notice, changes[i], i, ancestors, placed));
+      prepared.push(await inspectChange(nt, notice, changes[i], i, scope));
     }
 
     // ② 통과한 것만 하나씩 쓴다. 차례는 `writeRank` 가 정한다.
     //    결과는 보낸 차례 그대로 채운다. 화면이 순서로 짚기 때문이다.
-    const ctx = { nt, notice, made: new Map() };
+    const ctx = { nt, notice, made: new Map(), fresh: new Map() };
     const results = new Array(prepared.length);
     for (const p of [...prepared].sort((a, b) => writeRank(a) - writeRank(b))) {
       results[p.index] = p.result ?? await writeChange(ctx, p);
