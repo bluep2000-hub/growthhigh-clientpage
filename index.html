@@ -1377,13 +1377,20 @@ function init(D){
      화면이 거짓말을 한다. 세 번은 「지난 이야기」가 아니라 「지금 하는
      이야기」로 읽히는 범위다. */
   const ACT_MEETS = 3;
+  /* 횟수만으로는 오래 안 만난 곳을 못 막는다 — 마지막 미팅이 작년이면 「세
+     번」이 통째로 작년 것이다. 반년이 지난 회의록의 할 일은 올리지 않는다.
+     그 자리에 아무것도 없는 편이 낡은 것이 있는 편보다 정직하다. */
+  const ACT_DAYS = 180;
   /* 담당이 읽는 사람에게 뜻이 있는 유일한 갈래다. 그로스하이가 먼저 선다 —
      이 목록의 값어치는 「우리가 무엇을 하고 있는가」를 전하는 데 있고,
      읽는 사람에게 할 일부터 들이미는 것은 보고가 아니라 청구다 */
   const ACT_ORDER = ['그로스하이', '클라이언트'];
   const actions = (() => {
     const out = [], seen = new Set();
-    talks.filter(t => (t.actions || []).length).slice(0, ACT_MEETS).forEach(t => {
+    const edge = new Date(); edge.setDate(edge.getDate() - ACT_DAYS);
+    const floor = edge.toISOString().slice(0, 10);
+    talks.filter(t => (t.actions || []).length && (t.date || '') >= floor)
+         .slice(0, ACT_MEETS).forEach(t => {
       const at = talks.indexOf(t);
       (t.actions || []).forEach(a => {
         /* 같은 할 일이 다음 미팅에서 다시 확인되는 일이 잦다. 글자가 똑같은
