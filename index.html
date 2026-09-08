@@ -2887,6 +2887,26 @@ function init(D){
   const edMdKind = (head) => ED_MD[head] || (/^\d+\.$/.test(head) ? 'number' : null);
 
   /**
+   * `Ctrl+Shift+숫자` 로 바꿀 종류. **노션과 같은 짝이다** — 담당자가 이미
+   * 손에 익힌 것이라 새로 외울 것이 없다.
+   *
+   * 노션의 9(새 페이지)는 여기 없다. 공지 안에 페이지라는 것이 없다.
+   * 인용에는 노션에도 숫자가 없어 `" ` 와 `/` 로만 간다.
+   */
+  const ED_NUM = {0: 'paragraph', 1: 'heading1', 2: 'heading2', 3: 'heading3',
+                  4: 'todo', 5: 'bullet', 6: 'number', 7: 'toggle', 8: 'code'};
+
+  /**
+   * 눌린 키가 숫자 단축키인가. `e.key` 가 아니라 `e.code` 를 본다 —
+   * Shift 를 쥐면 `1` 이 `!` 로 오고, 자판마다 그 글자가 다르다.
+   */
+  function edNumKind(e){
+    if(!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return null;
+    const hit = /^(?:Digit|Numpad)(\d)$/.exec(e.code || '');
+    return hit ? (ED_NUM[hit[1]] || null) : null;
+  }
+
+  /**
    * 종류를 바꾼다. 고르개를 돌렸을 때와 `/` 로 골랐을 때가 여기로 모인다.
    *
    * **보탠 줄에는 딱지를 붙이지 않는다.** 되돌아갈 본디 종류가 없어 「무엇에서
@@ -3404,6 +3424,17 @@ function init(D){
   /** 여러 줄이 잡혀 있을 때의 키. 삼켰으면 true */
   function edManyKey(e, many){
     const mod = e.ctrlKey || e.metaKey;
+    /* 종류 바꾸기는 잡힌 줄 모두에 걸린다. 표와 그 칸만 빼고 — 표는 종류를
+       바꿀 수 있는 것이 아니고, 칸은 표가 데리고 다닌다 */
+    const numbered = edNumKind(e);
+    if(numbered){
+      e.preventDefault();
+      edKeepPick(() => many.forEach(it => {
+        const kind = it.retype || it.type;
+        if(kind !== 'table' && kind !== 'cell') edRetype(it, numbered);
+      }));
+      return true;
+    }
     if(e.key === 'Tab'){
       e.preventDefault();
       edKeepPick(() => edManyMove(many, e.shiftKey ? 'out' : 'in'));
@@ -3960,6 +3991,13 @@ function init(D){
       const mod = e.ctrlKey || e.metaKey;
       /* 노션과 같은 손가락 — 굵게·기울임·밑줄은 브라우저가 이미 안다.
          나머지 셋과 「하나 더」를 여기서 낸다 */
+      /* 종류를 숫자로 — 노션과 같은 짝. 표는 종류를 바꿀 수 있는 것이 아니다 */
+      const numbered = edNumKind(e);
+      if(numbered){
+        e.preventDefault();
+        if((it.retype || it.type) !== 'table') edRetype(it, numbered);
+        return;
+      }
       if(mod && !e.altKey){
         const k = String(e.key || '').toLowerCase();
         if(k === 'e' && !e.shiftKey){ e.preventDefault(); edFormat('code'); return; }
