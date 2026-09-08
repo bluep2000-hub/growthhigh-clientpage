@@ -649,6 +649,30 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .ch-call{background:var(--ok-bg);color:var(--ok)}
 .ch-meet{background:var(--accent-bg);color:var(--accent)}
 
+/* 주요 소통 — 목록 위에 따로 선다. 표가 아니라 목록인 까닭은 여기 오르는 것이
+   서너 건이고, 표의 격자는 그만한 수를 훑는 데 도움이 되지 않기 때문이다 */
+.tkmj{margin-bottom:18px}
+.tkmj h2{font-size:13px;font-weight:600;letter-spacing:-.015em;color:var(--tx);
+  display:flex;align-items:baseline;gap:7px;margin-bottom:8px}
+.tkmj h2 span{font-size:11.5px;font-weight:400;color:var(--tx-3);
+  font-variant-numeric:tabular-nums}
+.tkmj .card{margin-bottom:0}
+.mjl li{list-style:none;padding:10px 13px;cursor:pointer;
+  border-bottom:1px solid var(--line)}
+.mjl li:last-child{border-bottom:none}
+.mjl li:hover{background:var(--hover)}
+.mj-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mj-d{font-size:11.5px;color:var(--tx-3);font-variant-numeric:tabular-nums;flex:none}
+.mj-t{font-size:12.5px;font-weight:500;letter-spacing:-.012em}
+.mj-p{display:block;font-size:11.5px;color:var(--tx-3);line-height:1.5;margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 목록에서도 어느 줄이 주요인지 보인다 — 위의 덩어리와 아래 목록이 같은 것을
+   가리킨다는 표가 없으면 담당자가 같은 건을 둘로 센다 */
+.mj-s{font-style:normal;color:var(--accent);font-size:11px;flex:none}
+/* 위에서 짚어 내려온 줄. 애니메이션이 끝나면 저절로 가라앉는다 */
+@keyframes tkhi{from{background:var(--accent-bg)}to{background:transparent}}
+tr.tkhi>td{animation:tkhi 1.6s ease-out}
+
 /* 소통 내역 아코디언 — 본문이 있는 행만 펼쳐진다 */
 tr.tk.has{cursor:pointer}
 .tw{display:inline-block;width:11px;font-style:normal;color:var(--tx-3);
@@ -1315,7 +1339,9 @@ function init(D){
       body: (t.body || '').trim() || null,
       body_html: (t.body_html || '').trim() || null,
       preview: (t.preview || '').trim() || null }))
-    .map(t => ({ ...t, hasBody: !!(t.body || t.body_html) }));
+    /* major 는 노션 「주요」 체크다. 옛 산출물에는 이 칸이 없으므로 없으면 거짓이다 */
+    .map(t => ({ ...t, hasBody: !!(t.body || t.body_html), major: t.major === true }));
+  const majorTalks = talks.filter(t => t.major);
   const kpi = D.kpi || {};
   /* let 인 까닭은 「＋ 새 공지」다. 새로 만들면 화면에 떠 있는 공지가 그 자리에서
      바뀌어야 한다 — 지금 그려진 줄들은 지난 공지의 것이라, 그대로 두면 담당자가
@@ -5514,7 +5540,8 @@ function init(D){
        <td class="dtc">${fmt(t.date)}</td>
        <td><span class="ch-b ${TALK_BADGE[t.channel]||'ch-mail'}">${esc(t.channel||'—')}</span>${
          t.direction?`<span class="co${t.direction==='보냄'?' out':''}">${esc(t.direction)}</span>`:''}</td>
-       <td class="lead"><div class="t-nm">${open?'<i class="tw">▸</i>':''}${esc(t.title||'')}</div>
+       <td class="lead"><div class="t-nm">${open?'<i class="tw">▸</i>':''}${
+         t.major?'<i class="mj-s" title="주요 소통">★</i>':''}${esc(t.title||'')}</div>
          ${!o.noBody&&t.channel!=='메일'&&t.preview?`<div class="tkpv">${esc(t.preview)}</div>`:''}</td>
       </tr>${open?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
        ${t.body_html
@@ -5522,6 +5549,27 @@ function init(D){
          ?`<div class="tkbd doc">${t.body_html}</div>`
          :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`;}).join('')}
      </tbody></table></div>`;
+  }
+
+  /* 주요 소통 — 담당자가 노션 「주요」에 체크해 둔 것만 목록 위로 올린다.
+     골라 둔 것이 없으면 이 덩어리는 아예 나오지 않는다. 기계가 대신 추려
+     올리지 않는 까닭은, 「주요」라고 적힌 자리에 기계가 고른 것이 앉으면
+     그 표시가 값을 잃기 때문이다 — 읽는 사람은 그것을 사람이 짚어 준
+     것으로 읽는다. 시간순 목록만으로는 그 짚음이 전달되지 않는다.
+     여기 오른 것도 아래 목록에서 빠지지 않는다. 하나를 두 곳에서 세지
+     않으려면 위가 목록의 일부라는 것이 보여야 한다 — 눌러서 아래 그 줄로
+     내려가는 것이 그 이음새다. */
+  function talkMajor(){
+    if(!majorTalks.length) return '';
+    return `<section class="tkmj"><h2>주요 소통<span>${majorTalks.length}건</span></h2>
+     <div class="card"><ul class="mjl">${majorTalks.map(t=>{
+       const i = talks.indexOf(t);
+       return `<li data-tkgo="${i}"><span class="mj-h">
+        <span class="mj-d">${fmt(t.date)}</span>
+        <span class="ch-b ${TALK_BADGE[t.channel]||'ch-mail'}">${esc(t.channel||'—')}</span>
+        <span class="mj-t">${esc(t.title||'')}</span></span>
+        ${t.preview?`<span class="mj-p">${esc(t.preview)}</span>`:''}</li>`;
+     }).join('')}</ul></div></section>`;
   }
 
   function talkTabs(){
@@ -5534,7 +5582,7 @@ function init(D){
 
   V.talk=()=>`<div class="vh"><h1>소통 내역</h1>
     ${talks.length?`<span class="n">${talks.length}건</span>`:''}</div>
-   ${talks.length?`${talkTabs()}<div id="tkList">${talkList()}</div>`
+   ${talks.length?`${talkMajor()}${talkTabs()}<div id="tkList">${talkList()}</div>`
                  :emptyBox('등록된 내용이 없습니다.')}`;
 
   /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
@@ -5585,7 +5633,7 @@ function init(D){
   function printBody(id){
     if(id === 'info') return V.info(true);          /* 공지 전문 · 일정 전부 */
     if(id === 'talk')                                /* 탭 없이 전체, 본문은 빼고 */
-      return talks.length ? talkList({every:true, noBody:true})
+      return talks.length ? talkMajor() + talkList({every:true, noBody:true})
                           : emptyBox('등록된 내용이 없습니다.');
     return V[id] ? V[id]() : '';
   }
@@ -5603,7 +5651,10 @@ function init(D){
 
     const notice1 = (notice && (notice.sections||[])[0]) || null;
     const rec5 = recommend.slice(0, 5);        /* 이미 마감 임박순이다 */
-    const talk5 = talks.slice(0, 5);           /* 노션에서 일자 내림차순으로 온다 */
+    /* 주요로 짚어 둔 것이 먼저다. 종이에는 다섯 줄뿐이라, 그 다섯 줄을 최근순으로
+       채우면 「무엇이 중요했는가」가 아니라 「무엇이 최근인가」가 실린다.
+       두 무리 안에서는 노션이 준 일자 내림차순 그대로다 */
+    const talk5 = majorTalks.concat(talks.filter(t => !t.major)).slice(0, 5);
 
     return `<div class="psum">
       <header class="sh">
@@ -5826,6 +5877,29 @@ function init(D){
       document.querySelectorAll('[data-tktab]').forEach(x=>
         x.classList.toggle('on', x.dataset.tktab===talkTab));
       bindTalks();
+    });
+    /* 「주요 소통」에서 목록의 그 줄로 내려간다. 탭이 걸려 있으면 먼저 풀어야
+       한다 — 미팅 탭에 있는데 메일을 짚으면 목록에 그 줄이 없다 */
+    document.querySelectorAll('[data-tkgo]').forEach(li=>li.onclick=()=>{
+      const i = li.dataset.tkgo;
+      if(talkTab !== 'all'){
+        talkTab = 'all';
+        const box = document.getElementById('tkList');
+        if(box) box.innerHTML = talkList();
+        document.querySelectorAll('[data-tktab]').forEach(x=>
+          x.classList.toggle('on', x.dataset.tktab==='all'));
+        bindTalks();
+      }
+      const tr = document.querySelector(`tr.tk[data-tk="${i}"]`);
+      if(!tr) return;
+      const body = document.querySelector(`tr.tkb[data-tkb="${i}"]`);
+      /* 이미 펴 둔 것을 다시 눌러 접지 않는다. 여기서 누른 뜻은 「보자」다 */
+      tr.classList.add('open');
+      if(body) body.classList.add('open');
+      tr.scrollIntoView({block:'center', behavior:'smooth'});
+      tr.classList.remove('tkhi');
+      void tr.offsetWidth;                        /* 같은 줄을 두 번 짚어도 다시 깜빡이게 */
+      tr.classList.add('tkhi');
     });
   }
   document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});

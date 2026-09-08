@@ -304,6 +304,13 @@ def p_date(props: dict, name: str) -> dict:
     return p.get("date") or {}
 
 
+def p_checkbox(props: dict, name: str) -> bool:
+    """속성이 아직 없으면 False 다. 없는 것과 꺼 둔 것을 같게 본다 —
+    체크는 「골라 둔 것」이라, 고르지 않은 것과 고를 칸이 없는 것이 같다."""
+    p = props.get(name) or {}
+    return p.get("checkbox") is True
+
+
 def first_title_prop(props: dict) -> str:
     """공지 제목 속성명은 「상세내용」이다. 이름이 아니라 title 타입으로 찾는다."""
     for v in props.values():
@@ -2581,6 +2588,9 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
             "body": body,
             "body_html": body_html,
             "direction": p_select(pr, "방향"),
+            # 담당자가 노션에서 골라 둔 것. 화면 맨 위 「주요 소통」이 이것만 모은다.
+            # 거르지 않고 표시만 싣는다 — 주요가 아닌 것도 목록에는 그대로 남는다.
+            "major": p_checkbox(pr, "주요"),
         })
     return out
 
@@ -2755,7 +2765,9 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     log(f"  추천 지원사업 {len(recommend)}건")
 
     talks = build_talks(nt, client, name, skip_imap, dry_run, known_names, talks_days)
-    log(f"  소통 내역 {len(talks)}건 (보류 제외)")
+    n_major = sum(1 for t in talks if t.get("major"))
+    log(f"  소통 내역 {len(talks)}건 (보류 제외)"
+        + (f" · 주요 {n_major}건" if n_major else ""))
 
     events = build_events(progress, name, include_expired)
     log(f"  일정 {len(events)}건")
