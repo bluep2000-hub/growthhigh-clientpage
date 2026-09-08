@@ -266,11 +266,19 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ed-bar button[disabled]{opacity:.5;cursor:default}
 /* 서식 막대 — 글자를 고른 자리 위에 뜬다. 안 고르면 없다 */
 .ed-tb{position:absolute;z-index:60;display:none;gap:2px;padding:3px;background:var(--panel);
-  border:1px solid var(--line-2);border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  border:1px solid var(--line-2);border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.18);
+  flex-wrap:wrap;width:212px}
 .ed-tb.on{display:flex}
 .ed-tb button{min-width:26px;height:24px;font-size:12px;color:var(--tx-2);border-radius:4px;
   padding:0 5px}
 .ed-tb button:hover{background:var(--accent-bg);color:var(--accent)}
+/* 색 견본. 「🎨」를 눌러야 펼쳐진다 — 늘 펼쳐 두면 서식 막대가 글을 덮는다 */
+.ed-pal{display:none;width:100%;grid-template-columns:repeat(10,1fr);gap:2px;
+  margin-top:3px;padding-top:4px;border-top:1px solid var(--line)}
+.ed-tb.pal .ed-pal{display:grid}
+.ed-tb .ed-pal button{min-width:0;width:100%;height:17px;padding:0;font-size:9.5px;
+  line-height:15px;border:1px solid var(--line-2);border-radius:3px}
+.ed-tb .ed-pal button:hover{border-color:var(--accent);background:none}
 /* `/` 로 부르는 종류 목록 — 치던 자리에서 열린다. 고르개와 달리 눈으로
    찾을 필요가 없다 */
 .ed-sl{position:fixed;z-index:60;display:none;flex-direction:column;gap:1px;padding:4px;
@@ -341,6 +349,50 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
    일은 다음 빌드가 한다. 그때까지 무엇으로 바뀔지를 여기 적어 둔다 */
 .ed-rt{font-size:10.5px;color:var(--tx-3);margin-left:7px;padding:0 5px;border-radius:4px;
   background:var(--panel-2);white-space:nowrap}
+/* ── 편집 모드의 할 일 ──
+   클라이언트 화면은 읽기 전용이라 작은 원과 체크 표시만 둔다. 편집 모드에서는
+   **누를 수 있는 네모**여야 한다 — 5px 원은 글머리 점과 구별이 안 되고,
+   담당자는 `[] ` 를 쳐 놓고도 할 일이 된 줄을 모른다. 누를 자리도 못 된다 */
+.notice[data-nsec] .ck li.chk::before{content:'';left:0;top:5px;width:13px;height:13px;
+  border-radius:3.5px;border:1.5px solid var(--line-2);background:var(--panel-2);
+  transform:none;cursor:pointer}
+.notice[data-nsec] .ck li.chk:hover::before{border-color:var(--accent)}
+.notice[data-nsec] .ck li.chk.on::before{content:'✓';border-color:var(--ok);
+  background:var(--ok);color:#fff;font-size:9.5px;line-height:13px;text-align:center;
+  font-weight:700;border-radius:3.5px;width:13px;height:13px;left:0;top:5px;transform:none}
+.notice[data-nsec] .ck ul li.chk::before,
+.notice[data-nsec] .ck ul li.chk.on::before{top:3px;width:12px;height:12px;line-height:12px}
+/* ── 글자 색 ──
+   노션이 쓰는 이름을 그대로 싣는다(`data-c`). 중계 서버가 그 이름만 받아 주고,
+   봉투에도 노션에도 같은 이름으로 오간다 */
+[data-c=gray]{color:#8b8b85}      [data-c=brown]{color:#a5734a}
+[data-c=orange]{color:#c77d2b}    [data-c=yellow]{color:#b08b1e}
+[data-c=green]{color:#3f8f5e}     [data-c=blue]{color:#3b78c4}
+[data-c=purple]{color:#8a5cc4}    [data-c=pink]{color:#c2568e}
+[data-c=red]{color:#c9483f}
+[data-c$=_background]{border-radius:3px;padding:0 3px;margin:0 -1px}
+[data-c=gray_background]{background:#8b8b8522}
+[data-c=brown_background]{background:#a5734a22}
+[data-c=orange_background]{background:#c77d2b28}
+[data-c=yellow_background]{background:#d8b62e3d}
+[data-c=green_background]{background:#3f8f5e26}
+[data-c=blue_background]{background:#3b78c426}
+[data-c=purple_background]{background:#8a5cc426}
+[data-c=pink_background]{background:#c2568e26}
+[data-c=red_background]{background:#c9483f26}
+/* ── 줄 안의 제목 ──
+   칸 이름보다 작다. 칸이 이미 그 공지의 큰 제목이라, 줄 안의 제목이 그보다
+   커지면 위계가 뒤집힌다 */
+.ck>li.hd1{font-size:14.5px;font-weight:700;margin:14px 0 2px;padding-left:0}
+.ck>li.hd2{font-size:13.5px;font-weight:700;margin:11px 0 1px;padding-left:0}
+.ck>li.hd3{font-size:13px;font-weight:600;color:var(--tx-2);margin:9px 0 1px;padding-left:0}
+.ck ul li.hd1,.ck ul li.hd2,.ck ul li.hd3{padding-left:0}
+.ck ul li.hd1{font-size:13.5px;font-weight:700;color:var(--tx)}
+.ck ul li.hd2{font-size:13px;font-weight:700;color:var(--tx)}
+.ck ul li.hd3{font-size:12.5px;font-weight:600}
+/* 편집 모드에서는 손잡이 자리가 있어야 하므로 왼쪽 여백을 도로 준다 */
+.notice[data-nsec] .ck li.hd1,.notice[data-nsec] .ck li.hd2,
+.notice[data-nsec] .ck li.hd3{padding-left:2px}
 /* ── 끌어서 옮기기 ──
    편집 모드에서만 목록을 오른쪽으로 밀어, 줄 왼쪽에 손잡이가 앉을 자리를 낸다.
    `[data-nsec]` 는 편집 모드에서만 붙으므로 클라이언트 화면은 그대로다 */
@@ -353,6 +405,9 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .nx-gr:hover{color:var(--accent);background:var(--accent-bg)}
 .nx-gr:active{cursor:grabbing}
 .ck li.ed-dragging{opacity:.4}
+/* 여러 줄 잡기 — 무엇에 걸리는지 보이게. 글자 위의 파란 칠(브라우저가 그리는
+   것)은 고른 글자만 덮어서, 그 줄 통째로 걸린다는 것이 드러나지 않는다 */
+.ck li[data-nid].ed-pick{background:var(--accent-bg);border-radius:3px}
 /* 놓을 자리. 고침·보탬 표시(왼쪽 세로줄)보다 힘이 세야 한다 — 끄는 동안에는
    어디에 떨어지는지가 유일하게 중요한 것이다 */
 .ck li[data-nid].ed-dropup{box-shadow:inset 0 2px 0 var(--accent)}
@@ -1528,7 +1583,8 @@ function init(D){
      .nx 로 감싸는 이유는 한 줄을 고칠 때 하위 항목까지 지우지 않기 위해서다 */
   /* 항목의 종류 → 줄 앞에 그릴 표시 */
   const KIND_CLS = { bullet:'plain', number:'ord', paragraph:'para',
-                     quote:'qt', toggle:'tg0' };
+                     quote:'qt', toggle:'tg0',
+                     heading1:'hd1', heading2:'hd2', heading3:'hd3' };
 
   function noticeItem(it, depth, edit){
     const c = it.checked;
@@ -2596,7 +2652,7 @@ function init(D){
   const edMoved = it => !!(it.moved && edWhereKey(it) !== it.home);
 
   /** 화면에서 한 칸 옮긴다. **저장소에는 나가지 않는다** — 저장이 함께 내보낸다 */
-  function edMove(it, dir){
+  function edMove(it, dir, quiet){
     const li = it.li;
     if(dir === 'up' || dir === 'down'){
       const sib = edSib(li, dir);
@@ -2611,7 +2667,7 @@ function init(D){
       if(!up) return;
       up.parentElement.insertBefore(li, up.nextSibling);
     }
-    edSettle(it, true);
+    edSettle(it, !quiet);
   }
 
   /* 옮기고 난 뒤 장부와 화면을 맞춘다. 손으로 끌어 옮긴 것과 단추로 옮긴 것이
@@ -2707,7 +2763,8 @@ function init(D){
 
   /** 줄의 종류. 공지 문서가 싣는 여섯 가지다 */
   const ED_TYPES = [['bullet','글머리'], ['number','번호'], ['todo','할 일'],
-                    ['paragraph','본문'], ['quote','인용'], ['toggle','토글']];
+                    ['paragraph','본문'], ['quote','인용'], ['toggle','토글'],
+                    ['heading1','제목 1'], ['heading2','제목 2'], ['heading3','제목 3']];
 
   /**
    * 줄 앞에서 이것을 치고 빈칸을 누르면 그 종류가 된다.
@@ -2716,7 +2773,8 @@ function init(D){
    * 없다 — 그것이 이 표의 값어치 전부다. 숫자는 아무거나 받는다(`1.` `3.`).
    */
   const ED_MD = {'-':'bullet', '*':'bullet', '+':'bullet',
-                 '[]':'todo', '[ ]':'todo', '>':'toggle', '"':'quote'};
+                 '[]':'todo', '[ ]':'todo', '[x]':'todo', '>':'toggle', '"':'quote',
+                 '#':'heading1', '##':'heading2', '###':'heading3'};
   const edMdKind = (head) => ED_MD[head] || (/^\d+\.$/.test(head) ? 'number' : null);
 
   /**
@@ -3140,6 +3198,116 @@ function init(D){
     };
   }
 
+  /* ── 여러 줄 잡기 ──
+     줄 하나하나가 따로 떨어진 입력칸이라, 여러 줄에 걸쳐 글을 골라도 편집기는
+     그것을 한 덩어리로 다루지 못한다. 그래서 걸쳐 있는 줄을 우리가 세어
+     들여쓰기·옮기기·지우기를 그 모두에 건다. 글자 서식은 걸지 않는다 —
+     편집기가 남의 칸에는 손을 못 대므로 반만 먹히는 일이 생긴다. */
+  let edPicked = [];
+
+  /** 지금 골라 놓은 줄들. 둘 미만이면 여러 줄 잡기가 아니다 */
+  function edPick(){
+    const sel = document.getSelection();
+    if(!sel || !sel.rangeCount || sel.isCollapsed) return [];
+    const r = sel.getRangeAt(0);
+    const out = [];
+    document.querySelectorAll('.ck li[data-nid]').forEach(li => {
+      const it = edItems.get(li.dataset.nid);
+      if(!it || it.del || !li.offsetParent) return;
+      /* 줄의 **글 칸**이 걸쳐 있을 때만 잡는다. li 로 재면 안에 든 줄을
+         스치기만 해도 그릇까지 잡혀, 눈에 안 보이는 줄이 함께 움직인다 */
+      if(r.intersectsNode(it.nx)) out.push(it);
+    });
+    return out.length > 1 ? out : [];
+  }
+
+  /** 잡힌 줄에 표시를 붙이고 뗀다. 무엇에 걸리는지 눈에 보여야 한다 */
+  function edPickPaint(){
+    const now = edPick();
+    edPicked.forEach(it => { if(now.indexOf(it) < 0) it.li.classList.remove('ed-pick'); });
+    now.forEach(it => it.li.classList.add('ed-pick'));
+    edPicked = now;
+  }
+
+  function edPickClear(){
+    edPicked.forEach(it => it.li.classList.remove('ed-pick'));
+    edPicked = [];
+  }
+
+  /**
+   * 여러 줄을 옮긴다.
+   *
+   * 안에 든 줄은 그릇이 데려가므로 **그릇만 움직인다** — 함께 잡혔다고 따로
+   * 부르면 같은 줄이 두 번 옮겨진다.
+   */
+  function edManyMove(many, dir){
+    const tops = many.filter(it => !many.some(o => o !== it && o.li.contains(it.li)));
+    if(!tops.length) return;
+    if(dir === 'in'){ tops.forEach(it => edMove(it, 'in', true)); return; }
+    /* 내어쓰기는 뒤에서부터다. 앞에서부터 내면 뒤엣것이 앞엣것을 앞질러
+       순서가 뒤집힌다 — 저마다 「부모 바로 다음」으로 가기 때문이다 */
+    if(dir === 'out'){ [...tops].reverse().forEach(it => edMove(it, 'out', true)); return; }
+    /* 위·아래는 묶음째다. 한 줄씩 부르면 서로를 밟고 넘어 차례가 섞인다 */
+    const edge = dir === 'up' ? tops[0].li : tops[tops.length - 1].li;
+    const near = edSib(edge, dir);
+    if(!near) return;
+    let ref = near;
+    tops.forEach(it => {
+      if(dir === 'up') ref.parentElement.insertBefore(it.li, ref);
+      else { ref.parentElement.insertBefore(it.li, ref.nextSibling); ref = it.li; }
+      edSettle(it);
+    });
+  }
+
+  /**
+   * 옮기는 동안 골라 둔 것을 지킨다.
+   *
+   * DOM 에서 자리만 바꾸는 것이라 글 조각 자체는 그대로 살아 있다. 그래서
+   * 자리를 적어 두었다 그대로 다시 고르면 된다 — 못 지키면 Tab 한 번마다
+   * 담당자가 다시 끌어서 골라야 한다.
+   */
+  function edKeepPick(run){
+    const sel = document.getSelection();
+    const keep = sel && sel.rangeCount
+      ? {a: sel.anchorNode, ao: sel.anchorOffset, f: sel.focusNode, fo: sel.focusOffset}
+      : null;
+    edHolding = true;
+    try { run(); } finally { edHolding = false; }
+    if(keep){
+      try { sel.setBaseAndExtent(keep.a, keep.ao, keep.f, keep.fo); } catch(_){}
+    }
+    edPickPaint();
+  }
+
+  /** 여러 줄이 잡혀 있을 때의 키. 삼켰으면 true */
+  function edManyKey(e, many){
+    const mod = e.ctrlKey || e.metaKey;
+    if(e.key === 'Tab'){
+      e.preventDefault();
+      edKeepPick(() => edManyMove(many, e.shiftKey ? 'out' : 'in'));
+      return true;
+    }
+    if(mod && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){
+      e.preventDefault();
+      edKeepPick(() => edManyMove(many, e.key === 'ArrowUp' ? 'up' : 'down'));
+      return true;
+    }
+    if(e.key === 'Backspace' || e.key === 'Delete'){
+      e.preventDefault();
+      /* 여러 줄은 먼저 묻는다. 한 줄은 그 자리에 「되돌리기」가 있지만,
+         여러 줄이 한꺼번에 그어지면 무엇이 사라졌는지 짚기 어렵다 */
+      const kids = many.reduce((n, it) =>
+        n + it.li.querySelectorAll('li[data-nid]').length, 0);
+      if(!confirm(`고른 ${many.length}줄을 지웁니다.` +
+            (kids ? `\n\n안에 든 줄까지 하면 더 사라집니다.` : '') +
+            '\n\n「저장」을 눌러야 실제로 사라집니다.')) return true;
+      many.forEach(it => edMarkDel(it, true));
+      edPickClear();
+      return true;
+    }
+    return false;
+  }
+
   function edBindItem(it){
     const nx = it.nx;
     edCheckBind(it);
@@ -3158,6 +3326,8 @@ function init(D){
       if(e.isComposing || e.keyCode === 229) return;
       /* `/` 목록이 떠 있으면 그것이 먼저다 — ↑ ↓ Enter 가 목록의 것이 된다 */
       if(edSlKey(e)) return;
+      /* 여러 줄을 골라 두었으면 들여쓰기·옮기기·지우기가 그 모두에 걸린다 */
+      if(edPicked.length > 1 && edManyKey(e, edPicked.slice())) return;
       /* ── 키보드로 줄을 넘고 옮기고 들여쓴다 ──
          손이 글에서 떠나지 않게 하는 것이 전부다. 단추는 그대로 있고,
          여기서는 같은 길을 키보드에도 낸다 */
@@ -3194,6 +3364,8 @@ function init(D){
           e.preventDefault();
           edCutHead(nx, head.length);
           edRetype(it, kind);
+          /* `[x] ` 는 켜 둔 채로 시작한다. 이미 끝난 일을 옮겨 적을 때다 */
+          if(head === '[x]'){ it.checked = true; it.li.classList.add('on'); }
           edTouch(it);
           return;
         }
@@ -3735,12 +3907,26 @@ function init(D){
       <button data-edc="underline" title="밑줄 (Ctrl+U)"><u>U</u></button>
       <button data-edc="strikeThrough" title="취소선"><s>S</s></button>
       <button data-edc="code" title="코드">&lt;&gt;</button>
-      <button data-edc="link" title="링크">🔗</button>`;
+      <button data-edc="link" title="링크">🔗</button>
+      <button data-edc="palette" title="글자 색 · 형광펜">🎨</button>
+      <div class="ed-pal">${
+        /* 윗줄은 글자 색, 아랫줄은 형광펜. 견본 자체에 `data-c` 를 달아 두면
+           팔레트를 따로 칠할 일이 없다 — 화면에 나올 색을 그대로 보여 준다 */
+        ['default'].concat(ED_COLORS).map(c =>
+          `<button data-col="${c}"${c === 'default' ? ' title="색 없애기"'
+            : ` data-c="${c}"`}>${c === 'default' ? '✕' : '가'}</button>`).join('')
+        + ED_COLORS.map(c =>
+          `<button data-col="${c}_background" data-c="${c}_background">가</button>`).join('')}
+      </div>`;
     /* 누를 때 고른 글자가 풀리지 않게 한다 — 풀리면 서식이 갈 곳이 없다 */
     edTb.onmousedown = e => e.preventDefault();
     edTb.onclick = e => {
+      const sw = e.target.closest('[data-col]');
+      if(sw){ edColor(sw.dataset.col); return; }
       const b = e.target.closest('[data-edc]');
-      if(b) edFormat(b.dataset.edc);
+      if(!b) return;
+      if(b.dataset.edc === 'palette'){ edTb.classList.toggle('pal'); return; }
+      edFormat(b.dataset.edc);
     };
     document.body.appendChild(edTb);
     return edTb;
@@ -3758,9 +3944,17 @@ function init(D){
   function edSelection(){
     const tb = edToolbar();
     const sel = document.getSelection();
-    if(!sel || !sel.rangeCount || sel.isCollapsed){ tb.classList.remove('on'); return null; }
+    if(!sel || !sel.rangeCount || sel.isCollapsed){
+      tb.classList.remove('on', 'pal');
+      return null;
+    }
+    /* 두 줄에 걸쳐 골랐으면 서식 막대를 내리지 않는다. 편집기가 남의 칸에는
+       손을 못 대므로, 눌러도 한 줄만 굵어진다 — 그럴 바에는 안 뜨는 것이 낫다 */
     const nx = edEditable(sel.anchorNode);
-    if(!nx || nx !== edEditable(sel.focusNode)){ tb.classList.remove('on'); return null; }
+    if(!nx || nx !== edEditable(sel.focusNode)){
+      tb.classList.remove('on', 'pal');
+      return null;
+    }
     tb.classList.add('on');
     const r = sel.getRangeAt(0).getBoundingClientRect();
     tb.style.left = Math.max(8, r.left + r.width / 2 - tb.offsetWidth / 2) + 'px';
@@ -3777,6 +3971,65 @@ function init(D){
     const it = edOf(nx);
     if(it) edTouch(it);
     edSelection();
+  }
+
+  /**
+   * 중계 서버가 받아 주는 색 이름. 노션의 것 그대로다(`worker/src/richtext.js`
+   * 의 COLORS). `_background` 를 붙이면 형광펜이 된다.
+   */
+  const ED_COLORS = ['gray', 'brown', 'orange', 'yellow', 'green',
+                     'blue', 'purple', 'pink', 'red'];
+
+  function edColor(color){
+    const nx = edSelection();
+    if(!nx) return;
+    edColorWrap(nx, color);
+    const it = edOf(nx);
+    if(it) edTouch(it);
+    edSelection();
+  }
+
+  /**
+   * 고른 글자에 색을 입힌다. 굵게·기울임과 달리 `execCommand` 에 없어 직접 감싼다.
+   *
+   * **색은 겹치지 않는다.** 고른 만큼이 한 가지 색이 되어야 하므로 안에 들어
+   * 있던 색은 걷는다 — 겹쳐 두면 저장할 때 안쪽만 살아남아, 화면에서 본 것과
+   * 저장된 것이 갈린다.
+   */
+  function edColorWrap(nx, color){
+    const sel = document.getSelection();
+    if(!sel.rangeCount) return;
+    const r = sel.getRangeAt(0);
+    const shed = (el) => {                 /* 껍질 하나를 걷고 그 자리를 돌려준다 */
+      const parent = el.parentNode;
+      while(el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
+      return parent;
+    };
+    if(color === 'default'){
+      /* 이미 색이 든 조각 안이다 — 통째로 푼다. 고른 만큼만 푸는 것은 만들지
+         않는다. 코드 서식과 같은 규칙이다. 겹쳐 있으면 겹친 만큼 다 푼다 */
+      let from = edEl(r.startContainer), own;
+      while(from && (own = from.closest('[data-c]')) && nx.contains(own)) from = shed(own);
+      if(from) from.normalize();
+      return;
+    }
+    const span = document.createElement('span');
+    span.dataset.c = color;
+    span.appendChild(r.extractContents());
+    span.querySelectorAll('[data-c]').forEach(shed);
+    r.insertNode(span);
+    /* 겉을 감싸던 색이 이 조각 하나만 품고 있었으면 걷는다. 그러지 않으면 같은
+       자리를 다시 칠할 때마다 껍질이 한 겹씩 늘고, 저장할 때는 안쪽만 살아남아
+       화면과 저장된 것이 갈린다 */
+    for(let up = span.parentElement; up && up !== nx && up.dataset.c !== undefined;){
+      if(up.textContent !== span.textContent) break;
+      up = shed(up);
+    }
+    const nr = document.createRange();
+    nr.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(nr);
   }
 
   /* 인라인 코드. execCommand 에 없어 직접 감싼다 */
@@ -3851,7 +4104,7 @@ function init(D){
     /* 화면을 다시 그릴 때마다 묶으면 같은 것이 겹쳐 쌓인다 */
     if(!edWired){
       edWired = true;
-      document.addEventListener('selectionchange', edSelection);
+      document.addEventListener('selectionchange', () => { edSelection(); edPickPaint(); });
       const sc = document.getElementById('scroll');
       if(sc) sc.addEventListener('scroll', () => { if(edTb) edTb.classList.remove('on'); });
       window.addEventListener('beforeunload', e => {

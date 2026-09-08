@@ -23,6 +23,9 @@ import { editHtmlToRuns, runsToEditHtml } from "./richtext.js";
  */
 const ITEM_KINDS = new Set([
   "bullet", "number", "todo", "paragraph", "quote", "toggle",
+  // 줄 안의 제목. `# ` `## ` `### ` 로 만든다. 칸(섹션)이 그 공지의 큰 제목이고
+  // 이것들은 그 아래다 — 노션이 페이지 제목 밑에 h1·h2·h3 를 두는 것과 같다.
+  "heading1", "heading2", "heading3",
 ]);
 
 /** 주소로 받아 주는 모양. 짧은 이름이고, 화면이 지어낸 긴 값을 막는다. */

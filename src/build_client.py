@@ -1065,7 +1065,9 @@ RELAY_URL_DEFAULT = ("https://growthhigh-clientpage-relay"
                      ".growthhigh-clientpage-worker.workers.dev")
 
 #: 저장소가 싣는 항목의 종류 → 봉투에 그대로 실린다. 화면이 이 값으로 그린다.
-NOTICE_KINDS = {"bullet", "number", "todo", "paragraph", "quote", "toggle"}
+NOTICE_KINDS = {"bullet", "number", "todo", "paragraph", "quote", "toggle",
+                # 줄 안의 제목. 중계 서버의 doc.js ITEM_KINDS 와 같아야 한다
+                "heading1", "heading2", "heading3"}
 
 
 def relay_notice(slug: str) -> dict | None:

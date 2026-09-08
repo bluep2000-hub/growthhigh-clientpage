@@ -214,6 +214,23 @@ describe("PUT /notice/doc", () => {
     expect((await res.json()).sections[0].items[0].checked).toBeUndefined();
   });
 
+  it("줄 안의 제목 세 단계를 받는다", async () => {
+    whiff();
+
+    const res = await write({ slug: "whiffkorea", noticeId: "notice-1", version: 3,
+                              title: "제목",
+                              sections: [{ title: "칸", items: [
+                                item({ type: "heading1", html: "큰 제목" }),
+                                item({ type: "heading2", html: "가운데 제목" }),
+                                item({ type: "heading3", html: "작은 제목" })] }] });
+
+    expect(res.status).toBe(200);
+    const rows = (await res.json()).sections[0].items;
+    expect(rows.map((i) => i.type)).toEqual(["heading1", "heading2", "heading3"]);
+    // 체크는 할 일에만 실린다 — 제목에 남으면 종류를 바꿔 돌아왔을 때 되살아난다
+    expect(rows[0].checked).toBeUndefined();
+  });
+
   it("모르는 종류는 422 다", async () => {
     whiff();
 
