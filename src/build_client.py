@@ -2649,12 +2649,152 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
             # 담당자가 노션에서 골라 둔 것. 화면 맨 위 「주요 소통」이 이것만 모은다.
             # 거르지 않고 표시만 싣는다 — 주요가 아닌 것도 목록에는 그대로 남는다.
             "major": p_checkbox(pr, "주요"),
+            # 노션 페이지 주소. 할 일을 그 회의록에 잇는 데만 쓰고 봉투에는
+            # 싣지 않는다 — 클라이언트에게 우리 노션 안쪽 주소를 줄 까닭이 없다.
+            "pid": pg["id"],
         }
-        # 없는 미팅이 대부분이라 있을 때만 싣는다 — 봉투를 빈 배열로 불리지 않는다.
+        # 없는 미팅이 대부분이라 있을 때만 싣는다.
         if actions:
             row["actions"] = actions
         out.append(row)
     return out
+
+
+# ── 노션 할 일 DB ────────────────────────────────────────────────────────
+#
+# 회의록 끝의 「항목·담당·기한」 표에서 나온 할 일이 여기 한 줄씩 앉는다.
+#
+# 회의록은 그날 정해진 사실이라 사후에 고치지 않는다. 그러니 「그래서 그것이
+# 지금 어떻게 되었는가」는 따로 살아야 한다 — 그 자리가 이 DB 다. 표에 완료
+# 칸을 하나 더 두는 길도 있었지만, 그러면 지난 회의록이 계속 바뀌어 어느
+# 쪽도 못 믿게 된다.
+ACTIONS_DB_ID = "a8f3b12b-d476-4df8-81f0-fceb9676d923"
+
+# 빌드가 새로 넣는 줄의 상태. 담당자가 훑기 전에는 화면에 나가지 않는다 —
+# 기계가 뽑아낸 것이 사람 눈을 거치지 않고 클라이언트에게 보이는 일을
+# 만들지 않는다. 소통 DB 가 새 메일을 「검토대기」로 받는 것과 같은 셈법이다.
+ACTION_STATUS_NEW = "검토대기"
+ACTION_STATUS_LIVE = "진행"           # 이것만 화면에 나간다
+ACTION_STATUS_DONE = "완료"
+ACTION_WHO = ("그로스하이", "클라이언트")
+
+
+def action_key(item: str) -> str:
+    """같은 할 일을 두 번 넣지 않으려는 열쇠. 공백을 지운 항목 글자다.
+
+    같은 할 일이 다음 미팅에서 다시 확인되는 일이 잦은데, 그것은 새 할 일이
+    아니라 아직 안 끝난 그 할 일이다. 말이 달라진 것까지 같다고 보지는
+    않는다 — 그러면 서로 다른 할 일이 소리 없이 하나로 뭉친다."""
+    return re.sub(r"\s+", "", item or "")[:200]
+
+
+def sync_actions_to_notion(nt: Notion, client_page_id: str, talks: list[dict]) -> None:
+    """회의록에서 뽑은 할 일 중 아직 없는 것만 「검토대기」로 넣는다.
+
+    이미 있는 줄에는 손대지 않는다. 상태는 담당자의 것이라, 빌드가 다시
+    돌 때마다 되돌려 놓으면 그 칸이 아무 뜻도 갖지 못한다."""
+    try:
+        rows = nt.query_all(ACTIONS_DB_ID, {
+            "filter": {"property": "클라이언트",
+                       "relation": {"contains": client_page_id}},
+        })
+    except ClientFailure as e:
+        warn(f"할 일 DB 기존 항목 조회 실패 — 노션 쓰기 생략: {e}")
+        return
+    seen = {p_text(r.get("properties", {}), "키") for r in rows}
+    seen.discard("")
+
+    added = skipped = 0
+    # 최신 회의록부터 훑는다. 같은 할 일이 여러 미팅에 나오면 「출처」는
+    # 가장 최근에 확인된 자리가 된다.
+    for t in talks:
+        for a in t.get("actions") or []:
+            key = action_key(a.get("item", ""))
+            if not key:
+                continue
+            if key in seen:
+                skipped += 1
+                continue
+
+            props = {
+                "항목": {"title": [{"text": {"content": a["item"][:2000]}}]},
+                "클라이언트": {"relation": [{"id": client_page_id}]},
+                "상태": {"select": {"name": ACTION_STATUS_NEW}},
+                "키": {"rich_text": [{"text": {"content": key}}]},
+            }
+            # 담당은 아는 값일 때만 싣는다. 노션 select 는 모르는 이름을 받으면
+            # 보기를 새로 만들어 버려, 오타 하나가 목록을 늘린다.
+            if a.get("who") in ACTION_WHO:
+                props["담당"] = {"select": {"name": a["who"]}}
+            if a.get("due"):
+                props["기한"] = {"rich_text": [{"text": {"content": a["due"][:2000]}}]}
+            if t.get("date"):
+                props["정한 날"] = {"date": {"start": t["date"]}}
+            if t.get("pid"):
+                props["출처"] = {"relation": [{"id": t["pid"]}]}
+
+            try:
+                nt.post("/pages", {"parent": {"database_id": ACTIONS_DB_ID},
+                                   "properties": props})
+                seen.add(key)                    # 같은 실행 안의 중복도 막는다
+                added += 1
+            except ClientFailure as e:
+                warn(f"할 일 DB 쓰기 실패 — 건너뜁니다: {e}")
+
+    if added or skipped:
+        log(f"  할 일 DB: {added}건 추가(검토대기) · {skipped}건 이미 있음")
+
+
+def read_actions(nt: Notion, client_page_id: str,
+                 talks: list[dict]) -> tuple[list[dict], int]:
+    """화면에 나갈 할 일과, 끝난 것의 수.
+
+    「진행」만 나간다. 검토대기는 아직 사람 눈을 안 거쳤고, 보류는 담당자가
+    일부러 내린 것이다. 완료는 수만 센다 — 무엇을 끝냈는지가 아니라 얼마나
+    끝냈는지가 읽는 사람에게 뜻이 있다."""
+    try:
+        rows = nt.query_all(ACTIONS_DB_ID, {
+            "filter": {"property": "클라이언트",
+                       "relation": {"contains": client_page_id}},
+            "sorts": [{"property": "정한 날", "direction": "descending"}],
+        })
+    except ClientFailure as e:
+        warn(f"할 일 DB 조회 실패 — 할 일 없이 내보냅니다: {e}")
+        return [], 0
+
+    # 「출처」가 가리키는 회의록이 화면 목록의 몇 번째인지. 줄을 눌러 그
+    # 회의록으로 내려가는 데 쓴다. 노션 주소는 봉투에 싣지 않으므로 여기서 푼다.
+    seat = {t["pid"]: i for i, t in enumerate(talks) if t.get("pid")}
+
+    live, done = [], 0
+    for r in rows:
+        pr = r.get("properties", {})
+        state = p_select(pr, "상태")
+        if state == ACTION_STATUS_DONE:
+            done += 1
+            continue
+        if state != ACTION_STATUS_LIVE:
+            continue
+        item = p_text(pr, "항목")
+        if not item:
+            continue
+        src = p_relation(pr, "출처")
+        live.append({
+            "item": item,
+            "who": p_select(pr, "담당") or "",
+            "due": p_text(pr, "기한"),
+            "date": (p_date(pr, "정한 날").get("start") or "")[:10],
+            # 출처가 비었거나 그 회의록이 화면에 없으면 null 이다. 화면은
+            # 그 줄을 누를 수 없는 줄로 그린다.
+            "at": (seat.get(src[0]) if src else None),
+        })
+
+    # 담당으로 갈라 세운다. 그로스하이가 먼저다 — 이 목록의 값어치는 「우리가
+    # 무엇을 하고 있는가」를 전하는 데 있고, 읽는 사람에게 할 일부터 들이미는
+    # 것은 보고가 아니라 청구다. 무리 안에서는 노션이 준 날짜 내림차순 그대로다.
+    order = {w: i for i, w in enumerate(ACTION_WHO)}
+    live.sort(key=lambda a: order.get(a["who"], len(ACTION_WHO)))
+    return live, done
 
 
 def build_talks(nt: Notion, client: dict, company_name: str,
@@ -2831,7 +2971,16 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     n_act = sum(len(t.get("actions") or []) for t in talks)
     log(f"  소통 내역 {len(talks)}건 (보류 제외)"
         + (f" · 주요 {n_major}건" if n_major else "")
-        + (f" · 할 일 {n_act}건" if n_act else ""))
+        + (f" · 회의록 할 일 {n_act}건" if n_act else ""))
+
+    # 회의록에서 뽑은 할 일을 노션에 앉히고, 상태가 「진행」인 것만 도로 읽는다.
+    # 넣는 것과 읽는 것을 한 번에 하지 않는다 — 갓 넣은 줄은 「검토대기」라
+    # 이 빌드의 화면에 나가지 않고, 담당자가 훑은 다음 빌드부터 나간다.
+    if not dry_run:
+        sync_actions_to_notion(nt, client["page_id"], talks)
+    actions, actions_done = read_actions(nt, client["page_id"], talks)
+    if actions or actions_done:
+        log(f"  할 일 {len(actions)}건 진행 · {actions_done}건 완료")
 
     events = build_events(progress, name, include_expired)
     log(f"  일정 {len(events)}건")
@@ -2896,7 +3045,14 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
         "perf": perf,
         "progress": progress,
         "recommend": recommend,
-        "talks": talks,
+        # 노션 주소(pid)와 회의록에서 갓 뽑은 할 일(actions)은 봉투에 싣지
+        # 않는다. 앞의 것은 우리 노션 안쪽 주소이고, 뒤의 것은 아직 사람 눈을
+        # 안 거친 것이라 화면에 나갈 물건이 아니다 — 나가는 할 일은 아래
+        # actions 하나뿐이고, 그것은 할 일 DB 에서 온다.
+        "talks": [{k: v for k, v in t.items() if k not in ("pid", "actions")}
+                  for t in talks],
+        "actions": actions,
+        "actions_done": actions_done,
         "events": events,
         "kpi": kpi,
     }

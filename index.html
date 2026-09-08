@@ -1372,40 +1372,12 @@ function init(D){
     return meets.filter(t => (t.date || '') >= ymd).length;
   })();
 
-  /* 최근 세 번의 회의록에서만 뽑는다. 더 거슬러 올라가면 반년 전 「미정」이
-     아직 살아 있는 것처럼 보인다 — 상태를 지니지 않는 목록이 오래될수록
-     화면이 거짓말을 한다. 세 번은 「지난 이야기」가 아니라 「지금 하는
-     이야기」로 읽히는 범위다. */
-  const ACT_MEETS = 3;
-  /* 횟수만으로는 오래 안 만난 곳을 못 막는다 — 마지막 미팅이 작년이면 「세
-     번」이 통째로 작년 것이다. 반년이 지난 회의록의 할 일은 올리지 않는다.
-     그 자리에 아무것도 없는 편이 낡은 것이 있는 편보다 정직하다. */
-  const ACT_DAYS = 180;
-  /* 담당이 읽는 사람에게 뜻이 있는 유일한 갈래다. 그로스하이가 먼저 선다 —
-     이 목록의 값어치는 「우리가 무엇을 하고 있는가」를 전하는 데 있고,
-     읽는 사람에게 할 일부터 들이미는 것은 보고가 아니라 청구다 */
-  const ACT_ORDER = ['그로스하이', '클라이언트'];
-  const actions = (() => {
-    const out = [], seen = new Set();
-    const edge = new Date(); edge.setDate(edge.getDate() - ACT_DAYS);
-    const floor = edge.toISOString().slice(0, 10);
-    talks.filter(t => (t.actions || []).length && (t.date || '') >= floor)
-         .slice(0, ACT_MEETS).forEach(t => {
-      const at = talks.indexOf(t);
-      (t.actions || []).forEach(a => {
-        /* 같은 할 일이 다음 미팅에서 다시 확인되는 일이 잦다. 글자가 똑같은
-           것만 하나로 본다 — 말이 달라진 것까지 같다고 묶으면 서로 다른
-           할 일이 소리 없이 사라진다. talks 가 최신순이라 남는 것은 최근 것 */
-        const key = String(a.item || '').replace(/\s+/g, '');
-        if(!key || seen.has(key)) return;
-        seen.add(key);
-        out.push({ item: a.item, who: a.who || '', due: a.due || '',
-                   date: t.date, from: t.title || '', at });
-      });
-    });
-    const rank = w => { const i = ACT_ORDER.indexOf(w); return i < 0 ? ACT_ORDER.length : i; };
-    return out.sort((x, y) => rank(x.who) - rank(y.who));
-  })();
+  /* 할 일은 노션 「할 일」 DB 에서 온다. 회의록에서 뽑은 것을 빌드가 거기
+     앉히고, 담당자가 「진행」으로 옮긴 것만 봉투에 실린다 — 여기 있는 것은
+     이미 사람 눈을 거친 것이다. 무엇을 올릴지 화면이 다시 고르지 않는다.
+     빌더가 담당(그로스하이 먼저)과 날짜로 세워 보낸 차례 그대로 그린다. */
+  const actions = Array.isArray(D.actions) ? D.actions : [];
+  const actionsDone = +D.actions_done || 0;
   const kpi = D.kpi || {};
   /* let 인 까닭은 「＋ 새 공지」다. 새로 만들면 화면에 떠 있는 공지가 그 자리에서
      바뀌어야 한다 — 지금 그려진 줄들은 지난 공지의 것이라, 그대로 두면 담당자가
@@ -5653,26 +5625,30 @@ function init(D){
       (last ? ` · 마지막 <b>${esc(last)}</b>` : '') + `</p>`;
   }
 
-  /* 미팅에서 정한 할 일. 회의록 맨 밑의 「항목·담당·기한」 표를 빌더가
-     뽑아 둔 것을 모은다. 표는 회의록 안에도 그대로 남아 있다 — 여기 것은
-     그것을 가리키는 것이지 대신하는 것이 아니라, 줄을 누르면 그 회의록으로
-     내려간다. 아직 「끝났다」를 지니지 못한다: 상태를 둘 자리가 없어 최근
-     세 번으로 범위를 좁혀 두었다. */
+  /* 미팅에서 정한 할 일. 회의록 맨 밑의 「항목·담당·기한」 표에서 나와
+     노션 할 일 DB 를 거쳐 온 것이다. 표는 회의록 안에도 그대로 남아 있다 —
+     여기 것은 그것을 가리키는 것이지 대신하는 것이 아니라, 줄을 누르면 그
+     회의록으로 내려간다. 출처를 잃은 줄(담당자가 손으로 적었거나 그 회의록이
+     목록에서 밀려난 것)은 눌리지 않는다.
+     끝낸 것은 수만 적는다 — 무엇을 끝냈는지가 아니라 얼마나 끝냈는지가
+     읽는 사람에게 뜻이 있다. */
   function actionCard(){
     if(!actions.length) return '';
     return `<div class="card" style="margin-top:24px">
      <div class="ch"><h2>미팅에서 정한 할 일</h2>
+      ${actionsDone?`<span class="d">끝낸 것 ${actionsDone}건</span>`:''}
       <a class="more" href="#" data-go="talk">소통 내역 →</a></div>
      <table><thead><tr>
       <th>할 일</th><th style="width:14%">담당</th>
       <th style="width:15%">기한</th><th style="width:15%">정한 날</th>
      </tr></thead>
-     <tbody>${actions.map(a=>`<tr class="act" data-actgo="${a.at}"
-       title="${esc(a.from)}">
+     <tbody>${actions.map(a=>{
+       const src = Number.isInteger(a.at) && talks[a.at] ? talks[a.at] : null;
+       return `<tr${src?` class="act" data-actgo="${a.at}" title="${esc(src.title||'')}"`:''}>
       <td class="lead"><div class="t-nm">${esc(a.item)}</div></td>
       <td><span class="act-w${a.who==='그로스하이'?' gh':''}">${esc(a.who||'—')}</span></td>
       <td class="dtc">${esc(a.due||'미정')}</td>
-      <td class="dtc">${fmt(a.date)}</td></tr>`).join('')}
+      <td class="dtc">${fmt(a.date)}</td></tr>`;}).join('')}
      </tbody></table></div>`;
   }
 
