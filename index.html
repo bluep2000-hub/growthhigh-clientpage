@@ -1976,7 +1976,8 @@ function init(D){
       if(node.nodeType === 3){
         /* 편집기는 줄 끝 공백을 &nbsp; 로 넣는다. 그대로 실으면 노션에
            눈에 보이지 않는 글자가 남는다 */
-        push(edState(node.parentElement, root), node.nodeValue.replace(/\u00a0/g, ' '));
+        push(edState(node.parentElement, root),
+             node.nodeValue.replace(/\u00a0/g, ' ').replace(/\u200b/g, ''));
         return;
       }
       if(node.nodeType !== 1) return;
@@ -2218,33 +2219,48 @@ function init(D){
     edReset(it);
     if(!node) return;
     edPaint(it, node.html || '');
-    it.nx.contentEditable = 'true';
-    it.nx.spellcheck = false;
     it.type = node.type || 'bullet';
-
-    /* 표의 칸은 줄이 아니다. 옮기지도, 종류를 바꾸지도, 혼자 지워지지도
-       않는다 — 표가 그것을 데리고 다닌다 */
-    if(it.type === 'cell'){ edBindCell(it); return; }
-
-    edBindItem(it);
-    it.checked = it.checkBase = node.type === 'todo' && !!node.checked;
-    it.home = edWhereKey(it);
-    it.moved = false;
-    edMvBox(it);
+    if(it.type !== 'cell'){
+      it.checked = it.checkBase = node.type === 'todo' && !!node.checked;
+      it.home = edWhereKey(it);
+      it.moved = false;
+    }
+    edWire(it);
     if(it.type === 'table'){
       /* 열 때의 격자를 본으로 떠 둔다. 「되돌리기」가 돌아갈 곳이 여기다 */
       const body = it.li.querySelector('tbody');
       it.tbase = body ? body.cloneNode(true) : null;
-      edTableBind(it);
-      return;
     }
+  }
+
+  /**
+   * 줄 하나에 손을 걸어 준다. **글은 손대지 않는다.**
+   *
+   * 저장소에서 받아 열 때(`edOpen`)와 한 걸음 되돌린 뒤(`edSnapPut`)가 같은
+   * 길을 지나야 한다 — 갈라 두면 한쪽만 고쳐지는 날이 오고, 그날 되돌린
+   * 화면에서는 단추가 죽어 있다.
+   */
+  function edWire(it){
+    it.nx.contentEditable = 'true';
+    it.nx.spellcheck = false;
+    /* 표의 칸은 줄이 아니다. 옮기지도, 종류를 바꾸지도, 혼자 지워지지도
+       않는다 — 표가 그것을 데리고 다닌다 */
+    if(it.type === 'cell'){ edBindCell(it); return; }
+    edBindItem(it);
+    edMvBox(it);
+    if(it.type === 'table'){ edTableBind(it); return; }
     /* 표에는 안내 글자를 띄우지 않는다. 글 칸이 비어 있는 것이 정상이고,
        비었다고 「보탬」 표시를 걷으면 새로 세운 표가 눈에 띄지 않는다 */
     edHint(it);
   }
 
+  /* 폭 없는 글자. 서식 조각 바로 다음에 커서를 세우려고 놓는다 —
+     화면에 보이지 않고 저장에도 실리지 않는다 */
+  const ED_ZW = '\u200b';
+
   /* 글이 하나도 없는 줄. 노션 전용 조각과 그림은 글이 없어도 내용이다 */
-  const edEmpty = nx => !nx.textContent.trim() && !nx.querySelector('[data-o],img');
+  const edEmpty = nx =>
+    !nx.textContent.replace(/\u200b/g, '').trim() && !nx.querySelector('[data-o],img');
 
   /* 빈 줄임을 표시해 둔다. 커서가 놓였거나 칸에 하나뿐인 빈 줄에만 안내
      글자가 뜨는데, 그 자리를 CSS 가 알아보려면 클래스가 있어야 한다 —
@@ -2576,6 +2592,7 @@ function init(D){
   }
 
   function edSecMove(sec, dir){
+    edMark();
     const sib = edSecSib(sec.box, dir);
     if(!sib) return;
     sec.box.parentElement.insertBefore(
@@ -2593,6 +2610,7 @@ function init(D){
    * 같은 규칙이다.
    */
   function edSecDel(sec){
+    edMark();
     if(sec.del){                                   /* 물리기 */
       sec.del = false;
       edSecSync();
@@ -2654,6 +2672,7 @@ function init(D){
 
   /** 빈 칸 하나를 세우고 커서를 이름으로 보낸다 */
   function edSecAdd(){
+    edMark();
     const bar = document.querySelector('.nsadd');
     if(!bar) return;
     edSecSeq += 1;
@@ -2740,6 +2759,7 @@ function init(D){
 
   /** 화면에서 한 칸 옮긴다. **저장소에는 나가지 않는다** — 저장이 함께 내보낸다 */
   function edMove(it, dir, quiet){
+    edMark();
     const li = it.li;
     if(dir === 'up' || dir === 'down'){
       const sib = edSib(li, dir);
@@ -2833,6 +2853,7 @@ function init(D){
       edDragEnd();
       if(!at || !it) return;
       e.preventDefault();
+      edMark();
       at.li.parentElement.insertBefore(it.li, at.after ? at.li.nextSibling : at.li);
       edSettle(it);
     });
@@ -2872,6 +2893,7 @@ function init(D){
    * 무엇으로」가 성립하지 않는다 — 그 줄은 그냥 그 종류다.
    */
   function edRetype(it, kind){
+    edMark();
     if(it.isNew){ it.type = kind; it.retype = null; }
     else it.retype = kind === it.type ? null : kind;
     edSkin(it);
@@ -3287,6 +3309,7 @@ function init(D){
     it.li.onclick = e => {
       if(e.target !== it.li || it.del) return;
       if((it.retype || it.type) !== 'todo') return;
+      edMark();
       /* 표시가 그려진 왼쪽 여백 안에서만이다. 글 오른쪽의 빈 자리까지 받으면
          줄 끝을 누르려던 손이 체크를 켠다 */
       const box = it.li.getBoundingClientRect();
@@ -3491,6 +3514,7 @@ function init(D){
   }
 
   function edTableEdit(it, what){
+    edMark();
     const body = it.li.querySelector('tbody');
     const rows = [...body.querySelectorAll('tr')];
     const cols = edCols(it.li);
@@ -3617,11 +3641,269 @@ function init(D){
      통째로 거절당한다 */
   const edPastePlain = it => e => {
     e.preventDefault();
+    edMark();
     const t = String((e.clipboardData || window.clipboardData).getData('text/plain'))
       .replace(/\r\n?/g, '\n');
     document.execCommand('insertText', false, t);
     edTouch(it);
   };
+
+  /* ── 한 걸음씩 되돌리기 (Ctrl+Z · Ctrl+Shift+Z) ──
+     저장 창구의 「되돌리기」는 손댄 것을 **통째로** 물린다. 그것과 별개로,
+     노션이 그러하듯 한 걸음씩 물릴 수 있어야 한다 — 잘못 누른 Tab 하나
+     때문에 반나절 적은 것을 다 버릴 수는 없다.
+
+     손질마다 되돌리는 짝을 따로 쓰지 않는다. 그렇게 하면 새 손질을 만들
+     때마다 짝 하나를 잊게 되고, 잊은 자리는 조용히 어긋난다. 대신 **걸음마다
+     공지 화면과 장부를 통째로 떠 둔다** — 저장이 문서를 통째로 보내는 것과
+     같은 셈법이라, 새 손질이 생겨도 여기는 손댈 일이 없다. */
+  const ED_STEPS = 60;          /* 이고 갈 걸음 수 */
+  const edHist = [];            /* 지나온 자리 */
+  const edAhead = [];           /* 되돌린 뒤 다시 갈 자리 */
+  let edSnapAt = 0;             /* 마지막으로 뜬 때 — 타이핑을 뭉치는 데 쓴다 */
+
+  /** 화면에서 편집기가 붙인 것을 걷는다. 다시 걸어 줄 것이라 뜰 때는 뺀다 */
+  const ED_CHROME = '.nx-del,.nx-mv,.nx-gr,.ntbc,.ed-rt,.ed-note,.ed-tb,.ed-sl';
+
+  function edView(){ return document.querySelector('#scroll > .view'); }
+
+  /** 지금 자리를 뜬다. 화면과 장부를 함께 담는다 — 하나만으로는 못 돌아간다 */
+  function edSnapTake(){
+    const view = edView();
+    if(!view) return null;
+    const copy = view.cloneNode(true);
+    copy.querySelectorAll(ED_CHROME).forEach(el => el.remove());
+    const rows = {};
+    edItems.forEach((it, id) => {
+      const body = it.type === 'table' && it.tbase ? it.tbase.innerHTML : undefined;
+      rows[id] = {type: it.type, retype: it.retype, base: it.base, isNew: it.isNew,
+                  checked: it.checked, checkBase: it.checkBase, home: it.home,
+                  moved: it.moved, del: it.del, display: it.display, tbaseHtml: body};
+    });
+    const secs = {};
+    edSecs.forEach((sec, id) => {
+      secs[id] = {base: sec.base, home: sec.home, moved: sec.moved,
+                  isNew: sec.isNew, del: sec.del};
+    });
+    const on = document.activeElement;
+    const host = on && on.closest ? on.closest('[data-nid]') : null;
+    return {
+      html: copy.innerHTML,
+      title: edTitle && edTitle.input.isConnected ? edTitle.input.value : null,
+      titleBase: edTitle ? edTitle.base : null,
+      rows, secs,
+      focus: host ? {nid: host.dataset.nid, at: edOffset(on)} : null,
+    };
+  }
+
+  /**
+   * 뜬 자리로 화면을 되돌린다.
+   *
+   * 화면을 갈아 끼우면 장부가 사라진 마디를 가리키게 되므로, 장부도 그 자리에서
+   * 다시 짓는다. 글은 **화면에 있는 것을 그대로 둔다** — 저장소에서 다시
+   * 불러오면 되돌린 것이 도로 덮인다.
+   */
+  function edSnapPut(snap){
+    const view = edView();
+    if(!view || !snap) return;
+    edSlHide();
+    edPickClear();
+    view.innerHTML = snap.html;
+    bindNotice({keep: true});          /* 저장소를 다시 읽지 않는다 */
+
+    const next = new Map();
+    document.querySelectorAll(ED_ROWS).forEach(node => {
+      const nx = node.querySelector(':scope>.nx, :scope>.tgh>.nx');
+      if(!nx) return;
+      const was = snap.rows[node.dataset.nid] || {};
+      const it = edItem(node, nx, Object.assign({display: nx.innerHTML}, was));
+      if(was.tbaseHtml !== undefined){
+        const body = document.createElement('tbody');
+        body.innerHTML = was.tbaseHtml;
+        it.tbase = body;
+      }
+      next.set(node.dataset.nid, it);
+    });
+    edItems = next;
+
+    edSecsLoad();                      /* 칸 장부를 화면에서 다시 짓는다 */
+    edSecs.forEach((sec, id) => Object.assign(sec, snap.secs[id] || {}));
+
+    edItems.forEach(it => {
+      edWire(it);
+      /* 지울 줄은 고칠 수 없는 채로, 바꿀 종류는 딱지를 붙인 채로 돌아온다 */
+      if(it.del && !it.isNew){ it.nx.removeAttribute('contenteditable'); edDelBtn(it); }
+      if(it.retype){
+        const pick = edMvSel(it);
+        if(pick) pick.value = it.retype;
+        edRtChip(it);
+      }
+    });
+
+    const inp = document.getElementById('ntitle');
+    if(inp && snap.title !== null){
+      edTitleOpen(snap.titleBase || '');
+      inp.value = snap.title;
+    }
+    if(snap.focus){
+      const back = edItems.get(snap.focus.nid);
+      if(back && back.nx.isContentEditable){
+        back.nx.focus();
+        edSeek(back.nx, snap.focus.at);
+      }
+    }
+    edSecSync();
+    edMvSync();
+    edStatus();
+  }
+
+  /**
+   * 걸음을 하나 떠 둔다. **바뀌기 전에** 부른다.
+   *
+   * 바뀐 것이 없으면 뜨지 않는다 — 화살표만 눌러도 걸음이 쌓이면 Ctrl+Z 가
+   * 아무 일도 안 하는 것처럼 보인다. 글자를 잇달아 치는 동안은 한 걸음으로
+   * 뭉친다. 한 글자마다 물리면 되돌리기가 끝나지 않는다.
+   */
+  function edMark(join){
+    if(!ED.on() || !edView()) return;
+    const now = Date.now();
+    if(join && now - edSnapAt < 900) return;
+    const snap = edSnapTake();
+    if(!snap) return;
+    const top = edHist[edHist.length - 1];
+    if(top && top.html === snap.html && top.title === snap.title) return;
+    edHist.push(snap);
+    if(edHist.length > ED_STEPS) edHist.shift();
+    edAhead.length = 0;                /* 새 길로 들어섰다 */
+    edSnapAt = now;
+  }
+
+  /** 한 걸음 뒤로. 갈 곳이 없으면 false */
+  function edStepBack(){
+    if(!edHist.length) return false;
+    const now = edSnapTake();
+    edSnapPut(edHist.pop());
+    if(now) edAhead.push(now);
+    edSnapAt = 0;
+    return true;
+  }
+
+  /** 되돌린 것을 도로 */
+  function edStepFwd(){
+    if(!edAhead.length) return false;
+    const now = edSnapTake();
+    edSnapPut(edAhead.pop());
+    if(now) edHist.push(now);
+    edSnapAt = 0;
+    return true;
+  }
+
+  /* ── 치면서 서식이 되는 글자 ──
+     노션에서 손이 기억하는 것 — `**굵게**` 를 치면 별표가 사라지고 굵어진다.
+     닫는 글자를 친 그 순간에만 본다. 문장 가운데의 별표 하나는 그냥 별표다. */
+  /* 서식마다 심을 태그. 직렬화가 알아보는 것과 같은 이름이다 */
+  const ED_TAG = {bold: 'strong', italic: 'em', strikeThrough: 's', code: 'code'};
+
+  const ED_WRAP = [
+    {re: /\*\*([^*\n]+)\*\*$/,        cmd: 'bold'},
+    {re: /~~([^~\n]+)~~$/,            cmd: 'strikeThrough'},
+    {re: /(^|[^*])\*([^*\n]+)\*$/,    cmd: 'italic', at: 2},
+    {re: /(^|[\s(])_([^_\n]+)_$/,     cmd: 'italic', at: 2},
+    {re: /`([^`\n]+)`$/,              cmd: 'code'},
+  ];
+
+  /**
+   * 커서를 방금 입힌 서식 **바깥**으로 뺀다.
+   *
+   * 닫는 글자를 쳤다는 것은 「여기까지가 굵은 글」이라는 뜻이다. 커서를 그
+   * 안에 둔 채로 두면 뒤에 치는 글이 전부 딸려 굵어지고, 담당자는 서식을
+   * 끄는 법을 따로 찾아야 한다.
+   */
+  function edCaretOut(nx, box){
+    const sel = document.getSelection();
+    if(!box || !box.parentNode){ sel.collapseToEnd(); return; }
+    /* 서식 조각 **다음에 글자 하나를 놓고** 그 뒤로 간다. 빈 마디로는 안
+       된다 — 편집기가 그것을 건너뛰고 커서를 도로 조각 안으로 넣어, 뒤에
+       치는 글이 그대로 딸려 들어간다. 폭이 없는 글자라 화면에 보이지 않고,
+       저장할 때 `edSerialize` 가 걷어 낸다 */
+    const after = document.createTextNode(ED_ZW);
+    box.parentNode.insertBefore(after, box.nextSibling);
+    const r = document.createRange();
+    r.setStart(after, 1);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+
+  /**
+   * 서식으로 바꾸는 일을 **`input` 이 끝난 다음으로 미룬다.**
+   *
+   * 편집기는 제 `input` 을 나르는 동안 걸려 온 지우기·넣기를 못 본 척한다 —
+   * 그 안에서 부르면 아무 일도 일어나지 않는다.
+   */
+  const edWrapLater = it => setTimeout(() => edWrapScan(it), 0);
+
+  /**
+   * 방금 친 글자가 서식을 닫았는지 본다. 닫았으면 표시 글자를 걷고 서식을 입힌다.
+   *
+   * 태그를 **직접 심는다.** `execCommand('bold')` 는 「지금 굵은가」를 화면에
+   * 그려진 대로 보므로, 이미 굵은 제목 줄 안에서는 굵게가 아니라 **굵기를
+   * 푸는 일**이 된다. 우리가 아는 것은 「담당자가 굵게를 닫았다」 하나뿐이니
+   * 그대로 심는 편이 어긋날 자리가 없다.
+   *
+   * 코드 덩어리 안에서는 보지 않는다 — 별표도 백틱도 거기서는 그냥 글자다.
+   */
+  function edWrapScan(it){
+    /* **자기를 물지 않게 한다.** 표시 글자를 걷는 일이 다시 `input` 을
+       일으켜, 막지 않으면 반쯤 지워진 글에 대고 규칙이 또 돈다 */
+    if(edWrapping) return;
+    if((it.retype || it.type) === 'code') return;
+    const head = edBefore(it.nx);
+    if(!head) return;
+    for(const rule of ED_WRAP){
+      const m = rule.re.exec(head);
+      if(!m) continue;
+      const inner = m[rule.at || 1];
+      if(!inner.trim()) continue;
+      /* 앞 글자 하나는 표시가 아니라 본문이라 지우지 않는다(`가*기울임*`) */
+      const eaten = m[0].length - (rule.at ? m[1].length : 0);
+      edWrapping = true;
+      try {
+        edCutBack(eaten);
+        const sel = document.getSelection();
+        if(sel && sel.rangeCount){
+          const box = document.createElement(ED_TAG[rule.cmd]);
+          box.textContent = inner;
+          sel.getRangeAt(0).insertNode(box);
+          edCaretOut(it.nx, box);
+        }
+      } finally { edWrapping = false; }
+      edTouch(it);
+      return;
+    }
+  }
+  let edWrapping = false;
+
+  /**
+   * 줄 하나를 그대로 하나 더. 노션의 Ctrl+D 다.
+   *
+   * 안에 든 줄은 데려가지 않는다 — 「이 줄을 하나 더」와 「이 묶음을 하나 더」는
+   * 다른 일이고, 묶음째는 끌어다 놓는 편이 눈에 보인다.
+   */
+  function edDup(it){
+    const kind = it.retype || it.type || 'bullet';
+    if(kind === 'table' || kind === 'cell') return;
+    const made = edAdd(li => it.li.parentElement.insertBefore(li, it.li.nextSibling),
+                       {type: kind, html: edSerialize(it.nx)});
+    if(kind === 'todo' && it.checked){
+      made.checked = true;
+      made.li.classList.add('on');
+    }
+    edStatus();
+  }
+
+  /* 고른 글자 위에 주소를 붙여넣으면 링크가 된다. 노션이 하는 그대로다 */
+  const ED_URL = /^(https?:\/\/|mailto:)\S+$/i;
 
   function edBindItem(it){
     const nx = it.nx;
@@ -3630,6 +3912,7 @@ function init(D){
     nx.oninput = () => {
       edTouch(it);
       if((it.retype || it.type) !== 'code') edSlScan(it);
+      edWrapLater(it);
     };
     nx.onclick = e => e.stopPropagation();   /* 토글 항목이 접히지 않게 */
     /* 눌러만 두고 아무것도 쓰지 않은 줄은 떠날 때 걷는다. 남겨 두면 노션에
@@ -3643,6 +3926,23 @@ function init(D){
          Enter 까지 줄 쪼개기로 읽으면 한 글자 칠 때마다 줄이 갈라진다.
          keyCode 229 는 조합 중임을 isComposing 대신 알리는 옛 브라우저의 것이다 */
       if(e.isComposing || e.keyCode === 229) return;
+      const undo = e.ctrlKey || e.metaKey;
+      if(undo && String(e.key).toLowerCase() === 'z'){
+        /* 우리가 받는다. 편집기에게 맡기면 줄 하나 안에서만 물리고, 옮기고
+           들여쓰고 지운 것은 물릴 길이 없다 */
+        e.preventDefault();
+        if(e.shiftKey) edStepFwd(); else edStepBack();
+        return;
+      }
+      if(undo && String(e.key).toLowerCase() === 'y'){
+        e.preventDefault();
+        edStepFwd();
+        return;
+      }
+      /* **키를 누른 그 자리에서 걸음을 뜬다.** 글자가 들어가기 전이라 이 자리가
+         곧 되돌아갈 곳이다. 잇달아 치는 글자는 한 걸음으로 뭉치고, 화살표만
+         누른 것은 아무것도 바꾸지 않으므로 `edMark` 가 걸음을 늘리지 않는다 */
+      edMark(e.key.length === 1);
       /* `/` 목록이 떠 있으면 그것이 먼저다 — ↑ ↓ Enter 가 목록의 것이 된다 */
       if(edSlKey(e)) return;
       /* 여러 줄을 골라 두었으면 들여쓰기·옮기기·지우기가 그 모두에 걸린다 */
@@ -3658,12 +3958,41 @@ function init(D){
          손이 글에서 떠나지 않게 하는 것이 전부다. 단추는 그대로 있고,
          여기서는 같은 길을 키보드에도 낸다 */
       const mod = e.ctrlKey || e.metaKey;
+      /* 노션과 같은 손가락 — 굵게·기울임·밑줄은 브라우저가 이미 안다.
+         나머지 셋과 「하나 더」를 여기서 낸다 */
+      if(mod && !e.altKey){
+        const k = String(e.key || '').toLowerCase();
+        if(k === 'e' && !e.shiftKey){ e.preventDefault(); edFormat('code'); return; }
+        if(k === 'k' && !e.shiftKey){ e.preventDefault(); edFormat('link'); return; }
+        if(k === 's' && e.shiftKey){ e.preventDefault(); edFormat('strikeThrough'); return; }
+        if(k === 'd' && !e.shiftKey){ e.preventDefault(); edDup(it); return; }
+        /* 할 일 켜고 끄기. 마우스로 작은 네모를 겨누지 않아도 된다 */
+        if(e.key === 'Enter' && (it.retype || it.type) === 'todo'){
+          e.preventDefault();
+          it.checked = !it.checked;
+          it.li.classList.toggle('on', it.checked);
+          edStatus();
+          return;
+        }
+      }
       if((e.key === 'ArrowUp' || e.key === 'ArrowDown')){
         const dir = e.key === 'ArrowUp' ? 'up' : 'down';
         if(mod && e.shiftKey){                 /* 줄을 옮긴다 */
           e.preventDefault();
           edKeepCaret(nx, () => edMove(it, dir));
           return;
+        }
+        /* Shift 를 쥔 채 줄 끝에 닿으면 **이웃 줄까지 함께 잡는다.** 편집기는
+           칸 하나를 넘어가는 고르기를 저 혼자 하지 못한다 — 여기서 늘려 준다 */
+        if(!mod && e.shiftKey && edAtEdge(nx, dir)){
+          const near = edNextEditable(it.li, dir);
+          if(near){
+            e.preventDefault();
+            const sel = document.getSelection();
+            sel.extend(near.nx, dir === 'up' ? 0 : near.nx.childNodes.length);
+            edPickPaint();
+            return;
+          }
         }
         /* 여러 줄로 접힌 줄 안에서는 그 줄 안에서 먼저 움직인다.
            끝 줄에 닿았을 때만 이웃 줄로 넘어간다 */
@@ -3698,10 +4027,20 @@ function init(D){
         }
       }
       if(e.key === 'Enter' && !e.shiftKey){
+        e.preventDefault();
+        /* **빈 글머리에서 Enter 는 목록을 빠져나온다.** 노션과 같다. 그러지
+           않으면 빈 글머리가 끝없이 이어지고, 멈추려면 Backspace 를 따로
+           찾아야 한다. 들여쓴 줄은 한 칸 나오는 것이 먼저다 */
+        const kind = it.retype || it.type || 'bullet';
+        if(kind !== 'paragraph' && kind !== 'code' && edEmpty(nx)
+           && !it.li.querySelector('li[data-nid]')){
+          if(edParentLi(it.li)) edKeepCaret(nx, () => edMove(it, 'out'));
+          else edRetype(it, 'paragraph');
+          return;
+        }
         /* 커서 자리에서 줄을 가른다. 끝에서 누르면 아래에 빈 줄이 서고,
            가운데서 누르면 뒤쪽 글이 그 줄로 내려간다 — 노션과 같은 손놀림이다.
            줄 안에서 줄을 바꾸는 것은 Shift+Enter 다 */
-        e.preventDefault();
         edSplit(it);
         return;
       }
@@ -3738,8 +4077,18 @@ function init(D){
        중계 서버가 모르는 태그가 섞여 그 줄이 통째로 거절당한다 */
     nx.onpaste = e => {
       e.preventDefault();
+      edMark();
       const t = String((e.clipboardData || window.clipboardData).getData('text/plain'))
         .replace(/\r\n?/g, '\n');
+      /* 고른 글자 위에 주소를 붙여넣으면 그 글자가 링크가 된다. 주소를 그대로
+         드러내지 않고 말이 되는 글에 걸 수 있는 가장 빠른 길이다 */
+      const sel = document.getSelection();
+      if(ED_URL.test(t.trim()) && sel && sel.rangeCount && !sel.isCollapsed
+         && edEditable(sel.anchorNode) === nx){
+        document.execCommand('createLink', false, t.trim());
+        edTouch(it);
+        return;
+      }
       /* 여러 줄이면 줄 수만큼 줄이 된다. 한 줄이면 지금까지처럼 그 자리에 */
       const parts = t.split('\n');
       if(parts.length > 1){ edPasteLines(it, parts); return; }
@@ -4087,6 +4436,7 @@ function init(D){
     }
 
     edAdoptDoc(parcel, out);
+    edHist.length = edAhead.length = 0;
     /* 재빌드 신호가 나갔는지는 중계 서버만 안다. 안 나갔는데 「1~2분 뒤 반영」을
        띄우면 담당자는 닿지 않을 것을 닿았다고 읽는다 */
     edMsg(out.rebuild === 'sent' ? '저장했습니다 · 1~2분 뒤 반영'
@@ -4343,6 +4693,7 @@ function init(D){
   }
 
   function edFormat(cmd){
+    edMark();
     const nx = edSelection();
     if(!nx) return;
     if(cmd === 'code') edCodeWrap(nx);
@@ -4361,6 +4712,7 @@ function init(D){
                      'blue', 'purple', 'pink', 'red'];
 
   function edColor(color){
+    edMark();
     const nx = edSelection();
     if(!nx) return;
     edColorWrap(nx, color);
@@ -4453,7 +4805,12 @@ function init(D){
     document.execCommand('createLink', false, clean);
   }
 
-  function bindEditItems(){
+  /**
+   * @param {{keep?:boolean}} [opt] `keep` 이면 저장소에서 공지를 다시
+   *        불러오지 않는다. 한 걸음 되돌린 뒤가 그렇다 — 화면에 있는 글이
+   *        곧 되돌린 결과라, 저장소의 글로 덮으면 되돌린 것이 사라진다.
+   */
+  function bindEditItems(opt){
     if(!ED.on()) return;
     /* 편집기가 style 대신 태그를 내게 한다. style 로 내면 되읽을 때
        중계 서버가 모르는 것이 되어 그 줄이 거절당한다 */
@@ -4485,6 +4842,11 @@ function init(D){
     if(!edWired){
       edWired = true;
       document.addEventListener('selectionchange', () => { edSelection(); edPickPaint(); });
+      /* 한글을 짓기 시작할 때도 걸음을 뜬다. 조합 중에는 keydown 을 가로채지
+         않으므로, 여기서 뜨지 않으면 한글로 적은 글은 되돌릴 수가 없다 */
+      document.addEventListener('compositionstart', e => {
+        if(ED.on() && edEditable(e.target)) edMark(true);
+      }, true);
       const sc = document.getElementById('scroll');
       if(sc) sc.addEventListener('scroll', () => { if(edTb) edTb.classList.remove('on'); });
       window.addEventListener('beforeunload', e => {
@@ -4493,7 +4855,7 @@ function init(D){
         e.returnValue = '';
       });
     }
-    edLoad();
+    if(!(opt && opt.keep)) edLoad();
   }
 
   /* 지우기 단추. .nx 바깥에 둔다 — 안에 두면 고치는 글의 일부가 되어
@@ -4516,6 +4878,7 @@ function init(D){
    * 있어야 한다. 방금 보탠 줄만은 그냥 없앤다 — 되돌릴 것이 없다.
    */
   function edMarkDel(it, on){
+    edMark();
     if(on && it.isNew){ edForget(it); return; }
     it.del = !!on;
     it.li.classList.toggle('ed-del', it.del);
@@ -4634,6 +4997,7 @@ function init(D){
    *        뒤쪽 글을 안고 서거나, 커서를 줄 처음에 두고 싶을 때 준다
    */
   function edAdd(mount, opts){
+    edMark();
     const o = opts || {};
     const type = o.type || 'bullet';
     const li = edNewRow(type);
@@ -5337,7 +5701,7 @@ function init(D){
 
   /* 공지 접기. 섹션 제목과 toggle 항목이 같은 방식으로 움직인다.
      요약 카드(.psum·개요)는 .notice 를 쓰지 않으므로 걸리지 않는다 */
-  function bindNotice(){
+  function bindNotice(opt){
     document.querySelectorAll('.notice>h3').forEach(h=>h.onclick=()=>
       h.parentElement.classList.toggle('open'));
     document.querySelectorAll('.ck li.tg>.tgh').forEach(h=>h.onclick=e=>{
@@ -5345,7 +5709,7 @@ function init(D){
       h.parentElement.classList.toggle('open');
     });
     bindEditSwitch();
-    bindEditItems();
+    bindEditItems(opt);
   }
 
   /* 아코디언과 채널 탭. 탭을 누르면 목록만 다시 그리고 다시 묶는다 */
