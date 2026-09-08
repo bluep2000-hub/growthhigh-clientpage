@@ -649,6 +649,19 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .ch-call{background:var(--ok-bg);color:var(--ok)}
 .ch-meet{background:var(--accent-bg);color:var(--accent)}
 
+/* 미팅 리듬 — 요약 타일 바로 밑 한 줄. 카드로 세우지 않는다. 사실 셋뿐이라
+   테두리를 두르면 그 무게가 내용보다 커진다 */
+.rhy{font-size:12px;color:var(--tx-3);margin:-6px 0 18px;letter-spacing:-.01em}
+.rhy b{font-weight:600;color:var(--tx-2);font-variant-numeric:tabular-nums}
+
+/* 미팅에서 정한 할 일 */
+tr.act{cursor:pointer}
+.act-w{display:inline-block;font-size:10.5px;font-weight:600;border-radius:4px;
+  padding:2px 7px;white-space:nowrap;line-height:1.5;
+  background:var(--panel-2);color:var(--tx-2)}
+[data-theme="light"] .act-w{background:var(--hover)}
+.act-w.gh{background:var(--accent-bg);color:var(--accent)}
+
 /* 주요 소통 — 목록 위에 따로 선다. 표가 아니라 목록인 까닭은 여기 오르는 것이
    서너 건이고, 표의 격자는 그만한 수를 훑는 데 도움이 되지 않기 때문이다 */
 .tkmj{margin-bottom:18px}
@@ -1343,6 +1356,50 @@ function init(D){
     /* major 는 노션 「주요」 체크다. 옛 산출물에는 이 칸이 없으므로 없으면 거짓이다 */
     .map(t => ({ ...t, hasBody: !!(t.body || t.body_html), major: t.major === true }));
   const majorTalks = talks.filter(t => t.major);
+
+  /* ── 미팅에서 나온 것 ────────────────────────────────────────────────
+     회의록은 소통 내역의 접힌 줄 안에 있고, 안건 열몇 개짜리 글의 맨 밑에
+     할 일 표가 붙는다. 거기까지 내려가 읽는 사람은 없다. 그래서 둘을 밖으로
+     꺼낸다 — 얼마나 자주 만났는가(리듬)와, 만나서 정한 것 중 무엇이
+     남았는가(할 일). 「히스토리만 남는 것」과 「정리되어 제공되는 것」의
+     차이가 이 둘이다. */
+  const meets = talks.filter(t => t.channel === '미팅' || t.channel === '통화');
+  /* 오늘을 빌드 시각이 아니라 브라우저에서 잡는다. 읽는 사람이 서 있는
+     자리가 오늘이고, 페이지가 오래 묵으면 그 사실도 함께 보여야 한다 */
+  const MEET_WINDOW = 90;
+  const meetRecent = (() => {
+    const edge = new Date(); edge.setDate(edge.getDate() - MEET_WINDOW);
+    const ymd = edge.toISOString().slice(0, 10);
+    return meets.filter(t => (t.date || '') >= ymd).length;
+  })();
+
+  /* 최근 세 번의 회의록에서만 뽑는다. 더 거슬러 올라가면 반년 전 「미정」이
+     아직 살아 있는 것처럼 보인다 — 상태를 지니지 않는 목록이 오래될수록
+     화면이 거짓말을 한다. 세 번은 「지난 이야기」가 아니라 「지금 하는
+     이야기」로 읽히는 범위다. */
+  const ACT_MEETS = 3;
+  /* 담당이 읽는 사람에게 뜻이 있는 유일한 갈래다. 그로스하이가 먼저 선다 —
+     이 목록의 값어치는 「우리가 무엇을 하고 있는가」를 전하는 데 있고,
+     읽는 사람에게 할 일부터 들이미는 것은 보고가 아니라 청구다 */
+  const ACT_ORDER = ['그로스하이', '클라이언트'];
+  const actions = (() => {
+    const out = [], seen = new Set();
+    talks.filter(t => (t.actions || []).length).slice(0, ACT_MEETS).forEach(t => {
+      const at = talks.indexOf(t);
+      (t.actions || []).forEach(a => {
+        /* 같은 할 일이 다음 미팅에서 다시 확인되는 일이 잦다. 글자가 똑같은
+           것만 하나로 본다 — 말이 달라진 것까지 같다고 묶으면 서로 다른
+           할 일이 소리 없이 사라진다. talks 가 최신순이라 남는 것은 최근 것 */
+        const key = String(a.item || '').replace(/\s+/g, '');
+        if(!key || seen.has(key)) return;
+        seen.add(key);
+        out.push({ item: a.item, who: a.who || '', due: a.due || '',
+                   date: t.date, from: t.title || '', at });
+      });
+    });
+    const rank = w => { const i = ACT_ORDER.indexOf(w); return i < 0 ? ACT_ORDER.length : i; };
+    return out.sort((x, y) => rank(x.who) - rank(y.who));
+  })();
   const kpi = D.kpi || {};
   /* let 인 까닭은 「＋ 새 공지」다. 새로 만들면 화면에 떠 있는 공지가 그 자리에서
      바뀌어야 한다 — 지금 그려진 줄들은 지난 공지의 것이라, 그대로 두면 담당자가
@@ -5333,12 +5390,14 @@ function init(D){
       <div class="v">${nextEv?esc(String(nextEv.date).slice(5).replace('-','/')):'—'}</div>
       <div class="s">${nextEv?esc(nextEv.title):'예정된 일정이 없습니다'}</div></div>
    </div>
+   ${meetRhythm()}
 
    ${forPrint
       ? `${hasPerf ? `<div class="p2row">${psumCard()}</div>` : ''}${noticeFeed(false)}`
       : `<div class="p2row"${hasPerf ? '' : ' style="grid-template-columns:1fr"'}>
           ${psumCard()}${noticeCard()}</div>`}
    ${schedule(forPrint ? Infinity : undefined)}
+   ${actionCard()}
 
    <div class="card" style="margin-top:24px">
     <div class="ch"><h2>진행 중인 프로젝트</h2><a class="more" href="#" data-go="fund">전체 보기 →</a></div>
@@ -5571,6 +5630,44 @@ function init(D){
         <span class="mj-t">${esc(t.title||'')}</span></span>
         ${t.preview?`<span class="mj-p">${esc(t.preview)}</span>`:''}</li>`;
      }).join('')}</ul></div></section>`;
+  }
+
+  const ymdKo = d => {
+    const p = String(d || '').split('-');
+    return p.length === 3 ? `${+p[1]}월 ${+p[2]}일` : '';
+  };
+
+  /* 미팅 리듬 한 줄. 정기적으로 만나 쌓아 온 것 자체가 값어치인데, 화면에
+     그 리듬이 어디에도 없었다 — 소통 내역을 열어 세어 봐야 알 수 있었다 */
+  function meetRhythm(){
+    if(!meets.length) return '';
+    const last = ymdKo(meets[0].date);
+    return `<p class="rhy">함께한 미팅·통화 <b>${meets.length}회</b>` +
+      (meetRecent ? ` · 최근 3개월 <b>${meetRecent}회</b>` : '') +
+      (last ? ` · 마지막 <b>${esc(last)}</b>` : '') + `</p>`;
+  }
+
+  /* 미팅에서 정한 할 일. 회의록 맨 밑의 「항목·담당·기한」 표를 빌더가
+     뽑아 둔 것을 모은다. 표는 회의록 안에도 그대로 남아 있다 — 여기 것은
+     그것을 가리키는 것이지 대신하는 것이 아니라, 줄을 누르면 그 회의록으로
+     내려간다. 아직 「끝났다」를 지니지 못한다: 상태를 둘 자리가 없어 최근
+     세 번으로 범위를 좁혀 두었다. */
+  function actionCard(){
+    if(!actions.length) return '';
+    return `<div class="card" style="margin-top:24px">
+     <div class="ch"><h2>미팅에서 정한 할 일</h2>
+      <a class="more" href="#" data-go="talk">소통 내역 →</a></div>
+     <table><thead><tr>
+      <th>할 일</th><th style="width:14%">담당</th>
+      <th style="width:15%">기한</th><th style="width:15%">정한 날</th>
+     </tr></thead>
+     <tbody>${actions.map(a=>`<tr class="act" data-actgo="${a.at}"
+       title="${esc(a.from)}">
+      <td class="lead"><div class="t-nm">${esc(a.item)}</div></td>
+      <td><span class="act-w${a.who==='그로스하이'?' gh':''}">${esc(a.who||'—')}</span></td>
+      <td class="dtc">${esc(a.due||'미정')}</td>
+      <td class="dtc">${fmt(a.date)}</td></tr>`).join('')}
+     </tbody></table></div>`;
   }
 
   function talkTabs(){
@@ -5879,29 +5976,43 @@ function init(D){
         x.classList.toggle('on', x.dataset.tktab===talkTab));
       bindTalks();
     });
-    /* 「주요 소통」에서 목록의 그 줄로 내려간다. 탭이 걸려 있으면 먼저 풀어야
-       한다 — 미팅 탭에 있는데 메일을 짚으면 목록에 그 줄이 없다 */
-    document.querySelectorAll('[data-tkgo]').forEach(li=>li.onclick=()=>{
-      const i = li.dataset.tkgo;
-      if(talkTab !== 'all'){
-        talkTab = 'all';
-        const box = document.getElementById('tkList');
-        if(box) box.innerHTML = talkList();
-        document.querySelectorAll('[data-tktab]').forEach(x=>
-          x.classList.toggle('on', x.dataset.tktab==='all'));
-        bindTalks();
-      }
-      const tr = document.querySelector(`tr.tk[data-tk="${i}"]`);
-      if(!tr) return;
-      const body = document.querySelector(`tr.tkb[data-tkb="${i}"]`);
-      /* 이미 펴 둔 것을 다시 눌러 접지 않는다. 여기서 누른 뜻은 「보자」다 */
-      tr.classList.add('open');
-      if(body) body.classList.add('open');
-      tr.scrollIntoView({block:'center', behavior:'smooth'});
-      tr.classList.remove('tkhi');
-      void tr.offsetWidth;                        /* 같은 줄을 두 번 짚어도 다시 깜빡이게 */
-      tr.classList.add('tkhi');
-    });
+    /* 「주요 소통」에서 목록의 그 줄로 내려간다 */
+    document.querySelectorAll('[data-tkgo]').forEach(li=>
+      li.onclick=()=>talkOpen(li.dataset.tkgo));
+    /* 「미팅에서 정한 할 일」은 다른 화면에 있다. 화면부터 옮기고 편다 */
+    document.querySelectorAll('[data-actgo]').forEach(tr=>
+      tr.onclick=()=>goTalk(tr.dataset.actgo));
+  }
+
+  /* 소통 내역 목록의 그 줄을 펴고 그리로 내려간다. 탭이 걸려 있으면 먼저
+     풀어야 한다 — 미팅 탭에 있는데 메일을 짚으면 목록에 그 줄이 없다 */
+  function talkOpen(i){
+    if(talkTab !== 'all'){
+      talkTab = 'all';
+      const box = document.getElementById('tkList');
+      if(box) box.innerHTML = talkList();
+      document.querySelectorAll('[data-tktab]').forEach(x=>
+        x.classList.toggle('on', x.dataset.tktab==='all'));
+      bindTalks();
+    }
+    const tr = document.querySelector(`tr.tk[data-tk="${i}"]`);
+    if(!tr) return;
+    const body = document.querySelector(`tr.tkb[data-tkb="${i}"]`);
+    /* 이미 펴 둔 것을 다시 눌러 접지 않는다. 여기서 누른 뜻은 「보자」다 */
+    tr.classList.add('open');
+    if(body) body.classList.add('open');
+    tr.scrollIntoView({block:'center', behavior:'smooth'});
+    tr.classList.remove('tkhi');
+    void tr.offsetWidth;                        /* 같은 줄을 두 번 짚어도 다시 깜빡이게 */
+    tr.classList.add('tkhi');
+  }
+
+  /* 다른 화면에서 소통 내역의 그 줄로. 이미 그 화면이면 다시 그리지 않는다 —
+     go() 는 스크롤과 탭을 처음으로 되돌린다 */
+  function goTalk(i){
+    const cur = document.querySelector('.nv.on');
+    if(!cur || cur.dataset.id !== 'talk') go('talk');
+    talkOpen(i);
   }
   document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});
   /* 주소에 해시가 있으면 그 화면에서 시작한다. 잠금이 풀린 뒤에만 온다 */
