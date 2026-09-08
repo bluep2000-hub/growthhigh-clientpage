@@ -349,6 +349,28 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
    일은 다음 빌드가 한다. 그때까지 무엇으로 바뀔지를 여기 적어 둔다 */
 .ed-rt{font-size:10.5px;color:var(--tx-3);margin-left:7px;padding:0 5px;border-radius:4px;
   background:var(--panel-2);white-space:nowrap}
+/* ── 손놀림 안내 ──
+   저장 창구 밑에 접어 둔다. 편집 모드에서만 그려지므로 클라이언트는 못 본다 */
+.ed-help{margin:10px 0 4px;font-size:12px;color:var(--tx-2)}
+.ed-help>summary{cursor:pointer;color:var(--tx-3);padding:4px 2px;list-style:none;
+  display:inline-flex;align-items:center;gap:5px}
+.ed-help>summary::-webkit-details-marker{display:none}
+.ed-help>summary::before{content:'▸';font-size:10px}
+.ed-help[open]>summary::before{content:'▾'}
+.ed-help>summary:hover{color:var(--accent)}
+.ed-help-b{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:2px 22px;
+  margin-top:6px;padding:13px 15px;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:9px}
+.ed-help-b h4{font-size:11.5px;font-weight:700;color:var(--tx);margin:9px 0 5px}
+.ed-help-b section:first-child h4{margin-top:0}
+.ed-help-b dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0}
+.ed-help-b dt{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:10.5px;color:var(--tx);white-space:nowrap;background:var(--panel);
+  border:1px solid var(--line-2);border-radius:4px;padding:1px 5px;height:fit-content}
+.ed-help-b dd{margin:0;font-size:11.5px;color:var(--tx-2);line-height:1.55}
+.ed-help-b dd code{font-size:10.5px}
+.ed-help-n{grid-column:1/-1;margin:12px 0 0;padding-top:9px;font-size:11.5px;
+  color:var(--tx-3);border-top:1px solid var(--line)}
 /* ── 편집 모드의 할 일 ──
    클라이언트 화면은 읽기 전용이라 작은 원과 체크 표시만 둔다. 편집 모드에서는
    **누를 수 있는 네모**여야 한다 — 5px 원은 글머리 점과 구별이 안 되고,
@@ -1705,7 +1727,10 @@ function init(D){
        클라이언트 화면에서 제목 없는 칸은 늘 열어 둔다 — 접으면 다시 펼
        손잡이가 없어 그 줄들이 통째로 사라진다. 편집 모드에는 제목이 비어도
        손잡이가 있으므로(이름을 붙일 자리라 늘 그린다) 그 예외가 필요 없다 */
-    const opened = (s,si) => si===0 || (!edit && !(s.heading_html || s.heading));
+    /* **편집 모드에서는 칸이 접히지 않는다.** 접는 것은 읽는 사람을 위한
+       것이지 고치는 사람을 위한 것이 아니다 — 고치는 동안에는 다 보여야
+       하고, 접힌 칸에 커서를 두면 보이지 않는 곳에서 글이 써진다 */
+    const opened = (s,si) => edit || si===0 || !(s.heading_html || s.heading);
 
     return boxes.map((s,si)=>`
       <div class="notice${opened(s,si)?' open':''}"${
@@ -1734,7 +1759,8 @@ function init(D){
     if(!edit && !has) return '';
     const body = has ? (s.heading_html ? noticeHtml(s.heading_html) : esc(s.heading)) : '';
     if(!edit) return `<h3><i class="tw">▸</i><span>${body}</span></h3>`;
-    return `<h3><i class="tw">▸</i><span class="nsx" data-nsx>${body}</span>
+    /* 접기 손잡이(▸)를 그리지 않는다. 편집 모드에서는 접을 일이 없다 */
+    return `<h3><span class="nsx" data-nsx>${body}</span>
       <span class="ns-mv">
         <button data-nsmv="up" title="칸을 위로">↑</button>
         <button data-nsmv="down" title="칸을 아래로">↓</button>
@@ -1749,7 +1775,69 @@ function init(D){
       <button data-edundo disabled>되돌리기</button>
       <button data-edrev>지난 판</button>
       <span class="cnt" data-edcnt>공지를 불러오는 중…</span>
-      <span class="msg" data-edmsg></span></div>`;
+      <span class="msg" data-edmsg></span></div>` + edGuide();
+  }
+
+  /**
+   * 손놀림 안내. 저장 창구 밑에 접어 둔다.
+   *
+   * **클라이언트에게는 이 화면이 보이지 않는다.** 편집 모드에서만 그려지므로
+   * 여기에 무엇을 적어도 클라이언트가 보는 것은 달라지지 않는다 — 담당자가
+   * 쓰다 막혔을 때 찾아갈 곳이 화면 안에 있어야 한다.
+   */
+  function edGuide(){
+    const rows = [
+      ['글 쓰기', [
+        ['Enter', '줄 나누기 · 줄 끝이면 새 줄'],
+        ['Shift + Enter', '줄 안에서 줄바꿈'],
+        ['Backspace', '줄 처음에서 — 종류 벗기 → 내어쓰기 → 윗줄과 합치기'],
+        ['Ctrl + Z', '한 걸음 되돌리기'],
+        ['Ctrl + Shift + Z', '다시 앞으로'],
+        ['Ctrl + D', '이 줄 하나 더'],
+      ]],
+      ['줄 종류 — 줄 앞에서 치기', [
+        ['- ', '글머리'], ['1. ', '번호'], ['[] ', '할 일 (<code>[x] </code> 는 켜 둔 채로)'],
+        ['# ## ### ', '제목 1 · 2 · 3'], ['&gt; ', '토글'], ['&quot; ', '인용'],
+        ['/', '목록에서 고르기 — 표 · 코드 · 새 칸도 여기'],
+      ]],
+      ['줄 종류 — 단축키', [
+        ['Ctrl + Shift + 0', '본문'],
+        ['Ctrl + Shift + 1 2 3', '제목 1 · 2 · 3'],
+        ['Ctrl + Shift + 4', '할 일'],
+        ['Ctrl + Shift + 5', '글머리'],
+        ['Ctrl + Shift + 6', '번호'],
+        ['Ctrl + Shift + 7', '토글'],
+        ['Ctrl + Shift + 8', '코드'],
+      ]],
+      ['서식', [
+        ['Ctrl + B / I / U', '굵게 · 기울임 · 밑줄'],
+        ['Ctrl + Shift + S', '취소선'],
+        ['Ctrl + E', '코드'],
+        ['Ctrl + K', '링크'],
+        ['**굵게** *기울임*', '치는 대로 서식이 된다'],
+        ['`코드` ~~취소~~', '치는 대로 서식이 된다'],
+        ['색 · 형광펜', '글자를 고르면 뜨는 막대의 🎨'],
+        ['주소 붙여넣기', '글자를 고른 채로 붙이면 링크가 된다'],
+      ]],
+      ['옮기기 · 고르기', [
+        ['Tab / Shift + Tab', '들여쓰기 · 내어쓰기'],
+        ['Ctrl + Shift + ↑ ↓', '줄 옮기기'],
+        ['↑ ↓', '줄 사이 이동'],
+        ['Shift + ↑ ↓', '여러 줄 잡기 — 잡은 뒤 Tab · 옮기기 · Backspace 가 모두에 걸린다'],
+        ['줄 왼쪽 ⠿', '끌어서 옮기기'],
+      ]],
+      ['표 · 할 일', [
+        ['Tab', '표 안에서 다음 칸 · 마지막 칸이면 행이 는다'],
+        ['Ctrl + Enter', '할 일 체크'],
+        ['표 밑 단추', '행 · 열 늘리고 줄이기'],
+      ]],
+    ];
+    return `<details class="ed-help"><summary>손놀림 안내 — 담당자만 보입니다</summary>
+      <div class="ed-help-b">${rows.map(([name, list]) => `<section>
+        <h4>${name}</h4><dl>${list.map(([key, what]) =>
+          `<dt>${key}</dt><dd>${what}</dd>`).join('')}</dl></section>`).join('')}
+      <p class="ed-help-n">손댄 것은 「저장」을 눌러야 나갑니다.
+        저장하면 1~2분 뒤 클라이언트 화면에 닿습니다.</p></div></details>`;
   }
 
   /* ══ 편집 모드 ═══════════════════════════════════════════════════
@@ -2715,10 +2803,6 @@ function init(D){
   /** 글이 아니라 자리와 종류를 손댄 것. 「되돌리기」가 이 둘만 다르게 물린다 */
   const edStruct = op => op === 'move' || op === 'retype';
 
-  /** 그 줄의 종류 고르개 */
-  const edMvSel = it =>
-    it.nx.parentElement.querySelector(':scope>.nx-mv [data-nrt]');
-
   /** 그 줄 안의 목록. 없으면 세운다 — 들여쓴 줄이 갈 곳이다 */
   function edSubList(li){
     let sub = li.querySelector(':scope>ul');
@@ -2918,8 +3002,6 @@ function init(D){
     if(it.isNew){ it.type = kind; it.retype = null; }
     else it.retype = kind === it.type ? null : kind;
     edSkin(it);
-    const sel = edMvSel(it);
-    if(sel) sel.value = kind;
     edRtChip(it);
     edMvSync();
     edStatus();
@@ -2986,22 +3068,13 @@ function init(D){
       <button data-nmv="up" title="한 칸 위로">↑</button>
       <button data-nmv="down" title="한 칸 아래로">↓</button>
       <button data-nmv="out" title="내어쓰기">⇤</button>
-      <button data-nmv="in" title="들여쓰기">⇥</button>${
-      /* 표에는 종류 고르개를 두지 않는다. 표를 글머리로 바꾼다는 말이
-         성립하지 않고, 눌리면 격자가 통째로 사라진다 */
-      it.type === 'table' ? '' : `
-      <select data-nrt aria-label="줄 종류">${
-        ED_TYPES.map(([v, name]) =>
-          `<option value="${v}"${v === it.type ? ' selected' : ''}>${name}</option>`).join('')}
-      </select>`}`;
+      <button data-nmv="in" title="들여쓰기">⇥</button>`;
+    /* **종류 고르개를 두지 않는다.** 종류를 바꾸는 길이 셋이나 되고(`/`,
+       줄 앞 글자, Ctrl+Shift+숫자) 전부 손이 글에서 떠나지 않는데, 줄마다
+       고르개를 달아 두면 읽는 데 방해가 되기만 한다 */
     box.querySelectorAll('[data-nmv]').forEach(b => {
       b.onclick = e => { e.stopPropagation(); edMove(it, b.dataset.nmv); };
     });
-    const sel = box.querySelector('[data-nrt]');
-    if(sel){
-      sel.onclick = e => e.stopPropagation();
-      sel.onchange = () => edRetype(it, sel.value);
-    }
     anchor.parentElement.insertBefore(box, anchor.nextSibling);
     edMvSync();
   }
@@ -3030,8 +3103,6 @@ function init(D){
       box.querySelectorAll('[data-nmv]').forEach(b => {
         b.disabled = it.del || !can[b.dataset.nmv];
       });
-      const pick = box.querySelector('[data-nrt]');
-      if(pick) pick.disabled = it.del;      /* 표에는 고르개가 없다 */
     });
   }
 
@@ -3069,8 +3140,6 @@ function init(D){
       it.retype = null;
       edSkin(it);                 /* 본디 모양으로 돌아온다 */
       edRtChip(it);
-      const sel = edMvSel(it);
-      if(sel) sel.value = it.type;
     }
     if(it.moved){
       /* 제자리로 돌려놓지 못했으면 「되돌렸다」고 말하지 않는다. 표시를
@@ -3765,11 +3834,7 @@ function init(D){
       edWire(it);
       /* 지울 줄은 고칠 수 없는 채로, 바꿀 종류는 딱지를 붙인 채로 돌아온다 */
       if(it.del && !it.isNew){ it.nx.removeAttribute('contenteditable'); edDelBtn(it); }
-      if(it.retype){
-        const pick = edMvSel(it);
-        if(pick) pick.value = it.retype;
-        edRtChip(it);
-      }
+      if(it.retype) edRtChip(it);
     });
 
     const inp = document.getElementById('ntitle');
@@ -5717,7 +5782,7 @@ function init(D){
      칸을 세울 때(`edSecAdd`)도 같은 것을 걸어야 한다 */
   function bindNoticeBox(box){
     const h3 = box.querySelector(':scope>h3');
-    if(h3) h3.onclick = () => box.classList.toggle('open');
+    if(h3 && !ED.on()) h3.onclick = () => box.classList.toggle('open');
     /* `.ntail` 은 편집 모드에서만 그려진다 — 클라이언트 화면에서는 아무것도 걸지 않는다 */
     const bd = box.querySelector(':scope>.bd');
     if(!bd || !bd.querySelector(':scope>.ntail')) return;
@@ -5741,7 +5806,9 @@ function init(D){
   /* 공지 접기. 섹션 제목과 toggle 항목이 같은 방식으로 움직인다.
      요약 카드(.psum·개요)는 .notice 를 쓰지 않으므로 걸리지 않는다 */
   function bindNotice(opt){
-    document.querySelectorAll('.notice>h3').forEach(h=>h.onclick=()=>
+    /* 편집 모드에서는 머리말을 눌러도 접히지 않는다. 이름을 고치러 누른 손이
+       칸을 통째로 접어 버리면, 방금까지 보던 줄이 사라진다 */
+    if(!ED.on()) document.querySelectorAll('.notice>h3').forEach(h=>h.onclick=()=>
       h.parentElement.classList.toggle('open'));
     document.querySelectorAll('.ck li.tg>.tgh').forEach(h=>h.onclick=e=>{
       e.stopPropagation();                      /* 중첩 토글에서 위까지 닫히지 않게 */
