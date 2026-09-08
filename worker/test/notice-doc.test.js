@@ -231,6 +231,93 @@ describe("PUT /notice/doc", () => {
     expect(rows[0].checked).toBeUndefined();
   });
 
+  const table = (cols, cells, extra) => ({
+    type: "table", cols,
+    items: cells.map((html) => ({ type: "cell", html })), ...extra,
+  });
+  const send = (items) => write({ slug: "whiffkorea", noticeId: "notice-1", version: 3,
+                                  title: "제목", sections: [{ title: "칸", items }] });
+
+  it("표를 받고 칸마다 주소를 붙인다", async () => {
+    whiff();
+
+    const res = await send([table(2, ["가", "나", "다", "라"])]);
+
+    expect(res.status).toBe(200);
+    const row = (await res.json()).sections[0].items[0];
+    expect(row).toMatchObject({ type: "table", cols: 2 });
+    expect(row.items.map((c) => c.html)).toEqual(["가", "나", "다", "라"]);
+    // 주소가 없던 칸에도 붙는다 — 다음 저장이 같은 칸을 짚을 수 있어야 한다
+    expect(row.items.every((c) => c.id)).toBe(true);
+    expect(new Set(row.items.map((c) => c.id)).size).toBe(4);
+  });
+
+  it("줄이 고르지 않은 표는 422 다", async () => {
+    whiff();
+
+    // 세 칸씩 두 줄이어야 하는데 다섯 칸뿐이다
+    const res = await send([table(3, ["가", "나", "다", "라", "마"])]);
+
+    expect(res.status).toBe(422);
+    expect(stored("notice-1").version).toBe(3);
+  });
+
+  it("칸이 없는 표와 칸 수가 잘못된 표는 422 다", async () => {
+    whiff();
+
+    await expect(send([table(2, [])])).resolves.toMatchObject({ status: 422 });
+    await expect(send([table(0, ["가"])])).resolves.toMatchObject({ status: 422 });
+    await expect(send([table(99, ["가"])])).resolves.toMatchObject({ status: 422 });
+    expect(stored("notice-1").version).toBe(3);
+  });
+
+  it("표의 칸은 표 밖에 서지 못한다", async () => {
+    whiff();
+
+    const res = await send([{ type: "cell", html: "떠도는 칸" }]);
+
+    expect(res.status).toBe(422);
+    expect(stored("notice-1").version).toBe(3);
+  });
+
+  it("표 안에는 칸만 놓는다", async () => {
+    whiff();
+
+    const res = await send([{ type: "table", cols: 1,
+                              items: [{ type: "bullet", html: "줄" }] }]);
+
+    expect(res.status).toBe(422);
+  });
+
+  it("표의 칸 안에는 줄을 넣지 못한다", async () => {
+    whiff();
+
+    const res = await send([{ type: "table", cols: 1, items: [
+      { type: "cell", html: "가", items: [{ type: "bullet", html: "속" }] }] }]);
+
+    expect(res.status).toBe(422);
+  });
+
+  it("빈 칸이 든 표도 받는다 — 비워 둔 것과 없는 것은 다르다", async () => {
+    whiff();
+
+    const res = await send([table(2, ["가", "", "", "라"])]);
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).sections[0].items[0].items.map((c) => c.html))
+      .toEqual(["가", "", "", "라"]);
+  });
+
+  it("코드는 줄바꿈을 지닌 채로 오간다", async () => {
+    whiff();
+
+    const res = await send([{ type: "code", html: "const a = 1;<br>const b = 2;" }]);
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).sections[0].items[0])
+      .toMatchObject({ type: "code", html: "const a = 1;<br>const b = 2;" });
+  });
+
   it("모르는 종류는 422 다", async () => {
     whiff();
 

@@ -1067,7 +1067,9 @@ RELAY_URL_DEFAULT = ("https://growthhigh-clientpage-relay"
 #: 저장소가 싣는 항목의 종류 → 봉투에 그대로 실린다. 화면이 이 값으로 그린다.
 NOTICE_KINDS = {"bullet", "number", "todo", "paragraph", "quote", "toggle",
                 # 줄 안의 제목. 중계 서버의 doc.js ITEM_KINDS 와 같아야 한다
-                "heading1", "heading2", "heading3"}
+                "heading1", "heading2", "heading3",
+                # 코드 한 덩어리, 그리고 표와 그 칸
+                "code", "table", "cell"}
 
 
 def relay_notice(slug: str) -> dict | None:
@@ -1119,6 +1121,21 @@ def doc_items(items: list[dict]) -> list[dict]:
             continue                     # 모르는 종류. 봉투에 실을 그림이 없다
         children = doc_items(it.get("items") or [])
         html = it.get("html") or ""
+        # 표의 빈 칸은 남긴다. 버리면 그 줄만 칸이 하나 모자라 표가 어긋난다 —
+        # 표에서 빈 칸은 「없는 것」이 아니라 「비워 둔 것」이다.
+        if kind == "cell":
+            out.append({"type": kind, "checked": None, "html": html, "children": [],
+                        **({"id": it["id"]} if it.get("id") else {})})
+            continue
+        if kind == "table":
+            if not children:
+                continue                 # 칸이 하나도 없는 표는 그릴 것이 없다
+            row = {"type": kind, "checked": None, "html": "", "children": children,
+                   "cols": it.get("cols") or len(children)}
+            if it.get("id"):
+                row["id"] = it["id"]
+            out.append(row)
+            continue
         if not html and not children:
             continue
         # 인용을 태그로 감싸지 않는다. 종류가 봉투에 실리므로 화면이 그것을

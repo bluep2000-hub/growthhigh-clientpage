@@ -26,7 +26,21 @@ const ITEM_KINDS = new Set([
   // 줄 안의 제목. `# ` `## ` `### ` 로 만든다. 칸(섹션)이 그 공지의 큰 제목이고
   // 이것들은 그 아래다 — 노션이 페이지 제목 밑에 h1·h2·h3 를 두는 것과 같다.
   "heading1", "heading2", "heading3",
+  // 코드는 서식 없는 글 한 덩어리다. 줄바꿈이 그대로 살아야 하므로 <br> 로 싣는다.
+  "code",
+  // 표. 칸(cell)을 한 줄로 늘어놓고 `cols` 로 몇 칸마다 줄을 바꾸는지 적는다.
+  // 행을 따로 두지 않는 것은 행이 아무것도 지니지 않기 때문이다 — 두면 확인할
+  // 것과 주소를 붙일 것만 한 겹 늘고, 담당자에게 보이는 것은 달라지지 않는다.
+  "table", "cell",
 ]);
+
+/**
+ * 표 한 줄에 놓을 수 있는 칸의 수.
+ *
+ * 클라이언트 화면이 폭 좁은 화면에서도 읽혀야 한다. 여덟을 넘기면 어차피
+ * 가로로 흘러 표의 값어치가 없어진다.
+ */
+const MAX_COLS = 8;
 
 /** 주소로 받아 주는 모양. 짧은 이름이고, 화면이 지어낸 긴 값을 막는다. */
 const ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
@@ -68,21 +82,59 @@ export function readTitle(value, name = "title") {
   return value;
 }
 
-function readItems(raw, taken, depth) {
+/**
+ * @param {string|null} parent 이 배열을 품은 항목의 종류. 맨 위는 null 이다.
+ *        표의 칸이 표 밖에 서 있는 문서를 막는 데 쓴다.
+ */
+function readItems(raw, taken, depth, parent = null) {
   if (raw === undefined || raw === null) return [];
   if (depth > MAX_DEPTH) throw unprocessable("항목이 너무 깊습니다");
 
-  return asArray(raw, "items").map((i) => {
+  const rows = asArray(raw, "items").map((i) => {
     if (!isObject(i)) throw unprocessable("항목이 아닙니다");
     if (!ITEM_KINDS.has(i.type)) throw unprocessable(`모르는 종류: ${i.type}`);
+    // 표의 칸은 표 안에만 선다. 밖에 두면 화면이 그릴 자리가 없어 소리 없이
+    // 사라지고, 담당자는 저장했는데 없어졌다고 읽는다.
+    if ((i.type === "cell") !== (parent === "table")) {
+      throw unprocessable(parent === "table"
+        ? "표 안에는 칸만 놓습니다" : "표의 칸이 표 밖에 있습니다");
+    }
 
     const item = { id: readId(i.id, taken), type: i.type, html: readHtml(i.html) };
     // 체크는 할 일에만 싣는다. 다른 종류에 남겨 두면 종류를 바꿔 돌아왔을 때
     // 꺼 둔 적 없는 체크가 되살아난다.
     if (i.type === "todo") item.checked = i.checked === true;
-    item.items = readItems(i.items, taken, depth + 1);
+    if (i.type === "table") item.cols = readCols(i.cols);
+    item.items = readItems(i.items, taken, depth + 1, i.type);
+    if (i.type === "table") readGrid(item);
+    // 칸 안에는 아무것도 들이지 않는다. 표 안의 표는 화면이 그리지 못한다.
+    if (i.type === "cell" && item.items.length) {
+      throw unprocessable("표의 칸에는 줄을 넣지 못합니다");
+    }
     return item;
   });
+  return rows;
+}
+
+/** 표 한 줄에 놓을 칸의 수. */
+function readCols(cols) {
+  if (!Number.isInteger(cols) || cols < 1 || cols > MAX_COLS) {
+    throw unprocessable(`표의 칸 수가 잘못되었습니다: ${cols}`);
+  }
+  return cols;
+}
+
+/**
+ * 표가 네모인지 본다.
+ *
+ * 칸 수가 `cols` 의 배수가 아니면 마지막 줄이 모자란 표다. 화면은 그것을
+ * 그리다 줄이 깨지고, 다음 저장은 그 깨진 모양을 그대로 되돌려 보낸다 —
+ * 한 번 어긋나면 스스로 낫지 않으므로 들어올 때 막는다.
+ */
+function readGrid(table) {
+  const n = table.items.length;
+  if (!n) throw unprocessable("표에 칸이 없습니다");
+  if (n % table.cols) throw unprocessable("표의 줄이 고르지 않습니다");
 }
 
 /**

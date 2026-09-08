@@ -380,6 +380,33 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 [data-c=purple_background]{background:#8a5cc426}
 [data-c=pink_background]{background:#c2568e26}
 [data-c=red_background]{background:#c9483f26}
+/* ── 코드 ──
+   서식 없는 글 한 덩어리다. 줄바꿈과 공백이 적은 그대로 보여야 한다 */
+.ck li.cd{padding-left:0;margin:8px 0}
+.ck li.cd::before{content:none}
+.ck li.cd>.nx,.ck li.cd>.cdb{display:block;white-space:pre-wrap;word-break:break-word;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;
+  line-height:1.6;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:6px;padding:9px 11px;overflow-x:auto}
+/* ── 표 ──
+   넓은 표는 제 안에서 가로로 흐른다. 본문이 통째로 밀리지 않게 한다 */
+.ck li.tbl{padding-left:0;margin:9px 0}
+.ck li.tbl::before{content:none}
+.ntbw{overflow-x:auto;border-radius:7px;border:1px solid var(--line)}
+table.ntb{width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.6}
+table.ntb td{border:1px solid var(--line);padding:6px 9px;vertical-align:top;
+  min-width:64px}
+table.ntb tr:first-child td{background:var(--panel-2);font-weight:600;color:var(--tx)}
+table.ntb td>.nx{display:block;min-height:1.2em}
+/* 행·열 단추 — 표에 손이 갈 때만 나온다 */
+.ntbc{opacity:0;display:flex;gap:3px;margin-top:4px}
+.ck li.tbl:hover>.ntbc,.ntbc:focus-within{opacity:1}
+.ntbc button{font-size:11px;color:var(--tx-3);border:1px solid var(--line-2);
+  border-radius:5px;padding:2px 8px}
+.ntbc button:hover{color:var(--accent);border-color:var(--accent)}
+/* 고친 칸에도 줄과 같은 자국을 붙인다 */
+.ck td.ed-dirty{box-shadow:inset 2px 0 var(--accent)}
+.ck td.ed-new{box-shadow:inset 2px 0 var(--ok)}
 /* ── 줄 안의 제목 ──
    칸 이름보다 작다. 칸이 이미 그 공지의 큰 제목이라, 줄 안의 제목이 그보다
    커지면 위계가 뒤집힌다 */
@@ -1584,7 +1611,40 @@ function init(D){
   /* 항목의 종류 → 줄 앞에 그릴 표시 */
   const KIND_CLS = { bullet:'plain', number:'ord', paragraph:'para',
                      quote:'qt', toggle:'tg0',
-                     heading1:'hd1', heading2:'hd2', heading3:'hd3' };
+                     heading1:'hd1', heading2:'hd2', heading3:'hd3',
+                     code:'cd', table:'tbl', cell:'cel' };
+
+  /** 표 한 줄에 놓을 수 있는 칸의 수. 중계 서버의 MAX_COLS 와 같아야 한다 */
+  const MAX_COLS = 8;
+
+  /**
+   * 표 한 덩어리.
+   *
+   * 문서에는 **칸이 한 줄로 늘어서 있고** 몇 칸마다 줄을 바꾸는지가 `cols` 다.
+   * 행을 따로 두지 않는 것은 행이 아무것도 지니지 않기 때문이다 — 여기서
+   * `cols` 개씩 끊어 `<tr>` 로 묶는다.
+   */
+  function noticeTable(it, edit, mark){
+    const cells = it.children || [];
+    const cols = Math.max(1, Math.min(MAX_COLS, it.cols || cells.length || 1));
+    let rows = '';
+    for(let at = 0; at < cells.length; at += cols){
+      rows += '<tr>' + cells.slice(at, at + cols).map(c => {
+        const body = noticeHtml(c.html);
+        return edit && c.id
+          ? `<td data-nid="${esc(c.id)}"><span class="nx">${body}</span></td>`
+          : `<td>${body}</td>`;
+      }).join('') + '</tr>';
+    }
+    /* 넓은 표는 제 안에서 가로로 흐른다. 본문이 가로로 밀리지 않게 한다 */
+    return `<li class="tbl"${mark}>${edit ? '<span class="nx" hidden></span>' : ''}
+      <div class="ntbw"><table class="ntb"><tbody>${rows}</tbody></table></div>${
+      edit ? `<div class="ntbc">
+        <button data-tb="row+" title="아래에 행 하나">＋ 행</button>
+        <button data-tb="col+" title="오른쪽에 열 하나">＋ 열</button>
+        <button data-tb="row-" title="마지막 행 지우기">− 행</button>
+        <button data-tb="col-" title="마지막 열 지우기">− 열</button></div>` : ''}</li>`;
+  }
 
   function noticeItem(it, depth, edit){
     const c = it.checked;
@@ -1607,6 +1667,14 @@ function init(D){
     if(edit && it.id){
       mark = ` data-nid="${esc(it.id)}"`;
       text = `<span class="nx">${body}</span>`;
+    }
+
+    /* 표는 글줄이 아니라 격자다. 안에 든 줄도 두지 않는다 */
+    if(it.type === 'table') return noticeTable(it, edit, mark);
+    /* 코드는 서식 없는 글 한 덩어리다. 줄바꿈과 공백이 그대로 보여야 한다 */
+    if(it.type === 'code'){
+      return `<li class="cd"${mark}><span class="${edit && it.id ? 'nx' : 'cdb'}"
+        >${body}</span></li>`;
     }
 
     /* 노션에서 접어 둔 항목은 접힌 채로 시작한다 — 접어 둔 의도를 따른다 */
@@ -1846,6 +1914,9 @@ function init(D){
    *   type     그 줄의 종류. 저장할 때 문서에 그대로 실린다
    *   retype   바꾸려는 종류. 저장 전까지 화면에만 있다
    */
+  /** 장부에 오르는 것 — 줄과 표의 칸. 둘 다 고치고 저장에 실린다 */
+  const ED_ROWS = '.ck li[data-nid], .ck td[data-nid]';
+
   const edItem = (li, nx, extra) => Object.assign(
     {li, nx, display: '', base: null,
      isNew: false, del: false, checked: false, checkBase: false,
@@ -1992,6 +2063,7 @@ function init(D){
     const items = list => (list || []).map(i => ({
       id: i.id, type: i.type, html: i.html || '',
       checked: i.type === 'todo' ? !!i.checked : null,
+      cols: i.type === 'table' ? i.cols : undefined,
       children: items(i.items),
       toggle: i.type === 'toggle' && (i.items || []).length ? true : undefined,
     }));
@@ -2061,7 +2133,9 @@ function init(D){
     /* 화면은 방금 그려졌고 장부는 비어 있다 — `go` 가 함께 버린다. 그래서
        여기서 하는 일은 지금 화면에 있는 줄을 장부에 올리는 것뿐이다 */
     const next = new Map();
-    document.querySelectorAll('.ck li[data-nid]').forEach(li => {
+    /* 표의 칸도 장부에 올린다. 줄이 아니라 `td` 지만, 고치고 · 자국을 붙이고 ·
+       저장에 실어 보내는 일은 줄과 똑같다 */
+    document.querySelectorAll(ED_ROWS).forEach(li => {
       const nx = li.querySelector(':scope>.nx, :scope>.tgh>.nx');
       if(!nx) return;
       /* 처음 그려진 **표시용** HTML 을 지켜 둔다. 곧 편집용으로 갈아 끼우므로
@@ -2146,13 +2220,26 @@ function init(D){
     edPaint(it, node.html || '');
     it.nx.contentEditable = 'true';
     it.nx.spellcheck = false;
-    edBindItem(it);
-
     it.type = node.type || 'bullet';
+
+    /* 표의 칸은 줄이 아니다. 옮기지도, 종류를 바꾸지도, 혼자 지워지지도
+       않는다 — 표가 그것을 데리고 다닌다 */
+    if(it.type === 'cell'){ edBindCell(it); return; }
+
+    edBindItem(it);
     it.checked = it.checkBase = node.type === 'todo' && !!node.checked;
     it.home = edWhereKey(it);
     it.moved = false;
     edMvBox(it);
+    if(it.type === 'table'){
+      /* 열 때의 격자를 본으로 떠 둔다. 「되돌리기」가 돌아갈 곳이 여기다 */
+      const body = it.li.querySelector('tbody');
+      it.tbase = body ? body.cloneNode(true) : null;
+      edTableBind(it);
+      return;
+    }
+    /* 표에는 안내 글자를 띄우지 않는다. 글 칸이 비어 있는 것이 정상이고,
+       비었다고 「보탬」 표시를 걷으면 새로 세운 표가 눈에 띄지 않는다 */
     edHint(it);
   }
 
@@ -2764,7 +2851,8 @@ function init(D){
   /** 줄의 종류. 공지 문서가 싣는 여섯 가지다 */
   const ED_TYPES = [['bullet','글머리'], ['number','번호'], ['todo','할 일'],
                     ['paragraph','본문'], ['quote','인용'], ['toggle','토글'],
-                    ['heading1','제목 1'], ['heading2','제목 2'], ['heading3','제목 3']];
+                    ['heading1','제목 1'], ['heading2','제목 2'], ['heading3','제목 3'],
+                    ['code','코드']];
 
   /**
    * 줄 앞에서 이것을 치고 빈칸을 누르면 그 종류가 된다.
@@ -2806,6 +2894,9 @@ function init(D){
    */
   function edSkin(it){
     const li = it.li;
+    /* 표와 그 칸은 클래스 한 줄로 갈아입힐 수 있는 것이 아니다 — 격자가
+       뼈대이고, 종류를 바꿀 수 있는 것도 아니다 */
+    if(it.type === 'table' || it.type === 'cell') return;
     if(li.classList.contains('tg')) return;
     const kind = it.retype || it.type;
     const keep = ['ed-new', 'ed-dirty', 'ed-fail', 'ed-del', 'ed-moved']
@@ -2852,17 +2943,22 @@ function init(D){
       <button data-nmv="up" title="한 칸 위로">↑</button>
       <button data-nmv="down" title="한 칸 아래로">↓</button>
       <button data-nmv="out" title="내어쓰기">⇤</button>
-      <button data-nmv="in" title="들여쓰기">⇥</button>
+      <button data-nmv="in" title="들여쓰기">⇥</button>${
+      /* 표에는 종류 고르개를 두지 않는다. 표를 글머리로 바꾼다는 말이
+         성립하지 않고, 눌리면 격자가 통째로 사라진다 */
+      it.type === 'table' ? '' : `
       <select data-nrt aria-label="줄 종류">${
         ED_TYPES.map(([v, name]) =>
           `<option value="${v}"${v === it.type ? ' selected' : ''}>${name}</option>`).join('')}
-      </select>`;
+      </select>`}`;
     box.querySelectorAll('[data-nmv]').forEach(b => {
       b.onclick = e => { e.stopPropagation(); edMove(it, b.dataset.nmv); };
     });
     const sel = box.querySelector('[data-nrt]');
-    sel.onclick = e => e.stopPropagation();
-    sel.onchange = () => edRetype(it, sel.value);
+    if(sel){
+      sel.onclick = e => e.stopPropagation();
+      sel.onchange = () => edRetype(it, sel.value);
+    }
     anchor.parentElement.insertBefore(box, anchor.nextSibling);
     edMvSync();
   }
@@ -2891,7 +2987,8 @@ function init(D){
       box.querySelectorAll('[data-nmv]').forEach(b => {
         b.disabled = it.del || !can[b.dataset.nmv];
       });
-      box.querySelector('[data-nrt]').disabled = it.del;
+      const pick = box.querySelector('[data-nrt]');
+      if(pick) pick.disabled = it.del;      /* 표에는 고르개가 없다 */
     });
   }
 
@@ -3111,10 +3208,11 @@ function init(D){
   /* 줄의 종류가 아니라 칸을 세우는 자리. 목록에만 있고 고르개에는 없다 —
      고르개는 그 줄 하나의 종류를 고르는 것이지 공지의 뼈대를 세우는 것이 아니다 */
   const ED_SL_SEC = '@sec';
+  const ED_SL_TBL = '@table';
 
   /** 쳐 넣은 글자로 추린다. 한글 이름과 저장소가 쓰는 이름을 함께 본다 */
-  const edSlHits = q => [...ED_TYPES, [ED_SL_SEC, '새 칸']].filter(([v, name]) =>
-    !q || name.indexOf(q) === 0 || v.indexOf(q.toLowerCase()) === 0);
+  const edSlHits = q => [...ED_TYPES, [ED_SL_TBL, '표'], [ED_SL_SEC, '새 칸']]
+    .filter(([v, name]) => !q || name.indexOf(q) === 0 || v.indexOf(q.toLowerCase()) === 0);
 
   /** 지금 커서 앞이 「/무엇」인가. 맞으면 목록을 띄운다 */
   function edSlScan(it){
@@ -3155,6 +3253,7 @@ function init(D){
     /* 칸을 세우면 커서가 그 이름으로 간다. 쳐 두었던 `/새 칸` 만 걷고 이 줄은
        그대로 둔다 — 빈 줄이면 떠나면서 저절로 걷힌다 */
     if(kind === ED_SL_SEC){ edSecAdd(); return; }
+    if(kind === ED_SL_TBL){ edTableAdd(it); return; }
     edRetype(it, kind);
   }
 
@@ -3308,10 +3407,230 @@ function init(D){
     return false;
   }
 
+  /* ── 표 ──
+     문서에는 칸이 한 줄로 늘어서 있고 몇 칸마다 줄을 바꾸는지가 `cols` 다.
+     화면에서는 그것이 `<table>` 이고, **화면이 곧 문서다** — 저장이 표를
+     걸어 다니며 칸을 순서대로 주워 담는다. 그래서 행을 보태고 지우는 일이
+     장부를 건드리지 않고 DOM 만 고치는 일로 끝난다. */
+
+  /** 그 표의 칸들. 화면에 보이는 차례 그대로 — 그것이 곧 문서의 차례다 */
+  const edCells = li => [...li.querySelectorAll('td[data-nid]')];
+
+  /** 그 표의 열 수. 첫 행이 말해 준다 */
+  const edCols = li => {
+    const head = li.querySelector('tr');
+    return head ? head.querySelectorAll('td').length : 1;
+  };
+
+  /** 빈 칸 하나. 장부에 올리고 고칠 수 있게 열어 둔다 */
+  function edCellNew(){
+    edSeq += 1;
+    const td = document.createElement('td');
+    td.dataset.nid = `new-${edSeq}`;
+    td.innerHTML = '<span class="nx"></span>';
+    const nx = td.querySelector('.nx');
+    const it = edItem(td, nx, {base: '', isNew: true, type: 'cell'});
+    edItems.set(td.dataset.nid, it);
+    nx.contentEditable = 'true';
+    nx.spellcheck = false;
+    edBindCell(it);
+    return td;
+  }
+
+  /** 빈 표 하나. 세우자마자 적을 자리가 있어야 한다 */
+  function edTableNew(rows, cols){
+    edSeq += 1;
+    const li = document.createElement('li');
+    li.className = 'tbl ed-new';
+    li.dataset.nid = `new-${edSeq}`;
+    li.innerHTML = `<span class="nx" hidden></span>
+      <div class="ntbw"><table class="ntb"><tbody></tbody></table></div>
+      <div class="ntbc">
+        <button data-tb="row+" title="아래에 행 하나">＋ 행</button>
+        <button data-tb="col+" title="오른쪽에 열 하나">＋ 열</button>
+        <button data-tb="row-" title="마지막 행 지우기">− 행</button>
+        <button data-tb="col-" title="마지막 열 지우기">− 열</button></div>`;
+    const body = li.querySelector('tbody');
+    for(let r = 0; r < rows; r += 1){
+      const tr = document.createElement('tr');
+      for(let c = 0; c < cols; c += 1) tr.appendChild(edCellNew());
+      body.appendChild(tr);
+    }
+    return li;
+  }
+
+  /**
+   * 표 하나를 세운다. **저장소에는 나가지 않는다** — 저장이 함께 내보낸다.
+   *
+   * 세운 자리는 부른 줄의 바로 아래다. 그 줄이 아직 빈 줄이면 표가 그 자리를
+   * 대신하므로, 떠날 때 빈 줄은 저절로 걷힌다.
+   */
+  function edTableAdd(it){
+    const li = edTableNew(2, 2);
+    it.li.parentElement.insertBefore(li, it.li.nextSibling);
+    const box = edItem(li, li.querySelector(':scope>.nx'),
+                       {base: '', isNew: true, type: 'table'});
+    edItems.set(li.dataset.nid, box);
+    edCheckBind(box);
+    bindDelete(box.nx);
+    edMvBox(box);
+    edTableBind(box);
+    li.scrollIntoView({block: 'nearest'});
+    const first = edCells(li)[0];
+    if(first) edFocusEnd(edItems.get(first.dataset.nid).nx);
+    edMvSync();
+    edStatus();
+    return box;
+  }
+
+  /** 행·열 단추. 표를 다시 그리지 않고 그 자리에서 고친다 */
+  function edTableBind(it){
+    it.li.querySelectorAll(':scope>.ntbc>[data-tb]').forEach(b => {
+      b.onclick = e => { e.stopPropagation(); edTableEdit(it, b.dataset.tb); };
+    });
+  }
+
+  function edTableEdit(it, what){
+    const body = it.li.querySelector('tbody');
+    const rows = [...body.querySelectorAll('tr')];
+    const cols = edCols(it.li);
+    if(what === 'row+'){
+      const tr = document.createElement('tr');
+      for(let c = 0; c < cols; c += 1) tr.appendChild(edCellNew());
+      body.appendChild(tr);
+      const first = tr.querySelector('td');
+      if(first) edFocusEnd(edItems.get(first.dataset.nid).nx);
+    } else if(what === 'col+'){
+      if(cols >= MAX_COLS){
+        edMsg(`한 줄에 ${MAX_COLS}칸까지입니다 — 더 넣으면 가로로 흘러 읽기 나쁩니다`, true);
+        return;
+      }
+      rows.forEach(tr => tr.appendChild(edCellNew()));
+    } else if(what === 'row-'){
+      /* 마지막 하나는 남긴다. 다 지우면 표가 아니라 빈 껍데기가 되고,
+         저장소도 칸 없는 표를 받지 않는다 — 지우려면 표를 지운다 */
+      if(rows.length < 2){ edTableTooSmall(); return; }
+      if(!edTableMayLose(rows[rows.length - 1].querySelectorAll('td'))) return;
+      edCellsForget(rows.pop());
+    } else if(what === 'col-'){
+      if(cols < 2){ edTableTooSmall(); return; }
+      const last = rows.map(tr => tr.lastElementChild).filter(Boolean);
+      if(!edTableMayLose(last)) return;
+      last.forEach(td => edCellsForget(td));
+    }
+    /* 표에는 글 칸이 없어 `edTouch` 의 자로는 바뀐 것이 잡히지 않는다.
+       행·열을 고친 것이 곧 손질이므로 여기서 자국을 붙인다 */
+    if(!it.isNew) it.li.classList.add('ed-dirty');
+    edStatus();
+  }
+
+  /**
+   * 표를 열 때의 모습으로 돌려놓는다.
+   *
+   * 글 한 줄이 아니라 격자라 `edPaint` 로는 되돌릴 수가 없다. 열 때 떠 둔
+   * 본을 도로 심고, 그 안의 칸들을 장부에 다시 올린다 — 심은 칸은 열 때의
+   * 글을 그대로 지니므로 기준선도 그 자리에서 다시 세워진다.
+   */
+  function edTableUndo(it){
+    if(!it.tbase) return;
+    const body = it.li.querySelector('tbody');
+    if(!body) return;
+    edCells(it.li).forEach(td => edItems.delete(td.dataset.nid));
+    const fresh = it.tbase.cloneNode(true);
+    body.replaceWith(fresh);
+    edCells(it.li).forEach(td => {
+      const nx = td.querySelector(':scope>.nx');
+      if(!nx) return;
+      const kid = edItem(td, nx, {type: 'cell', base: edSerialize(nx)});
+      edItems.set(td.dataset.nid, kid);
+      nx.contentEditable = 'true';
+      nx.spellcheck = false;
+      edBindCell(kid);
+    });
+    it.li.classList.remove('ed-dirty', 'ed-fail');
+  }
+
+  const edTableTooSmall = () =>
+    edMsg('마지막 하나는 남깁니다 — 표째로 지우려면 표의 ✕ 를 눌러 주세요', true);
+
+  /* 글이 든 칸이 사라지려 하면 먼저 묻는다. 빈 칸은 잃을 것이 없어 그냥 간다 */
+  function edTableMayLose(cells){
+    const said = [...cells].filter(td => {
+      const kid = edItems.get(td.dataset.nid);
+      return kid && !edEmpty(kid.nx);
+    }).length;
+    return !said || confirm(`글이 든 칸 ${said}개가 함께 사라집니다.\n\n계속할까요?`);
+  }
+
+  /* 화면과 장부에서 함께 걷는다. 장부에만 남으면 다음 저장이 없는 칸을 찾는다 */
+  function edCellsForget(node){
+    (node.matches && node.matches('td') ? [node] : [...node.querySelectorAll('td')])
+      .forEach(td => edItems.delete(td.dataset.nid));
+    node.remove();
+  }
+
+  /** 옆 칸으로. 마지막 칸에서 Tab 을 누르면 행이 하나 는다 — 노션과 같다 */
+  function edCellHop(it, step){
+    const li = it.li.closest('li.tbl');
+    if(!li) return;
+    const all = edCells(li);
+    const at = all.indexOf(it.li);
+    const next = all[at + step];
+    if(next){
+      const kid = edItems.get(next.dataset.nid);
+      if(kid) edFocusEnd(kid.nx);
+      return;
+    }
+    if(step > 0){
+      const box = edItems.get(li.dataset.nid);
+      if(box) edTableEdit(box, 'row+');
+    }
+  }
+
+  /**
+   * 표의 칸을 고칠 수 있게 연다.
+   *
+   * 줄과 달리 Enter 가 갈라지지 않는다 — 칸은 줄이 아니라 칸이라 갈릴 자리가
+   * 없다. 그 자리에서 줄만 바꾼다.
+   */
+  function edBindCell(it){
+    const nx = it.nx;
+    nx.oninput = () => edTouch(it);
+    nx.onkeydown = e => {
+      if(e.isComposing || e.keyCode === 229) return;
+      if(e.key === 'Escape'){ e.preventDefault(); nx.blur(); return; }
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        document.execCommand('insertLineBreak');
+        edTouch(it);
+        return;
+      }
+      if(e.key === 'Tab'){
+        e.preventDefault();
+        edCellHop(it, e.shiftKey ? -1 : 1);
+      }
+    };
+    nx.onpaste = edPastePlain(it);
+  }
+
+  /* 붙여넣기는 글자만 받는다. 중계 서버가 모르는 태그가 섞이면 그 칸이
+     통째로 거절당한다 */
+  const edPastePlain = it => e => {
+    e.preventDefault();
+    const t = String((e.clipboardData || window.clipboardData).getData('text/plain'))
+      .replace(/\r\n?/g, '\n');
+    document.execCommand('insertText', false, t);
+    edTouch(it);
+  };
+
   function edBindItem(it){
     const nx = it.nx;
     edCheckBind(it);
-    nx.oninput = () => { edTouch(it); edSlScan(it); };
+    /* 코드 안에서는 `/` 목록을 부르지 않는다. 주소와 나눗셈이 거기 산다 */
+    nx.oninput = () => {
+      edTouch(it);
+      if((it.retype || it.type) !== 'code') edSlScan(it);
+    };
     nx.onclick = e => e.stopPropagation();   /* 토글 항목이 접히지 않게 */
     /* 눌러만 두고 아무것도 쓰지 않은 줄은 떠날 때 걷는다. 남겨 두면 노션에
        없는 빈 줄이 화면에만 쌓인다 */
@@ -3328,6 +3647,13 @@ function init(D){
       if(edSlKey(e)) return;
       /* 여러 줄을 골라 두었으면 들여쓰기·옮기기·지우기가 그 모두에 걸린다 */
       if(edPicked.length > 1 && edManyKey(e, edPicked.slice())) return;
+      /* 코드 안에서는 Enter 가 줄바꿈이다. 갈라지면 한 덩어리가 아니게 된다 */
+      if((it.retype || it.type) === 'code' && e.key === 'Enter' && !e.shiftKey){
+        e.preventDefault();
+        document.execCommand('insertLineBreak');
+        edTouch(it);
+        return;
+      }
       /* ── 키보드로 줄을 넘고 옮기고 들여쓴다 ──
          손이 글에서 떠나지 않게 하는 것이 전부다. 단추는 그대로 있고,
          여기서는 같은 길을 키보드에도 낸다 */
@@ -3356,8 +3682,9 @@ function init(D){
         edKeepCaret(nx, () => edMove(it, e.shiftKey ? 'out' : 'in'));
         return;
       }
-      /* 줄 앞에서 `- ` `1. ` `[] ` `> ` `" ` — 노션과 같은 글자다 */
-      if(e.key === ' ' && !mod){
+      /* 줄 앞에서 `- ` `1. ` `[] ` `> ` `" ` — 노션과 같은 글자다.
+         코드 안에서는 보지 않는다. `# ` 도 `> ` 도 코드에서는 그냥 글자다 */
+      if(e.key === ' ' && !mod && (it.retype || it.type) !== 'code'){
         const head = edHead(nx);
         const kind = head && edMdKind(head);
         if(kind){
@@ -3460,7 +3787,7 @@ function init(D){
       if(sec.nsx.textContent.trim() !== sec.base) out.push({sec, op:'secname'});
       if(edSecMoved(sec)) out.push({sec, op:'secmove'});
     });
-    document.querySelectorAll('.ck li[data-nid]').forEach(li => {
+    document.querySelectorAll(ED_ROWS).forEach(li => {
       const it = edItems.get(li.dataset.nid);
       if(!it) return;
       /* 지울 줄 안에 든 줄, 지울 칸 안에 든 줄은 따로 세지 않는다. 그릇이
@@ -3469,8 +3796,21 @@ function init(D){
       const sec = edSecs.get((li.closest('.notice') || {dataset:{}}).dataset.nsec);
       if(sec && sec.del) return;
       if(it.del){ out.push({it, op:'remove'}); return; }
+      /* 표의 칸은 표가 데리고 다닌다. 고친 것만 따로 세고, 보탠 것은 세지
+         않는다 — 새 표 하나가 「4줄 보탬」으로 보이면 안 된다 */
+      if(it.type === 'cell'){
+        if(!it.isNew && li.classList.contains('ed-dirty')) out.push({it, op:'edit'});
+        return;
+      }
       if(it.isNew){
-        if(!edEmpty(it.nx)) out.push({it, op:'add'});
+        if(it.type === 'table' || !edEmpty(it.nx)) out.push({it, op:'add'});
+        return;
+      }
+      /* 표는 글 칸이 없다. 행·열이 바뀌었는지는 화면과 문서를 견주기 어려워,
+         손댄 표는 `edTouch` 가 붙인 자국으로 잡는다 */
+      if(it.type === 'table'){
+        if(li.classList.contains('ed-dirty')) out.push({it, op:'edit'});
+        if(edMoved(it)) out.push({it, op:'move'});
         return;
       }
       if(li.classList.contains('ed-dirty')) out.push({it, op:'edit'});
@@ -3543,7 +3883,13 @@ function init(D){
   /* 눌러만 두고 아무것도 쓰지 않은 빈 줄을 걷는다. 저장소는 빈 줄도 받지만,
      쓰지 않은 줄을 내보내 봐야 다음 빌드가 버린다 */
   function edSweep(){
-    edItems.forEach(it => { if(it.isNew && !it.del && edEmpty(it.nx)) edForget(it); });
+    edItems.forEach(it => {
+      /* 표와 그 칸은 이 자로 재지 않는다. 표의 글 칸은 언제나 비어 있고,
+         칸은 비워 두는 것이 뜻이 있다 — 재면 새로 세운 표가 저장 직전에
+         소리 없이 걷혀 아무것도 나가지 않는다 */
+      if(it.type === 'table' || it.type === 'cell') return;
+      if(it.isNew && !it.del && edEmpty(it.nx)) edForget(it);
+    });
   }
 
   /**
@@ -3583,8 +3929,19 @@ function init(D){
       if(!li.matches('li[data-nid]')) return;
       const it = edItems.get(li.dataset.nid);
       if(!it || it.del) return;                    /* 지울 줄. 안엣것도 함께 간다 */
-      if(it.isNew && edEmpty(it.nx)) return;       /* 눌러만 두고 안 쓴 줄 */
       const kind = it.retype || it.type || 'bullet';
+      /* 표는 글 칸이 비어 있는 것이 정상이다. 빈 줄과 같은 자로 재면 새로
+         세운 표가 저장에 실리지 않는다 */
+      if(kind !== 'table' && it.isNew && edEmpty(it.nx)) return;
+      if(kind === 'table'){
+        const cells = edParcelCells(li);
+        if(!cells.length) return;                  /* 칸이 없는 표는 표가 아니다 */
+        const row = {type: 'table', cols: edCols(li), html: '',
+                     items: cells.map(c => c.row)};
+        if(!it.isNew) row.id = li.dataset.nid;
+        out.push({li, it, row, kids: cells});
+        return;
+      }
       const sub = li.querySelector(':scope>ul');
       const kids = sub ? edParcelItems(sub) : [];
       const row = {type: kind, html: edSerialize(it.nx), items: kids.map(k => k.row)};
@@ -3594,6 +3951,22 @@ function init(D){
       out.push({li, it, row, kids});
     });
     return out;
+  }
+
+  /**
+   * 표의 칸들.
+   *
+   * **빈 칸도 싣는다.** 빈 줄과 달리 비워 둔 칸은 「없는 것」이 아니라
+   * 「비워 둔 것」이라, 빠뜨리면 그 줄만 칸이 모자라 표가 어긋난다.
+   */
+  function edParcelCells(li){
+    return edCells(li).map(td => {
+      const it = edItems.get(td.dataset.nid);
+      if(!it) return null;
+      const row = {type: 'cell', html: edSerialize(it.nx), items: []};
+      if(!it.isNew) row.id = td.dataset.nid;
+      return {li: td, it, row, kids: []};
+    }).filter(Boolean);
   }
 
   /**
@@ -3626,6 +3999,12 @@ function init(D){
       edClearNote(it);
       edRtChip(it);
       walk(k.kids, node.items || []);
+      /* 표의 본은 **칸의 주소를 갈아 끼운 뒤에** 뜬다. 먼저 뜨면 본에 아직
+         임시 이름이 박혀 있어, 「되돌리기」가 저장소에 없는 주소를 되살린다 */
+      if(it.type === 'table'){
+        const body = li.querySelector('tbody');
+        it.tbase = body ? body.cloneNode(true) : null;
+      }
     });
 
     parcel.forEach((p, at) => {
@@ -3877,6 +4256,7 @@ function init(D){
       if(p.op === 'add'){ edForget(p.it); return; }
       if(p.op === 'remove'){ edMarkDel(p.it, false); return; }
       if(edStruct(p.op)){ whole = edUndoOne(p.it) && whole; return; }
+      if(p.it.type === 'table'){ edTableUndo(p.it); return; }
       edPaint(p.it, p.it.base);
       p.it.li.classList.remove('ed-dirty', 'ed-fail');
       edClearNote(p.it);
@@ -4154,7 +4534,8 @@ function init(D){
   /* 화면과 장부에서 통째로 지운다. 안에 든 줄도 함께 — 노션이 그릇을 지울 때
      하는 것과 같다 */
   function edForget(it){
-    it.li.querySelectorAll('li[data-nid]').forEach(k => edItems.delete(k.dataset.nid));
+    it.li.querySelectorAll('li[data-nid], td[data-nid]')
+      .forEach(k => edItems.delete(k.dataset.nid));
     edItems.delete(it.li.dataset.nid);
     it.li.remove();
     edTrimLists();
