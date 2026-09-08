@@ -2438,27 +2438,40 @@ TALK_BODY_MAX_DEPTH = 6          # 폭주 방지. 실제 회의록은 2~3단이�
 TALK_HEADING_TAG = {"heading_1": "h2", "heading_2": "h3", "heading_3": "h4"}
 TALK_LIST_TAG = {"bulleted_list_item": "ul", "numbered_list_item": "ol"}
 
+# 회의록 끝의 Action Items 표를 알아보는 머리 행.
+#
+# 섹션 제목으로 찾지 않는다 — 같은 표가 「## 14. Action Items」로도
+# 「## 3. 향후 일정 및 Action Items」로도 오고, 번호도 말도 회의마다
+# 흔들린다. 회의록 사이에서 변하지 않는 것은 이 세 낱말뿐이다
+# (`skills/talk-summary/SKILL.md` 가 그렇게 쓰라고 정해 둔 것이다).
+ACTION_HEAD = ("항목", "담당", "기한")
 
-def table_html(nt: Notion, block: dict) -> str:
-    """회의록의 Action Items 표. table 의 자식은 table_row 뿐이다."""
-    meta = block.get("table") or {}
+
+def table_grid(nt: Notion, block: dict) -> list[list[list[dict]]] | None:
+    """표를 칸의 격자로 한 번만 읽는다. table 의 자식은 table_row 뿐이다.
+
+    그려 내는 것과 할 일을 뽑는 것이 같은 표를 두 번 받아 오지 않게
+    여기서 한 번 읽어 둘로 나눠 쓴다. 읽지 못하면 None 이다."""
     try:
         rows = nt.children(block["id"])
     except ClientFailure as e:
         warn(f"회의록 표 조회 실패 — 표 생략: {e}")
-        return ""
+        return None
+    return [(r.get("table_row") or {}).get("cells") or []
+            for r in rows if r.get("type") == "table_row"]
 
-    cells_of = lambda r: ((r.get("table_row") or {}).get("cells") or [])
+
+def table_html(block: dict, grid: list) -> str:
+    """회의록의 표. 칸은 table_grid 가 읽어 둔 것을 쓴다."""
+    meta = block.get("table") or {}
     header = bool(meta.get("has_column_header"))
     row_header = bool(meta.get("has_row_header"))
 
     out = []
-    for i, r in enumerate(rows):
-        if r.get("type") != "table_row":
-            continue
+    for i, cells in enumerate(grid):
         head = header and i == 0
         tds = []
-        for j, cell in enumerate(cells_of(r)):
+        for j, cell in enumerate(cells):
             tag = "th" if head or (row_header and j == 0) else "td"
             tds.append(f"<{tag}>{runs_to_html(cell)}</{tag}>")
         if not tds:
@@ -2467,13 +2480,49 @@ def table_html(nt: Notion, block: dict) -> str:
                    else ("<tr>" + "".join(tds) + "</tr>"))
     if not out:
         return ""
-    if out and out[0].startswith("<thead>"):
+    if out[0].startswith("<thead>"):
         return f"<table>{out[0]}<tbody>{''.join(out[1:])}</tbody></table>"
     return f"<table><tbody>{''.join(out)}</tbody></table>"
 
 
-def talk_body_html(nt: Notion, blocks: list[dict], depth: int = 0) -> str:
-    """지원 블록만 HTML 로 옮긴다. 그 밖은 조용히 건너뛴다."""
+def runs_plain(runs: list[dict]) -> str:
+    """서식을 벗긴 글자. 할 일은 목록 한 줄로 나가므로 태그가 필요 없다."""
+    return "".join(r.get("plain_text", "") for r in runs).strip()
+
+
+def table_actions(grid: list) -> list[dict]:
+    """머리 행이 「항목·담당·기한」인 표만 할 일로 읽는다.
+
+    아니면 빈 목록이다. 회의록에는 비용표·시나리오 비교표도 들어 있어,
+    아무 표나 할 일로 읽으면 화면 맨 앞에 엉뚱한 것이 걸린다."""
+    if len(grid) < 2:
+        return []
+    head = [runs_plain(c) for c in grid[0]]
+    if tuple(head[:3]) != ACTION_HEAD:
+        return []
+
+    out = []
+    for cells in grid[1:]:
+        vals = [runs_plain(c) for c in cells]
+        # 항목이 비었으면 할 일이 아니다. 담당·기한만 적힌 줄은 표를 다듬다
+        # 남은 빈 줄이다.
+        if not vals or not vals[0]:
+            continue
+        out.append({
+            "item": vals[0],
+            "who": vals[1] if len(vals) > 1 else "",
+            "due": vals[2] if len(vals) > 2 else "",
+        })
+    return out
+
+
+def talk_body_html(nt: Notion, blocks: list[dict], depth: int = 0,
+                   actions: list | None = None) -> str:
+    """지원 블록만 HTML 로 옮긴다. 그 밖은 조용히 건너뛴다.
+
+    @param actions 넘기면 Action Items 표를 만날 때마다 그 줄들을 여기 담는다.
+        표는 본문에서 빼지 않는다 — 회의록은 그날의 기록 그대로여야 하고,
+        위로 올린 할 일은 그것을 가리키는 것이지 대신하는 것이 아니다."""
     if depth > TALK_BODY_MAX_DEPTH:
         return ""
 
@@ -2517,14 +2566,18 @@ def talk_body_html(nt: Notion, blocks: list[dict], depth: int = 0) -> str:
             parts.append("<hr>")
 
         elif t == "table":
-            parts.append(table_html(nt, b))
+            grid = table_grid(nt, b)
+            if grid:
+                parts.append(table_html(b, grid))
+                if actions is not None:
+                    actions.extend(table_actions(grid))
 
         elif t == "callout":
             h = runs_to_html(block_runs(b))
             kids = ""
             if b.get("has_children"):
                 try:
-                    kids = talk_body_html(nt, nt.children(b["id"]), depth + 1)
+                    kids = talk_body_html(nt, nt.children(b["id"]), depth + 1, actions)
                 except ClientFailure as e:
                     warn(f"회의록 콜아웃 조회 실패 — 건너뜁니다: {e}")
             if h or kids:
@@ -2536,12 +2589,14 @@ def talk_body_html(nt: Notion, blocks: list[dict], depth: int = 0) -> str:
     return "".join(p for p in parts if p)
 
 
-def fetch_talk_body(nt: Notion, page_id: str, title: str) -> str:
+def fetch_talk_body(nt: Notion, page_id: str, title: str) -> tuple[str, list[dict]]:
+    """회의록 본문 HTML 과, 그 안에서 뽑아낸 할 일."""
+    acts: list[dict] = []
     try:
-        return talk_body_html(nt, nt.children(page_id))
+        return talk_body_html(nt, nt.children(page_id), actions=acts), acts
     except ClientFailure as e:
         warn(f"회의록 본문 조회 실패 — 본문 없이 내보냅니다({title[:24]}): {e}")
-        return ""
+        return "", []
 
 
 # ── 노션 소통 DB: 읽기 (보류만 제외) ─────────────────────────────────────
@@ -2574,12 +2629,14 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
 
         # 미팅·통화는 회의록이 페이지 본문에 있다. 메일은 지금처럼 「요약」이 본문이다.
         body = body_html = None
+        actions: list[dict] = []
         if channel in TALK_CHANNELS_WITH_MINUTES:
-            body_html = fetch_talk_body(nt, pg["id"], p_text(pr, "제목")) or None
+            body_html, actions = fetch_talk_body(nt, pg["id"], p_text(pr, "제목"))
+            body_html = body_html or None
         else:
             body = nn(summary)
 
-        out.append({
+        row = {
             "date": (p_date(pr, "일자").get("start") or "")[:10],
             "channel": channel,
             "title": p_text(pr, "제목"),
@@ -2591,7 +2648,11 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
             # 담당자가 노션에서 골라 둔 것. 화면 맨 위 「주요 소통」이 이것만 모은다.
             # 거르지 않고 표시만 싣는다 — 주요가 아닌 것도 목록에는 그대로 남는다.
             "major": p_checkbox(pr, "주요"),
-        })
+        }
+        # 없는 미팅이 대부분이라 있을 때만 싣는다 — 봉투를 빈 배열로 불리지 않는다.
+        if actions:
+            row["actions"] = actions
+        out.append(row)
     return out
 
 
@@ -2766,8 +2827,10 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
 
     talks = build_talks(nt, client, name, skip_imap, dry_run, known_names, talks_days)
     n_major = sum(1 for t in talks if t.get("major"))
+    n_act = sum(len(t.get("actions") or []) for t in talks)
     log(f"  소통 내역 {len(talks)}건 (보류 제외)"
-        + (f" · 주요 {n_major}건" if n_major else ""))
+        + (f" · 주요 {n_major}건" if n_major else "")
+        + (f" · 할 일 {n_act}건" if n_act else ""))
 
     events = build_events(progress, name, include_expired)
     log(f"  일정 {len(events)}건")
