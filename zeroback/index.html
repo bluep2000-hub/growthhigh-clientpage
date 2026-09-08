@@ -2463,7 +2463,7 @@ function init(D){
       sp.dataset.ot = edPlain(sp);
       sp.className = 'ed-o';
       sp.contentEditable = 'false';
-      sp.title = '노션에서만 만들 수 있는 조각입니다 — 그대로 남습니다';
+      sp.title = '노션에서만 편집할 수 있는 블록입니다 — 그대로 유지됩니다';
     });
   }
 
@@ -3106,7 +3106,7 @@ function init(D){
     g.className = 'nx-gr';
     g.draggable = true;
     g.textContent = '⠿';
-    g.title = '끌어서 옮깁니다';
+    g.title = '드래그해서 이동';
     g.ondragstart = e => {
       edDrag = it;
       it.li.classList.add('ed-dragging');
@@ -3737,7 +3737,7 @@ function init(D){
   }
 
   const edTableTooSmall = () =>
-    edMsg('마지막 하나는 남깁니다 — 표 전체를 지우려면 표의 ✕ 를 누르세요', true);
+    edMsg('마지막 하나는 남습니다 — 표 전체를 삭제하려면 표의 ✕ 를 누르세요', true);
 
   /* 글이 든 칸이 사라지려 하면 먼저 묻는다. 빈 칸은 잃을 것이 없어 그냥 간다 */
   function edTableMayLose(cells){
