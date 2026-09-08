@@ -973,7 +973,8 @@ def block_to_html(nt: Notion, b: dict) -> str:
     """
     t = b.get("type")
     if t == "table":
-        return table_html(nt, b)
+        grid = table_grid(nt, b)
+        return table_html(b, grid) if grid else ""
     if t == "divider":
         return "<hr>"
     if t == "code":
