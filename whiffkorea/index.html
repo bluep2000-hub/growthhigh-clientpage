@@ -788,6 +788,25 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 /* 목록에서도 어느 줄이 주요인지 보인다 — 위의 덩어리와 아래 목록이 같은 것을
    가리킨다는 표가 없으면 담당자가 같은 건을 둘로 센다 */
 .mj-s{font-style:normal;color:var(--accent);font-size:11px;flex:none}
+/* 담당자용 별. 행 전체를 여는 클릭과 겹치지 않도록 독립된 버튼으로 두고,
+   고객 화면에는 이 버튼 자체를 그리지 않는다. */
+.tk-major{width:30px;height:30px;margin:-6px -4px -6px -7px;padding:0;border:0;
+  border-radius:6px;background:transparent;color:var(--tx-3);font:inherit;font-size:18px;
+  line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:none;
+  cursor:pointer;transition:color .12s,background .12s,transform .12s}
+.tk-major:hover{color:var(--accent);background:var(--accent-bg)}
+.tk-major[aria-pressed="true"]{color:var(--accent)}
+.tk-major:active{transform:scale(.9)}
+.tk-major:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tk-major:disabled{cursor:wait;opacity:.55;transform:none}
+@media(pointer:coarse){.tk-major{width:42px;height:42px;margin:-12px -6px -12px -10px}}
+.tkmaj-msg{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px;
+  font-size:11.5px;line-height:1.5;color:var(--no)}
+.tkmaj-msg.note{color:var(--tx-2)}
+.tkmaj-msg button{border:0;background:transparent;color:inherit;font:inherit;font-weight:600;
+  padding:0;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.tkmaj-msg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.tk-auth-error{font-size:12px;color:var(--no);margin:-7px 0 14px}
 /* 위에서 짚어 내려온 줄. 애니메이션이 끝나면 저절로 가라앉는다 */
 @keyframes tkhi{from{background:var(--accent-bg)}to{background:transparent}}
 tr.tkhi>td{animation:tkhi 1.6s ease-out}
@@ -1482,7 +1501,7 @@ function init(D){
       preview: (t.preview || '').trim() || null }))
     /* major 는 노션 「주요」 체크다. 옛 산출물에는 이 칸이 없으므로 없으면 거짓이다 */
     .map(t => ({ ...t, hasBody: !!(t.body || t.body_html), major: t.major === true }));
-  const majorTalks = talks.filter(t => t.major);
+  const majorTalks = () => talks.filter(t => t.major);
 
   /* ── 미팅에서 나온 것 ────────────────────────────────────────────────
      회의록은 소통 내역의 접힌 줄 안에 있고, 안건 열몇 개짜리 글의 맨 밑에
@@ -2101,9 +2120,11 @@ function init(D){
        편집 모드는 이미 꺼져 있고, 고쳐 둔 줄은 다음 그리기에 사라진다 */
     if(off) off.onclick = () => {
       if(!edMayLeave()) return;
+      const current = document.querySelector('.nv.on');
+      const view = current && V[current.dataset.id] ? current.dataset.id : 'notice';
       edForgetAll();
       sessionStorage.removeItem(EKEY);
-      go('notice');
+      go(view);
     };
 
     const on = document.querySelector('[data-edon]');
@@ -2118,7 +2139,13 @@ function init(D){
       const submit = async () => {
         if(!inp.value) return;
         err.textContent = '확인 중…';
-        try { await ED.unlock(inp.value); go('notice'); }
+        try {
+          const current = document.querySelector('.nv.on');
+          const view = current && V[current.dataset.id] ? current.dataset.id : 'notice';
+          await ED.unlock(inp.value);
+          talkPageError = '';
+          go(view);
+        }
         catch(e){
           err.textContent = e.status === 401 ? '비밀번호가 다릅니다'
                           : '연결하지 못했습니다';
@@ -6127,6 +6154,81 @@ function init(D){
   const TALK_BADGE = {'메일':'ch-mail','통화':'ch-call','미팅':'ch-meet'};
   const talkCount = k => k==='all' ? talks.length : talks.filter(t=>t.channel===k).length;
   let talkTab = 'all';
+  let talkPageError = '';
+
+  function talkMajorControl(t, i, opt){
+    if((opt&&opt.noBody) || !ED.on() || !t.talk_key)
+      return t.major ? '<i class="mj-s" title="주요 소통">★</i>' : '';
+    const label = t.major ? '주요 소통 해제' : '주요 소통 지정';
+    return `<button type="button" class="tk-major" data-tkmajor="${i}"
+      aria-label="${label}" title="${label}" aria-pressed="${t.major?'true':'false'}"
+      aria-busy="${t.majorBusy?'true':'false'}"${t.majorBusy?' disabled':''}>${t.major?'★':'☆'}</button>`;
+  }
+
+  function talkMajorMessage(t, i){
+    if(t.majorError) return `<div class="tkmaj-msg" role="alert"><span>${esc(t.majorError)}</span>
+      <button type="button" data-tkretry="${i}">다시 시도</button></div>`;
+    if(t.majorNote) return `<div class="tkmaj-msg note" role="status">${esc(t.majorNote)}</div>`;
+    return '';
+  }
+
+  function talkMajorError(e){
+    return e.status === 404 ? '이 소통을 다시 찾지 못했습니다. 페이지를 새로고침해 주세요.'
+         : e.status === 429 ? '요청이 몰려 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'
+         : e.status >= 500 ? '소통 저장소에 잠시 연결하지 못했습니다.'
+         : '주요 소통 변경을 저장하지 못했습니다.';
+  }
+
+  function cacheTalkMajor(t){
+    const source = (Array.isArray(D.talks) ? D.talks : [])
+      .find(x => x.talk_key === t.talk_key);
+    if(source) source.major = t.major;
+    try { sessionStorage.setItem(SKEY, JSON.stringify(D)); } catch(_){}
+  }
+
+  function refreshTalks(){
+    const major = document.getElementById('tkMajor');
+    if(major) major.innerHTML = talkMajor();
+    const list = document.getElementById('tkList');
+    if(list) list.innerHTML = talkList();
+    bindTalks();
+  }
+
+  async function setTalkMajor(i, major){
+    const t = talks[i];
+    if(!t || !ED.on() || !t.talk_key || t.majorBusy) return;
+    const before = t.major;
+    t.major = major;
+    t.majorBusy = true;
+    t.majorError = '';
+    t.majorNote = '';
+    t.majorRetry = major;
+    refreshTalks();
+
+    try {
+      const out = await ED.call('PUT', '/talk/major', {
+        slug: CLIENT, talkKey: t.talk_key, major,
+      });
+      t.major = out.major === true;
+      t.majorBusy = false;
+      t.majorRetry = null;
+      if(out.rebuild === 'failed')
+        t.majorNote = '지정은 저장됐지만 고객 화면 반영을 시작하지 못했습니다. 다음 재빌드에 반영됩니다.';
+      cacheTalkMajor(t);
+      refreshTalks();
+    } catch(e){
+      t.major = before;
+      t.majorBusy = false;
+      t.majorError = talkMajorError(e);
+      if(e.status === 401){
+        talkPageError = '편집 모드가 풀렸습니다. 다시 인증한 뒤 변경해 주세요.';
+        sessionStorage.removeItem(EKEY);
+        go('talk');
+        return;
+      }
+      refreshTalks();
+    }
+  }
 
   /* opts.every  — 탭을 무시하고 전체를 낸다 (인쇄)
      opts.noBody — 본문을 아예 싣지 않는다. 메일 본문·회의록 전문은
@@ -6147,8 +6249,9 @@ function init(D){
        <td><span class="ch-b ${TALK_BADGE[t.channel]||'ch-mail'}">${esc(t.channel||'—')}</span>${
          t.direction?`<span class="co${t.direction==='보냄'?' out':''}">${esc(t.direction)}</span>`:''}</td>
        <td class="lead"><div class="t-nm">${open?'<i class="tw">▸</i>':''}${
-         t.major?'<i class="mj-s" title="주요 소통">★</i>':''}${esc(t.title||'')}</div>
-         ${!o.noBody&&t.channel!=='메일'&&t.preview?`<div class="tkpv">${esc(t.preview)}</div>`:''}</td>
+         talkMajorControl(t,i,o)}${esc(t.title||'')}</div>
+          ${!o.noBody&&t.channel!=='메일'&&t.preview?`<div class="tkpv">${esc(t.preview)}</div>`:''}
+          ${!o.noBody?talkMajorMessage(t,i):''}</td>
       </tr>${open?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
        ${t.body_html
          /* body_html 은 build_client.py 가 이스케이프해 조립한 HTML 이다 */
@@ -6166,9 +6269,10 @@ function init(D){
      않으려면 위가 목록의 일부라는 것이 보여야 한다 — 눌러서 아래 그 줄로
      내려가는 것이 그 이음새다. */
   function talkMajor(){
-    if(!majorTalks.length) return '';
-    return `<section class="tkmj"><h2>주요 소통<span>${majorTalks.length}건</span></h2>
-     <div class="card"><ul class="mjl">${majorTalks.map(t=>{
+    const pinned = majorTalks();
+    if(!pinned.length) return '';
+    return `<section class="tkmj"><h2>주요 소통<span>${pinned.length}건</span></h2>
+     <div class="card"><ul class="mjl">${pinned.map(t=>{
        const i = talks.indexOf(t);
        return `<li data-tkgo="${i}"><span class="mj-h">
         <span class="mj-d">${fmt(t.date)}</span>
@@ -6202,8 +6306,9 @@ function init(D){
   }
 
   V.talk=()=>`<div class="vh"><h1>소통 내역</h1>
-    ${talks.length?`<span class="n">${talks.length}건</span>`:''}</div>
-   ${talks.length?`${talkMajor()}${talkTabs()}<div id="tkList">${talkList()}</div>`
+    ${talks.length?`<span class="n">${talks.length}건</span>`:''}${editSwitch()}</div>
+   ${talkPageError?`<p class="tk-auth-error" role="alert">${esc(talkPageError)}</p>`:''}
+   ${talks.length?`<div id="tkMajor">${talkMajor()}</div>${talkTabs()}<div id="tkList">${talkList()}</div>`
                  :emptyBox('등록된 내용이 없습니다.')}`;
 
   /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
@@ -6275,7 +6380,7 @@ function init(D){
     /* 주요로 짚어 둔 것이 먼저다. 종이에는 다섯 줄뿐이라, 그 다섯 줄을 최근순으로
        채우면 「무엇이 중요했는가」가 아니라 「무엇이 최근인가」가 실린다.
        두 무리 안에서는 노션이 준 일자 내림차순 그대로다 */
-    const talk5 = majorTalks.concat(talks.filter(t => !t.major)).slice(0, 5);
+    const talk5 = majorTalks().concat(talks.filter(t => !t.major)).slice(0, 5);
 
     return `<div class="psum">
       <header class="sh">
@@ -6503,6 +6608,16 @@ function init(D){
     /* 「주요 소통」에서 목록의 그 줄로 내려간다 */
     document.querySelectorAll('[data-tkgo]').forEach(li=>
       li.onclick=()=>talkOpen(li.dataset.tkgo));
+    document.querySelectorAll('[data-tkmajor]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation();
+      const i = Number(b.dataset.tkmajor);
+      setTalkMajor(i, !talks[i].major);
+    });
+    document.querySelectorAll('[data-tkretry]').forEach(b=>b.onclick=e=>{
+      e.stopPropagation();
+      const i = Number(b.dataset.tkretry);
+      if(talks[i]) setTalkMajor(i, talks[i].majorRetry === true);
+    });
     /* 「미팅에서 정한 할 일」은 다른 화면에 있다. 화면부터 옮기고 편다 */
     document.querySelectorAll('[data-actgo]').forEach(tr=>
       tr.onclick=()=>goTalk(tr.dataset.actgo));
