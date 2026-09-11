@@ -2600,6 +2600,16 @@ def fetch_talk_body(nt: Notion, page_id: str, title: str) -> tuple[str, list[dic
         return "", []
 
 
+def talk_key(page_id: str) -> str:
+    """노션 페이지 주소를 봉투에 직접 싣지 않는 편집용 식별자."""
+    return hashlib.sha256(page_id.encode("utf-8")).hexdigest()[:24]
+
+
+def public_talk(talk: dict) -> dict:
+    """고객 봉투에 실어도 되는 소통 필드만 남긴다."""
+    return {k: v for k, v in talk.items() if k not in ("pid", "actions")}
+
+
 # ── 노션 소통 DB: 읽기 (보류만 제외) ─────────────────────────────────────
 
 def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
@@ -2652,6 +2662,9 @@ def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
             # 노션 페이지 주소. 할 일을 그 회의록에 잇는 데만 쓰고 봉투에는
             # 싣지 않는다 — 클라이언트에게 우리 노션 안쪽 주소를 줄 까닭이 없다.
             "pid": pg["id"],
+            # 담당자 화면이 별을 바꿀 때 쓰는 비가역 키. 원본 페이지 주소는
+            # 계속 봉투에서 빼고, Worker도 같은 계산으로 원본을 다시 찾는다.
+            "talk_key": talk_key(pg["id"]),
         }
         # 없는 미팅이 대부분이라 있을 때만 싣는다.
         if actions:
@@ -3049,8 +3062,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
         # 않는다. 앞의 것은 우리 노션 안쪽 주소이고, 뒤의 것은 아직 사람 눈을
         # 안 거친 것이라 화면에 나갈 물건이 아니다 — 나가는 할 일은 아래
         # actions 하나뿐이고, 그것은 할 일 DB 에서 온다.
-        "talks": [{k: v for k, v in t.items() if k not in ("pid", "actions")}
-                  for t in talks],
+        "talks": [public_talk(t) for t in talks],
         "actions": actions,
         "actions_done": actions_done,
         "events": events,

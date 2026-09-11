@@ -12,6 +12,12 @@ const API = "https://api.notion.com/v1";
 /** 공유페이지 DB (클라이언트 레지스트리). 빌더의 SHARE_DB_ID 와 같다. */
 export const SHARE_DB_ID = "21e815d7-12b9-80dc-8310-d038abd8a502";
 
+/** 소통 내역 DB. 빌더의 TALKS_DB_ID 와 같다. */
+export const TALKS_DB_ID = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de";
+
+const TALKS_OUTPUT_MAX = 100;
+const TALK_STATUS_HIDDEN = "보류";
+
 /** 섹션을 여는 블록. 빌더의 NOTICE_HEADING_TYPES 와 같다. */
 export const HEADING_TYPES = new Set(["heading_1", "heading_2", "heading_3"]);
 
@@ -139,6 +145,46 @@ export async function findClient(nt, slug) {
   const client = (rows.results || [])[0];
   if (!client) throw notFound(`모르는 슬러그: ${slug}`);
   return client;
+}
+
+/** 빌더와 같은 규칙으로 만드는, 원본 페이지 주소를 드러내지 않는 소통 키. */
+export async function talkKey(pageId) {
+  const bytes = new TextEncoder().encode(String(pageId || ""));
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 24);
+}
+
+/**
+ * 암호화 봉투의 talk_key 로 해당 기업 소통의 원본 페이지를 찾는다.
+ *
+ * 목록을 기업 릴레이션으로 먼저 거르고, 찾은 뒤에도 릴레이션을 다시 확인한다.
+ * 정적 페이지에 있던 키 하나만으로 다른 기업의 소통을 바꿀 수 없어야 한다.
+ */
+export async function findTalkForClient(nt, clientPageId, key) {
+  const rows = await nt.post(`/databases/${TALKS_DB_ID}/query`, {
+    page_size: TALKS_OUTPUT_MAX,
+    filter: { and: [
+      { property: "클라이언트", relation: { contains: clientPageId } },
+      { or: [
+        { property: "상태", select: { does_not_equal: TALK_STATUS_HIDDEN } },
+        { property: "상태", select: { is_empty: true } },
+      ] },
+    ] },
+    sorts: [{ property: "일자", direction: "descending" }],
+  });
+
+  let found = null;
+  for (const page of rows.results || []) {
+    if (await talkKey(page.id) !== key) continue;
+    const relations = page.properties?.["클라이언트"]?.relation || [];
+    if (!relations.some((r) => sameId(r.id, clientPageId))) {
+      throw foreign("그 기업의 소통 내역이 아닙니다");
+    }
+    if (found) throw upstream("소통 식별 키가 겹쳤습니다");
+    found = page;
+  }
+  if (!found) throw notFound("그 기업의 소통 내역에서 찾지 못했습니다");
+  return found;
 }
 
 /**

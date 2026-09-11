@@ -21,6 +21,7 @@
  *   POST   /notice/doc/restore    지난 판으로 되돌린다
  *   POST   /notice/doc/revision-to-draft  지난 게시본을 초안으로 불러온다
  *   GET    /notice/export  빌드가 그 기업의 최신 공지 문서를 가져간다
+ *   PUT    /talk/major     소통 내역의 주요 여부를 지정·해제한다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
  *   POST   /notice/item    고른 섹션 안에 한 줄 보탠다             (옛 방식)
@@ -43,8 +44,8 @@ import {
 import { assertEditable, blockToHtml, markdownToRuns, runsToMarkdown } from "./markdown.js";
 import {
   assertBlockInPage, createNotion, ensureNoticeDate, findClient, findNoticePage,
-  findNoticeSource, HEADING_TYPES, ITEM_TYPES, listChildren, parentIdOf, plainTitle,
-  sameId, SHELL_TYPES, titleProp, todayKst, walkChildren,
+  findNoticeSource, findTalkForClient, HEADING_TYPES, ITEM_TYPES, listChildren,
+  parentIdOf, plainTitle, sameId, SHELL_TYPES, titleProp, todayKst, walkChildren,
 } from "./notion.js";
 import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
@@ -161,6 +162,17 @@ function requireText(value, name) {
     throw unprocessable(`${name} 가 필요합니다`);
   }
   return value.trim();
+}
+
+function requireTalkKey(value) {
+  const key = requireText(value, "talkKey").toLowerCase();
+  if (!/^[0-9a-f]{24}$/.test(key)) throw unprocessable("talkKey 형식이 올바르지 않습니다");
+  return key;
+}
+
+function requireBoolean(value, name) {
+  if (typeof value !== "boolean") throw unprocessable(`${name} 가 필요합니다`);
+  return value;
 }
 
 /** 빈 항목은 빌더가 버린다. 저장해 봐야 다음 빌드에서 사라지므로 여기서 막는다. */
@@ -904,6 +916,27 @@ async function route(request, env) {
   if (pathname === "/auth" && method === "POST") {
     requireEditor(request, env);
     return json({ ok: true }, 200);
+  }
+
+  if (pathname === "/talk/major" && method === "PUT") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const key = requireTalkKey(body.talkKey);
+    const major = requireBoolean(body.major, "major");
+
+    const nt = createNotion(env);
+    const client = await findClient(nt, slug);
+    const talk = await findTalkForClient(nt, client.id, key);
+    const before = talk.properties?.["주요"]?.checkbox === true;
+    if (before === major) {
+      return json({ talkKey: key, major, rebuild: "skipped" }, 200);
+    }
+
+    await nt.patch(`/pages/${talk.id}`, {
+      properties: { "주요": { checkbox: major } },
+    });
+    return json({ talkKey: key, major, rebuild: await requestRebuild(env, slug) }, 200);
   }
 
   if (pathname === "/notice/tree" && method === "GET") {

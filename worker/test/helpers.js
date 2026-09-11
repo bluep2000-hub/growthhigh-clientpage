@@ -10,6 +10,9 @@ export const SHARE_DB = "21e815d7-12b9-80dc-8310-d038abd8a502";
 export const NOTICE_DB = "3aa815d7-12b9-80db-a5b4-e2065ddad4a4";
 export const NOTICE_PAGE = "a4a815d7-12b9-82ce-a740-01f430175bad";
 export const OTHER_PAGE = "ffffffff-0000-0000-0000-000000000001";
+export const TALK_DB = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de";
+export const TALK_PAGE = "22222222-3333-4444-5555-666666666666";
+export const OTHER_TALK_PAGE = "77777777-8888-9999-aaaa-bbbbbbbbbbbb";
 
 export const ITEM = "11111111-2222-3333-4444-555555555555";
 export const NESTED = "66666666-7777-8888-9999-000000000000";
@@ -51,6 +54,20 @@ export function block(id, type, runs, parent, extra = {}) {
 export const inPage = (pageId) => ({ type: "page_id", page_id: pageId });
 export const inBlock = (blockId) => ({ type: "block_id", block_id: blockId });
 
+export function talk(id = TALK_PAGE, major = false, clientId = "share-row") {
+  return {
+    object: "page",
+    id,
+    properties: {
+      "제목": { type: "title", title: [run("9월 정기 미팅")] },
+      "일자": { type: "date", date: { start: "2026-09-11" } },
+      "상태": { type: "select", select: { name: "공개" } },
+      "클라이언트": { type: "relation", relation: [{ id: clientId }] },
+      "주요": { type: "checkbox", checkbox: major },
+    },
+  };
+}
+
 /** 기본 세계 — 공지 한 건에 항목 두 개(하나는 한 겹 안쪽). */
 export function world(extra = {}) {
   return {
@@ -70,6 +87,7 @@ export function world(extra = {}) {
  * @param {object} [opts.blocks]    id → 블록
  * @param {object} [opts.share]     공유페이지 DB 조회 결과를 갈아끼운다
  * @param {object} [opts.notice]    공지 DB 조회 결과를 갈아끼운다
+ * @param {object} [opts.talks]     소통 내역 DB 조회 결과를 갈아끼운다
  * @param {boolean} [opts.noticeIsPage] 공지 원천이 DB 가 아니라 일반 페이지다
  * @param {function} [opts.fail]    (method, path) → 응답을 가로채 실패시킨다
  */
@@ -98,6 +116,7 @@ export function installNotion(opts = {}) {
       },
     }],
   };
+  const talks = opts.talks ?? { results: [talk()] };
 
   globalThis.fetch = async (url, init = {}) => {
     const u = new URL(url);
@@ -133,6 +152,7 @@ export function installNotion(opts = {}) {
       });
     }
     if (method === "POST" && path === `/databases/${NOTICE_DB}/query`) return reply(notice);
+    if (method === "POST" && path === `/databases/${TALK_DB}/query`) return reply(talks);
 
     // 새 공지 한 행. 노션은 만든 페이지를 그대로 돌려준다.
     if (method === "POST" && path === "/pages") {
@@ -143,7 +163,13 @@ export function installNotion(opts = {}) {
     }
 
     const pm = /^\/pages\/([^/]+)$/.exec(path);
-    if (pm && method === "PATCH") return reply({ object: "page", id: pm[1], ...body });
+    if (pm && method === "PATCH") {
+      const foundTalk = (talks.results || []).find((row) => row.id === pm[1]);
+      if (foundTalk && body.properties) {
+        foundTalk.properties = { ...foundTalk.properties, ...body.properties };
+      }
+      return reply({ object: "page", id: pm[1], ...body });
+    }
     if (pm && method === "GET" && opts.noticeIsPage && pm[1] === NOTICE_DB) {
       return reply({ object: "page", id: NOTICE_PAGE,
                      url: `https://www.notion.so/${NOTICE_PAGE}`,
