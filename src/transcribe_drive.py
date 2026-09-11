@@ -3,12 +3,14 @@
 """
 통화·미팅 녹음본 전사기.
 
-구글드라이브 「클라이언트 통화 미팅기록」 폴더에서 오디오 파일을 찾아
-Gemini 로 받아쓴 뒤 같은 폴더에 YYMMDD_기업명_채널.txt 로 떨군다.
+구글드라이브 「클라이언트 통화 미팅기록/수집대기/{고객사}」 접수함에서
+PM이 올린 오디오 파일을 찾아 Gemini 로 받아쓴 뒤 기존 루트 폴더에
+YYMMDD_기업명_채널.txt 로 떨군다.
 요약은 하지 않는다 — 그건 talk-summary 스킬이 노션에 기록한다.
 
-파일 이름은 손보지 않아도 된다. 녹음기가 붙인 이름에서 알아낼 수 있는 만큼
-알아내고, 못 알아낸 고객사는 talk-summary 가 본문을 읽고 정한다.
+새 접수함에서는 고객사 폴더가 기업을 결정한다. 녹음기가 붙인 파일명은 손보지
+않으며 이름이나 본문으로 고객사를 추측하지 않는다. 루트에 이미 있던 평면 녹음은
+접수된 파일이 아니므로 읽지 않는다. 기존 전사본과 처리 기록은 그대로 둔다.
 
 폴더는 구글 드라이브 데스크톱이 붙여 주는 로컬 경로로 읽는다.
 서비스 계정은 파일을 소유할 수 없어 API 로는 쓰기가 막히고,
@@ -23,6 +25,7 @@ drive 권한은 제한된 범위라 OAuth 도 유료 심사를 요구한다.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -31,6 +34,7 @@ import shutil
 import sys
 import time
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -45,6 +49,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # .env 의 TALKS_DIR 로 덮어쓸 수 있다.
 TALKS_DIR = (r"G:\.shortcut-targets-by-id"
              r"\1EV3Ss6vvv5PUjcR9GtXXGWK36xeTE-I8\클라이언트 통화 미팅기록")
+INBOX_NAME = "수집대기"
 
 # 어떤 오디오를 이미 받아썼는지 적어 둔다. 중간에 끊겨도 이어서 간다.
 LEDGER = ROOT / ".transcribed.json"
@@ -55,6 +60,27 @@ DEFAULT_MODEL = "gemini-3.8-flash"
 
 AUDIO_EXTS = {".m4a", ".mp3", ".wav", ".aac", ".amr", ".ogg", ".opus",
               ".flac", ".3gp", ".mp4", ".m4v", ".mov", ".webm"}
+
+
+class SourceLayoutError(ValueError):
+    """고객사를 안전하게 확정할 수 없는 접수함 구조다."""
+
+
+@dataclass(frozen=True)
+class AudioSource:
+    path: Path
+    relative_path: str
+    company: str | None = None
+    channel: str | None = None
+
+
+@dataclass(frozen=True)
+class TranscriptionPlan:
+    source: AudioSource
+    stem: str
+    digest: str
+    company: str | None
+    channel: str | None
 
 # 들릴 만한 고유명사를 미리 일러 주면 받아쓰기 정확도가 눈에 띄게 오른다.
 # 고객사 이름은 여기 넣지 않는다 — 파일명에서 알아낸 그 회사만 덧붙인다.
@@ -91,6 +117,118 @@ def parse_name(name: str) -> tuple[str | None, str | None, str | None]:
 
     channel = next((v for k, v in CHANNEL_WORDS.items() if k in stem), None)
     return day, company, channel
+
+
+def relative_name(path: Path, folder: Path) -> str:
+    return path.relative_to(folder).as_posix()
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def discover_sources(folder: Path) -> list[AudioSource]:
+    """PM이 고객사별 접수함에 넣은 녹음만 찾는다.
+
+    `수집대기` 바로 아래 오디오는 고객사가 없고, 두 단계 이상 들어간 오디오는
+    어느 폴더를 고객사로 볼지 모호하다. 둘 다 추측하지 않고 전체 회차를 멈춘다.
+    루트의 기존 녹음은 PM 접수를 거치지 않았으므로 처리 대상에 넣지 않는다.
+    """
+    inbox = folder / INBOX_NAME
+    if not inbox.is_dir():
+        raise SourceLayoutError(
+            f"{INBOX_NAME} 폴더를 못 찾았다. Google Drive 동기화를 확인해라."
+        )
+
+    found: list[AudioSource] = []
+    invalid: list[str] = []
+
+    for path in sorted(inbox.rglob("*"), key=lambda p: p.as_posix().casefold()):
+        if not path.is_file() or path.suffix.lower() not in AUDIO_EXTS:
+            continue
+        rel = path.relative_to(inbox)
+        if len(rel.parts) != 2 or not rel.parts[0].strip():
+            invalid.append(relative_name(path, folder))
+            continue
+        found.append(AudioSource(
+            path=path,
+            relative_path=relative_name(path, folder),
+            company=rel.parts[0].strip(),
+            channel="통화",
+        ))
+
+    if invalid:
+        sample = "\n".join(f"  {name}" for name in invalid[:8])
+        raise SourceLayoutError(
+            "고객사 폴더를 확정할 수 없는 녹음이 있다. "
+            f"{INBOX_NAME}/{{고객사}} 바로 아래로 옮겨라:\n{sample}"
+        )
+    return found
+
+
+def plan_sources(folder: Path, ledger: dict[str, str],
+                 taken: set[str]) -> list[TranscriptionPlan]:
+    """외부 API 호출 없이 이번 회차의 안전한 처리 계획을 만든다."""
+    plans: list[TranscriptionPlan] = []
+    seen: dict[str, tuple[AudioSource, str | None]] = {}
+
+    for source in discover_sources(folder):
+        path_key = f"path:{source.relative_path}"
+        digest = file_sha256(source.path)
+        digest_key = f"sha256:{digest}"
+        day, parsed_company, parsed_channel = parse_name(source.path.name)
+        company = source.company or parsed_company
+        channel = source.channel or parsed_channel
+
+        # 경로만 같고 내용이 바뀐 파일은 새 녹음이다. 파일 내용이 같을 때만
+        # 처리 완료로 본다.
+        if ledger.get(path_key) == digest:
+            continue
+
+        if digest_key in ledger:
+            recorded_company = ledger.get(f"sha256-company:{digest}")
+            if recorded_company and recorded_company != company:
+                raise SourceLayoutError(
+                    "이미 처리한 같은 녹음이 다른 고객사 접수함에 있다:\n"
+                    f"  이전 고객사: {recorded_company}\n"
+                    f"  현재 경로: {source.relative_path}"
+                )
+            continue
+
+        previous = seen.get(digest)
+        if previous:
+            previous_source, previous_company = previous
+            if previous_company != company:
+                raise SourceLayoutError(
+                    "같은 녹음이 둘 이상의 고객사 접수함에 있다:\n"
+                    f"  {previous_source.relative_path}\n  {source.relative_path}"
+                )
+            # 같은 고객사에 같은 파일을 두 번 올린 것은 한 건으로 합친다.
+            continue
+        seen[digest] = (source, company)
+
+        base = "_".join([
+            day or datetime.fromtimestamp(source.path.stat().st_mtime).strftime("%y%m%d"),
+            company or "미분류",
+            channel or "녹음",
+        ])
+        stem, n = base, 2
+        while stem in taken:
+            stem, n = f"{base}_{n}", n + 1
+        taken.add(stem)
+        plans.append(TranscriptionPlan(
+            source=source,
+            stem=stem,
+            digest=digest,
+            company=company,
+            channel=channel,
+        ))
+
+    return plans
 
 
 def load_ledger() -> dict[str, str]:
@@ -168,22 +306,11 @@ def main() -> int:
 
     ledger = load_ledger()
     taken = {p.stem for p in folder.glob("*.txt")}
-
-    todo = []
-    for p in sorted(folder.iterdir()):
-        if p.suffix.lower() not in AUDIO_EXTS or p.name in ledger:
-            continue
-        day, company, channel = parse_name(p.name)
-        base = "_".join([
-            day or datetime.fromtimestamp(p.stat().st_mtime).strftime("%y%m%d"),
-            company or "미분류",
-            channel or "녹음",
-        ])
-        stem, n = base, 2               # 같은 날 같은 곳과 두 번 통화할 수 있다
-        while stem in taken:
-            stem, n = f"{base}_{n}", n + 1
-        taken.add(stem)
-        todo.append((p, stem, company))
+    try:
+        todo = plan_sources(folder, ledger, taken)
+    except SourceLayoutError as e:
+        print(f"접수함 확인 필요:\n{e}")
+        return 1
 
     if not todo:
         print("전사할 새 녹음본이 없다.")
@@ -193,10 +320,12 @@ def main() -> int:
         todo = todo[:args.limit]
 
     print(f"전사 대상 {len(todo)}건 (모델 {model})")
-    for p, stem, company in todo:
+    for plan in todo:
+        p, stem, company = plan.source.path, plan.stem, plan.company
         mark = "" if company else "   ← 고객사 미상. 요약할 때 본문 보고 정한다"
         size = p.stat().st_size / 1048576
-        print(f"  {p.name}\n    → {stem}.txt  ({size:.1f}MB){mark}")
+        print(f"  {plan.source.relative_path}\n"
+              f"    → {stem}.txt  ({size:.1f}MB){mark}")
 
     if args.dry_run:
         print("dry-run 이라 여기서 멈춘다.")
@@ -208,8 +337,9 @@ def main() -> int:
     client = genai.Client(api_key=api_key)
 
     fails = 0
-    for p, stem, company in todo:
-        print(f"\n{p.name}", flush=True)
+    for plan in todo:
+        p, stem, company = plan.source.path, plan.stem, plan.company
+        print(f"\n{plan.source.relative_path}", flush=True)
         try:
             text = transcribe(client, model, p, company)
             if not text:
@@ -217,7 +347,11 @@ def main() -> int:
                 fails += 1
                 continue
             (folder / f"{stem}.txt").write_text(text, encoding="utf-8")
-            ledger[p.name] = stem      # 한 건 끝날 때마다 적는다. 끊겨도 이어 간다
+            # 경로와 내용 해시를 함께 남긴다. 같은 파일을 다른 이름으로 다시
+            # 접수해도 한 번만 처리하고, 같은 이름의 다른 파일은 따로 처리한다.
+            ledger[f"path:{plan.source.relative_path}"] = plan.digest
+            ledger[f"sha256:{plan.digest}"] = stem
+            ledger[f"sha256-company:{plan.digest}"] = company or ""
             LEDGER.write_text(json.dumps(ledger, ensure_ascii=False, indent=2),
                               encoding="utf-8")
             print(f"    → {stem}.txt ({len(text):,}자)")
