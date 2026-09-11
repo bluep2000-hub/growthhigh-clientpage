@@ -175,6 +175,14 @@ cp docs/skills/clientpage-daily.md  ~/.claude/scheduled-tasks/clientpage-daily/S
 TALKS_DIR=D:\내 드라이브\클라이언트 통화 미팅기록
 ```
 
+전사 입력은 PM이 직접 올린 `수집대기/{고객사}` 바로 아래의 녹음뿐이다. 고객사는
+파일명이 아니라 그 폴더 이름으로 확정한다. 루트에 남아 있는 예전 녹음과 휴대전화
+원본은 자동 처리하거나 옮기지 않는다. 실제 처리 전에는 다음 명령으로 대상만 본다.
+
+```bash
+python src/transcribe_drive.py --dry-run
+```
+
 **자동은 한 대에서만 돌린다.** 어떤 녹음을 이미 받아썼는지 적어 두는
 `.transcribed.json` 이 기계마다 따로라, 두 대에서 예약을 돌리면 같은 녹음을 두 번
 전사하고 빌드 산출물을 서로 커밋해 충돌한다.
