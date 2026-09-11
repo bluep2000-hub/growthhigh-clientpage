@@ -43,7 +43,8 @@ pip install -r src/requirements.txt
 cp .env.example .env      # NOTION_TOKEN 을 채운다
 ```
 
-노션 인테그레이션이 아래 다섯에 연결돼 있어야 한다.
+노션 인테그레이션이 아래 네 DB에 연결돼 있어야 한다. 공지 원본은 노션이 아니라
+Cloudflare D1에 있으며, 빌더는 중계 서버의 `/notice/export`에서 게시본을 읽는다.
 
 | DB | ID |
 |---|---|
@@ -51,7 +52,6 @@ cp .env.example .env      # NOTION_TOKEN 을 채운다
 | 기업 | `67e04cfc-4033-4465-ae05-1ab6bf774627` |
 | 프로젝트 | `e1d03e45-f7f9-42c1-88f8-7f4595efe2a1` |
 | 소통 내역 | `3aa815d7-12b9-80f9-ae45-e9f2bebcd9de` |
-| 공지 | 공유페이지 DB 의 `공지 DB` URL 에서 뽑는다 (하드코딩 없음) |
 
 메일을 수집하려면 `IMAP_HOST`·`IMAP_USER`·`IMAP_PASS` 도 채워야 한다.
 비어 있으면 경고만 남기고 메일 수집을 건너뛴다.
@@ -108,7 +108,7 @@ python src/build_client.py --talks-days 0     # 메일을 기간 제한 없이 �
 
 | 속성 | 비었을 때 |
 |---|---|
-| `공지 DB` (URL) | 공지 화면이 빈 상태가 된다. DB 주소든 일반 페이지 주소든 된다 — 어느 쪽인지는 노션 API 응답으로 가린다 |
+| `공지 DB` (URL) | D1에 공지가 한 건도 없는 기존 기업에서만 과거 공지를 읽는 임시 fallback이다 |
 | `드라이브 URL` · `사업계획서 URL` | 좌측 「자료」 항목이 흐려지고 눌리지 않는다 |
 | 페이지 아이콘 | 로고 자리에 기업명 앞 두 글자가 들어간다 |
 
@@ -329,7 +329,7 @@ python -m http.server 8000 --bind 127.0.0.1
 | 화면 | 원천 |
 |---|---|
 | 기업 정보 | 기업 DB 페이지 |
-| 공지사항 | 공유페이지 DB 의 `공지 DB` URL → DB 면 최신 1건, 일반 페이지면 그 페이지의 블록 트리 |
+| 공지사항 | Cloudflare D1의 최신 게시본(`/notice/export`). D1에 한 건도 없을 때만 노션 `공지 DB`를 fallback으로 읽는다 |
 | 진행 현황 | 프로젝트 DB, `고객사 정보` 릴레이션으로 필터 |
 | 추천 지원사업 | Firestore `playlists/{기업명}` + `growthhigh-policy/data-full.json` |
 | 일정 | 위 JSON 안의 날짜(프로젝트 종료 예정일 + 추천 마감일)로 만든다 |
@@ -431,6 +431,6 @@ JSON 을 그냥 올리면 URL 만 알면 내용이 다 보이므로 암호화한
 | 노션 404 | 재시도 없이 즉시 실패 |
 | 특정 클라이언트 실패 | 그 클라이언트만 건너뛰고 계속 (종료 코드 1) |
 | Firestore 실패 | `recommend=[]` + 경고 |
-| 공지 URL 없음·파싱 실패 | `notice=null` + 경고 |
+| 공지 저장소 인증·조회 실패 | 빌드를 중단하고 기존 배포본을 유지한다 |
 | 로고 실패 | `logo=null` + 경고 |
 | 매핑에 없는 값 | 기본값 + 경고 |
