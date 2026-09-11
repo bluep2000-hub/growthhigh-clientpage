@@ -32,7 +32,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      # 사본이 마지막으로 만들어진 커밋의 원본과 비교해야 하므로 전체 이력이 필요하다.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
