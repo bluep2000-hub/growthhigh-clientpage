@@ -14,8 +14,12 @@
  *   GET    /notice/doc     저장소의 최신 공지 문서를 받아 간다
  *   POST   /notice/doc     저장소에 오늘 날짜의 빈 공지를 만든다
  *   PUT    /notice/doc     저장소의 공지 문서를 통째로 덮어쓴다
+ *   GET    /notice/doc/draft       게시본에서 시작한 편집 초안을 읽는다
+ *   PUT    /notice/doc/draft       고객 화면을 바꾸지 않고 초안을 자동저장한다
+ *   POST   /notice/doc/publish     초안을 고객에게 보이는 게시본으로 승격한다
  *   GET    /notice/doc/revisions  되돌릴 수 있는 판 목록
  *   POST   /notice/doc/restore    지난 판으로 되돌린다
+ *   POST   /notice/doc/revision-to-draft  지난 게시본을 초안으로 불러온다
  *   GET    /notice/export  빌드가 그 기업의 최신 공지 문서를 가져간다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
@@ -791,6 +795,64 @@ function noticeDoc({ id, ...rest }) {
   return { noticeId: id, ...rest };
 }
 
+/** 초안과 게시 상태를 한 화면에서 판단할 수 있는 응답. */
+function draftDoc(published, draft) {
+  const same = published.title === draft.title
+    && JSON.stringify(published.sections) === JSON.stringify(draft.sections);
+  return {
+    noticeId: published.id,
+    slug: published.slug,
+    date: published.date,
+    title: draft.title,
+    sections: draft.sections,
+    // `version` 은 전환 중인 기존 화면과 맞추기 위해 게시 판을 뜻한다.
+    // 새 편집기는 이름이 분명한 두 필드만 사용한다.
+    version: published.version,
+    draftVersion: draft.version,
+    basePublishedVersion: draft.basePublishedVersion,
+    publishedVersion: published.version,
+    updatedAt: draft.updatedAt,
+    publishedAt: published.publishedAt,
+    hasUnpublishedChanges: published.publishedAt === null || !same,
+  };
+}
+
+const DRAFT_MAX_BYTES = 512 * 1024;
+const DRAFT_MAX_BLOCKS = 1000;
+
+/** 초안·게시 창구의 문서 상한. 오래 기다린 뒤 저장에서야 알게 하지 않는다. */
+function readDraftBody(body) {
+  const title = readTitle(body.title);
+  if ([...title].length > 200) throw unprocessable("공지 제목은 200자까지 적을 수 있습니다");
+  const sections = readSections(body.sections);
+  let blocks = 0;
+  const count = (items) => (items || []).forEach((item) => {
+    blocks += 1;
+    count(item.items);
+  });
+  for (const section of sections) {
+    if ([...section.title].length > 200) {
+      throw unprocessable("섹션 제목은 200자까지 적을 수 있습니다");
+    }
+    count(section.items);
+  }
+  if (blocks > DRAFT_MAX_BLOCKS) {
+    throw unprocessable(`공지에는 블록을 ${DRAFT_MAX_BLOCKS}개까지 넣을 수 있습니다`);
+  }
+  const bytes = new TextEncoder().encode(JSON.stringify({ title, sections })).byteLength;
+  if (bytes > DRAFT_MAX_BYTES) {
+    throw unprocessable("공지 전체 크기는 512KB까지 저장할 수 있습니다");
+  }
+  return { title, sections };
+}
+
+/** 고객에게 빈 문서를 게시하지 않는다. 제목만 있는 것도 아직 공지가 아니다. */
+function hasWrittenContent(sections) {
+  const written = (items) => (items || []).some(
+    (item) => (item.html || "").trim() || written(item.items));
+  return (sections || []).some((section) => written(section.items));
+}
+
 /**
  * 그 공지가 이 기업의 것인지 확인하고 집어 온다.
  *
@@ -983,6 +1045,77 @@ async function route(request, env) {
     return json(noticeDoc(row), 200);
   }
 
+  /** 게시본을 건드리지 않고 편집할 최신 초안을 연다. */
+  if (pathname === "/notice/doc/draft" && method === "GET") {
+    requireEditor(request, env);
+    const slug = requireText(url.searchParams.get("slug"), "slug");
+
+    const store = openStore(env);
+    const published = await store.latest(slug);
+    if (!published) throw notFound("그 기업의 공지가 아직 없습니다");
+    const draft = await store.ensureDraft(published.id);
+    if (!draft) throw upstream("공지 초안을 만들지 못했습니다");
+    return json(draftDoc(published, draft), 200);
+  }
+
+  /** 입력이 멈췄을 때 부르는 자동저장. 재빌드는 절대로 부르지 않는다. */
+  if (pathname === "/notice/doc/draft" && method === "PUT") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const noticeId = requireText(body.noticeId, "noticeId");
+    const version = requireVersion(body.draftVersion ?? body.version);
+    const { title, sections } = readDraftBody(body);
+
+    const store = openStore(env);
+    const published = await myNotice(store, slug, noticeId);
+    await store.ensureDraft(noticeId);
+    const next = await store.replaceDraft({ id: noticeId, expect: version, title, sections });
+    if (!next) {
+      const current = await store.draft(noticeId);
+      throw stale("다른 화면에서 이 초안이 먼저 저장되었습니다",
+                  { current: current ? draftDoc(published, current) : null });
+    }
+    return json(draftDoc(published, next), 200);
+  }
+
+  /** 저장된 초안을 고객에게 보이는 게시본으로 승격하고 재빌드를 한 번 부른다. */
+  if (pathname === "/notice/doc/publish" && method === "POST") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const noticeId = requireText(body.noticeId, "noticeId");
+    const draftVersion = requireVersion(body.draftVersion ?? body.version);
+    const publishedVersion = requireVersion(body.publishedVersion);
+
+    const store = openStore(env);
+    const published = await myNotice(store, slug, noticeId);
+    const draft = await store.ensureDraft(noticeId);
+    if (!draft) throw upstream("공지 초안을 찾지 못했습니다");
+    if (!hasWrittenContent(draft.sections)) {
+      throw unprocessable("내용을 한 줄 이상 적어야 게시할 수 있습니다");
+    }
+    const before = draftDoc(published, draft);
+    // 브라우저 재시도나 더블클릭으로 같은 게시 요청이 다시 와도 재빌드를 또
+    // 부르지 않는다. 이미 같은 게시본이면 성공한 현재 상태를 그대로 준다.
+    if (!before.hasUnpublishedChanges) {
+      return json({ ...before, rebuild: "not_needed" }, 200);
+    }
+    const next = await store.publishDraft({ id: noticeId, draftExpect: draftVersion,
+                                            publishedExpect: publishedVersion });
+    if (!next) {
+      const currentPublished = await store.byId(noticeId);
+      const currentDraft = await store.draft(noticeId);
+      throw stale("게시하기 전에 공지 또는 초안이 바뀌었습니다", {
+        current: currentPublished && currentDraft
+          ? draftDoc(currentPublished, currentDraft) : null,
+      });
+    }
+    const currentDraft = await store.draft(noticeId);
+    return json({ ...draftDoc(next, currentDraft),
+                  rebuild: await signalSaved(env, slug, next) }, 200);
+  }
+
   /**
    * 빌드가 공지를 가져간다.
    *
@@ -994,7 +1127,7 @@ async function route(request, env) {
     const slug = requireText(url.searchParams.get("slug"), "slug");
 
     const store = openStore(env);
-    const row = await store.latest(slug);
+    const row = await store.latestPublished(slug);
     if (!row) throw notFound("그 기업의 공지가 아직 없습니다");
     return json(noticeDoc(row), 200);
   }
@@ -1024,11 +1157,15 @@ async function route(request, env) {
     // 둘이면 화면에 오르는 것이 어느 쪽인지 정할 수 없어, 담당자는
     // 클라이언트에게 보이지 않는 공지에 적게 된다.
     const made = await store.create({ id: crypto.randomUUID(), slug, date: today });
-    if (made) return json(noticeDoc(made), 201);
+    if (made) {
+      const draft = await store.ensureDraft(made.id);
+      return json(draftDoc(made, draft), 201);
+    }
 
     const already = await store.onDate(slug, today);
     if (!already) throw upstream("공지를 만들지도 찾지도 못했습니다");
-    return json({ ...noticeDoc(already), existing: true }, 200);
+    const draft = await store.ensureDraft(already.id);
+    return json({ ...draftDoc(already, draft), existing: true }, 200);
   }
 
   /**
@@ -1079,6 +1216,30 @@ async function route(request, env) {
     const store = openStore(env);
     await myNotice(store, slug, noticeId);
     return json({ noticeId, revisions: await store.revisions(noticeId) }, 200);
+  }
+
+  /** 지난 게시본을 바로 공개하지 않고 편집 초안으로 불러온다. */
+  if (pathname === "/notice/doc/revision-to-draft" && method === "POST") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const noticeId = requireText(body.noticeId, "noticeId");
+    const version = requireVersion(body.draftVersion ?? body.version);
+    const want = requireVersion(body.revision);
+
+    const store = openStore(env);
+    const published = await myNotice(store, slug, noticeId);
+    await store.ensureDraft(noticeId);
+    const old = await store.revision(noticeId, want);
+    if (!old) throw notFound(`${want} 판이 없습니다`);
+    const next = await store.replaceDraft({ id: noticeId, expect: version,
+                                            title: old.title, sections: old.sections });
+    if (!next) {
+      const current = await store.draft(noticeId);
+      throw stale("판을 불러오기 전에 초안이 바뀌었습니다",
+                  { current: current ? draftDoc(published, current) : null });
+    }
+    return json(draftDoc(published, next), 200);
   }
 
   /**

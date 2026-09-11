@@ -15,11 +15,13 @@
  * 주소로 읽는다 · 만든다 · 통째로 덮어쓴다 · 판을 읽는다. 창구 쪽 코드는 표도
  * 열도 모른다. 테스트는 이 모듈을 가짜로 갈아 끼운다.
  *
- * 표는 둘이다.
+ * 표는 셋이다.
  *
  * - `notices` — 기업(슬러그)·날짜·제목·문서·판 번호. 기업당 여러 건이 쌓이고,
  *   클라이언트 페이지에 오르는 것은 날짜가 가장 최근인 한 건이다.
  * - `revisions` — 저장할 때마다 쌓이는 지난 판. 공지 하나당 최근 스무 판.
+ * - `notice_drafts` — 담당자가 편집 중인 초안. 자동저장은 여기만 바꾸고,
+ *   게시할 때만 `notices` 로 승격한다.
  */
 
 /**
@@ -35,6 +37,15 @@ export function createStore(env) {
     async latest(slug) {
       const row = await db.prepare(
         `SELECT * FROM notices WHERE slug = ? ORDER BY "date" DESC, id DESC LIMIT 1`,
+      ).bind(slug).first();
+      return toNotice(row);
+    },
+
+    /** 고객 화면과 빌드가 읽는 가장 최근 게시본. 빈 새 초안은 여기서 빠진다. */
+    async latestPublished(slug) {
+      const row = await db.prepare(
+        `SELECT * FROM notices WHERE slug = ? AND published_at IS NOT NULL
+          ORDER BY "date" DESC, id DESC LIMIT 1`,
       ).bind(slug).first();
       return toNotice(row);
     },
@@ -56,8 +67,9 @@ export function createStore(env) {
     async create({ id, slug, date }) {
       const at = new Date().toISOString();
       const row = await db.prepare(
-        `INSERT INTO notices (id, slug, "date", title, doc, version, updated_at)
-              VALUES (?, ?, ?, '', '{"sections":[]}', 1, ?)
+        `INSERT INTO notices
+              (id, slug, "date", title, doc, version, updated_at, published_at)
+              VALUES (?, ?, ?, '', '{"sections":[]}', 1, ?, NULL)
          ON CONFLICT (slug, "date") DO NOTHING RETURNING *`,
       ).bind(id, slug, date, at).first();
       return toNotice(row);
@@ -67,6 +79,84 @@ export function createStore(env) {
     async byId(id) {
       const row = await db.prepare("SELECT * FROM notices WHERE id = ?").bind(id).first();
       return toNotice(row);
+    },
+
+    /** 초안이 없으면 지금 게시본을 복사해 첫 초안을 만든다. */
+    async ensureDraft(id) {
+      const at = new Date().toISOString();
+      await db.prepare(
+        `INSERT INTO notice_drafts
+              (notice_id, title, doc, version, base_published_version, updated_at)
+         SELECT id, title, doc, 1, version, ? FROM notices WHERE id = ?
+         ON CONFLICT (notice_id) DO NOTHING`,
+      ).bind(at, id).run();
+      const row = await db.prepare(
+        "SELECT * FROM notice_drafts WHERE notice_id = ?",
+      ).bind(id).first();
+      return toDraft(row);
+    },
+
+    /** 주소로 초안을 읽는다. */
+    async draft(id) {
+      const row = await db.prepare(
+        "SELECT * FROM notice_drafts WHERE notice_id = ?",
+      ).bind(id).first();
+      return toDraft(row);
+    },
+
+    /** 게시본은 건드리지 않고 초안만 통째로 자동저장한다. */
+    async replaceDraft({ id, expect, title, sections }) {
+      const at = new Date().toISOString();
+      const row = await db.prepare(
+        `UPDATE notice_drafts
+            SET title = ?, doc = ?, version = version + 1, updated_at = ?
+          WHERE notice_id = ? AND version = ? RETURNING *`,
+      ).bind(title, JSON.stringify({ sections }), at, id, expect).first();
+      return toDraft(row);
+    },
+
+    /**
+     * 초안을 게시본으로 승격한다.
+     *
+     * 초안 판과 그 초안이 출발한 게시 판이 둘 다 그대로일 때만 쓴다. 게시된
+     * 적이 있는 문서는 직전 게시본을 revisions 에 남기고, 새 공지는 빈 자리를
+     * 판으로 남기지 않는다. D1 batch 는 한 트랜잭션이라 중간 상태가 없다.
+     */
+    async publishDraft({ id, draftExpect, publishedExpect }) {
+      const at = new Date().toISOString();
+      const [, updated] = await db.batch([
+        db.prepare(
+          `INSERT OR IGNORE INTO revisions (notice_id, version, title, doc, saved_at)
+           SELECT n.id, n.version, n.title, n.doc, n.updated_at
+             FROM notices n JOIN notice_drafts d ON d.notice_id = n.id
+            WHERE n.id = ? AND n.version = ? AND n.published_at IS NOT NULL
+              AND d.version = ? AND d.base_published_version = ?`,
+        ).bind(id, publishedExpect, draftExpect, publishedExpect),
+        db.prepare(
+          `UPDATE notices
+              SET title = (SELECT title FROM notice_drafts WHERE notice_id = ?),
+                  doc = (SELECT doc FROM notice_drafts WHERE notice_id = ?),
+                  version = version + 1, updated_at = ?, published_at = ?
+            WHERE id = ? AND version = ? AND EXISTS (
+              SELECT 1 FROM notice_drafts
+               WHERE notice_id = ? AND version = ? AND base_published_version = ?)
+            RETURNING *`,
+        ).bind(id, id, at, at, id, publishedExpect,
+               id, draftExpect, publishedExpect),
+        db.prepare(
+          `UPDATE notice_drafts SET base_published_version = ?, updated_at = ?
+            WHERE notice_id = ? AND version = ? AND EXISTS (
+              SELECT 1 FROM notices
+               WHERE id = ? AND version = ? AND published_at = ?)`,
+        ).bind(publishedExpect + 1, at, id, draftExpect,
+               id, publishedExpect + 1, at),
+        db.prepare(
+          `DELETE FROM revisions WHERE notice_id = ? AND version < (
+             SELECT MIN(version) FROM (SELECT version FROM revisions
+               WHERE notice_id = ? ORDER BY version DESC LIMIT ?))`,
+        ).bind(id, id, KEEP),
+      ]);
+      return toNotice((updated?.results || [])[0]);
     },
 
     /**
@@ -91,9 +181,10 @@ export function createStore(env) {
                   FROM notices WHERE id = ? AND version = ?`,
         ).bind(id, expect),
         db.prepare(
-          `UPDATE notices SET title = ?, doc = ?, version = version + 1, updated_at = ?
+          `UPDATE notices SET title = ?, doc = ?, version = version + 1,
+                              updated_at = ?, published_at = ?
             WHERE id = ? AND version = ? RETURNING *`,
-        ).bind(title, JSON.stringify({ sections }), at, id, expect),
+        ).bind(title, JSON.stringify({ sections }), at, at, id, expect),
         // 최근 KEEP 판만 남긴다. 그보다 오래된 것은 되돌릴 목록에도 뜨지 않아
         // 이고 있어 봐야 저장소만 불어난다.
         db.prepare(
@@ -138,6 +229,20 @@ function toNotice(row) {
     date: row.date,
     title: row.title ?? "",
     version: row.version,
+    updatedAt: row.updated_at,
+    publishedAt: row.published_at ?? null,
+    sections: readDoc(row.doc),
+  };
+}
+
+/** 초안 한 줄. 게시본과 이름이 겹치지 않는 판 정보만 따로 붙인다. */
+function toDraft(row) {
+  if (!row) return null;
+  return {
+    noticeId: row.notice_id,
+    title: row.title ?? "",
+    version: row.version,
+    basePublishedVersion: row.base_published_version,
     updatedAt: row.updated_at,
     sections: readDoc(row.doc),
   };

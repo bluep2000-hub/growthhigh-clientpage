@@ -12,6 +12,9 @@ const notices = new Map();
 /** 공지 주소 → 판 배열. 진짜 저장소의 `판` 표 자리다. */
 const revisions = new Map();
 
+/** 공지 주소 → 편집 중인 초안. */
+const drafts = new Map();
+
 /** 공지 하나가 이고 가는 판의 수. 진짜 저장소의 KEEP 과 같아야 한다. */
 const KEEP = 20;
 
@@ -20,6 +23,7 @@ let saved = 0;
 export function reset() {
   notices.clear();
   revisions.clear();
+  drafts.clear();
   saved = 0;
 }
 
@@ -27,7 +31,8 @@ export function reset() {
 export function seed(row) {
   const full = {
     version: 1, title: "", sections: [],
-    updatedAt: "2026-09-01T00:00:00.000Z", ...row,
+    updatedAt: "2026-09-01T00:00:00.000Z",
+    publishedAt: "2026-09-01T00:00:00.000Z", ...row,
   };
   notices.set(full.id, full);
   return full;
@@ -35,6 +40,8 @@ export function seed(row) {
 
 /** 지금 저장소에 있는 그 공지. 「무엇이 남았나」를 볼 때 쓴다. */
 export const stored = (id) => notices.get(id);
+
+export const storedDraft = (id) => drafts.get(id);
 
 export const all = () => [...notices.values()];
 
@@ -52,6 +59,14 @@ export function createStore(env) {
       return mine[0] ?? null;
     },
 
+    async latestPublished(slug) {
+      const key = (n) => `${n.date}\u0000${n.id}`;
+      const mine = [...notices.values()]
+        .filter((n) => n.slug === slug && n.publishedAt !== null);
+      mine.sort((a, b) => (key(a) < key(b) ? 1 : key(a) > key(b) ? -1 : 0));
+      return mine[0] ?? null;
+    },
+
     /** 그 기업의 그 날짜 공지. 하루에 한 건뿐이라 있으면 하나다. */
     async onDate(slug, date) {
       return [...notices.values()].find((n) => n.slug === slug && n.date === date) ?? null;
@@ -61,11 +76,64 @@ export function createStore(env) {
         진짜 저장소에서는 표의 짝짓기가 그것을 막는다. */
     async create({ id, slug, date }) {
       if ([...notices.values()].some((n) => n.slug === slug && n.date === date)) return null;
-      return seed({ id, slug, date, title: "", sections: [], version: 1 });
+      return seed({ id, slug, date, title: "", sections: [], version: 1,
+                    publishedAt: null });
     },
 
     async byId(id) {
       return notices.get(id) ?? null;
+    },
+
+    async ensureDraft(id) {
+      if (!drafts.has(id)) {
+        const row = notices.get(id);
+        if (!row) return null;
+        drafts.set(id, {
+          noticeId: id, title: row.title, sections: structuredClone(row.sections),
+          version: 1, basePublishedVersion: row.version,
+          updatedAt: row.updatedAt,
+        });
+      }
+      return drafts.get(id);
+    },
+
+    async draft(id) {
+      return drafts.get(id) ?? null;
+    },
+
+    async replaceDraft({ id, expect, title, sections }) {
+      const row = drafts.get(id);
+      if (!row || row.version !== expect) return null;
+      saved += 1;
+      const next = {
+        ...row, title, sections: structuredClone(sections), version: row.version + 1,
+        updatedAt: new Date(Date.parse(row.updatedAt) + saved * 60000).toISOString(),
+      };
+      drafts.set(id, next);
+      return next;
+    },
+
+    async publishDraft({ id, draftExpect, publishedExpect }) {
+      const pub = notices.get(id);
+      const draft = drafts.get(id);
+      if (!pub || !draft || pub.version !== publishedExpect
+          || draft.version !== draftExpect
+          || draft.basePublishedVersion !== publishedExpect) return null;
+      saved += 1;
+      if (pub.publishedAt !== null) {
+        const kept = revisions.get(id) || [];
+        kept.push({ version: pub.version, title: pub.title,
+                    sections: structuredClone(pub.sections), savedAt: pub.updatedAt });
+        revisions.set(id, kept.slice(-KEEP));
+      }
+      const at = new Date(Date.parse(pub.updatedAt) + saved * 60000).toISOString();
+      const next = {
+        ...pub, title: draft.title, sections: structuredClone(draft.sections),
+        version: pub.version + 1, updatedAt: at, publishedAt: at,
+      };
+      notices.set(id, next);
+      drafts.set(id, { ...draft, basePublishedVersion: next.version, updatedAt: at });
+      return next;
     },
 
     /** 판 번호가 그대로일 때만 덮어쓴다. 어긋났으면 null 이다.
@@ -83,6 +151,7 @@ export function createStore(env) {
         ...row, title, sections,
         version: row.version + 1,
         updatedAt: new Date(Date.parse(row.updatedAt) + saved * 60000).toISOString(),
+        publishedAt: new Date(Date.parse(row.updatedAt) + saved * 60000).toISOString(),
       };
       notices.set(id, next);
       return next;

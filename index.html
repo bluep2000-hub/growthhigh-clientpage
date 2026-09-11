@@ -43,16 +43,16 @@
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
-:root{--sans:'Pretendard',-apple-system,system-ui,sans-serif;--r:6px;--accent:#5E6AD2;
+:root{--sans:'Pretendard',-apple-system,system-ui,sans-serif;--r:6px;--accent:#5E6AD2;--caret:#7F8FFF;
   --run:#D9A441;--run-bg:rgba(217,164,65,.14);--ok:#4CAF7D;--ok-bg:rgba(76,175,125,.14);
   --no:#C0645F;--no-bg:rgba(192,100,95,.14);--accent-bg:rgba(94,106,210,.18)}
 [data-theme="dark"]{--bg:#1A1A1E;--panel:#212127;--panel-2:#26262D;--hover:#2C2C34;
   --line:rgba(255,255,255,.07);--line-2:rgba(255,255,255,.13);
-  --tx:#E4E4E8;--tx-2:#9A9AA6;--tx-3:#6E6E7C}
+  --tx:#E4E4E8;--tx-2:#A8A8B3;--tx-3:#90909D;--caret:#AEB8FF}
 /* 라이트는 다크의 반전이 아니라 별도 팔레트다. 패널을 흰색으로 두고 테두리로 구분한다 */
 [data-theme="light"]{--bg:#FFFFFF;--panel:#FFFFFF;--panel-2:#F4F5F7;--hover:#F0F1F4;
-  --line:#E3E5EA;--line-2:#C9CDD5;--tx:#16181D;--tx-2:#4A4F5A;--tx-3:#8A909C;
-  --accent:#3D4BA8;
+  --line:#E3E5EA;--line-2:#C9CDD5;--tx:#16181D;--tx-2:#4A4F5A;--tx-3:#666D79;
+  --accent:#3D4BA8;--caret:#2647D4;
   --run:#8F5F0D;--run-bg:#FDF3E0;--ok:#1F7A52;--ok-bg:#E6F4EC;
   --no:#A34B45;--no-bg:#FBEAE8;--accent-bg:#E9EBF6}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -76,7 +76,7 @@ aside{width:238px;flex:none;background:var(--panel);border-right:1px solid var(-
 .mk .lg-e{line-height:1}
 .mk .lg-t{line-height:1;color:#5DCAA5;font-weight:700;letter-spacing:-.02em}
 .ws .nm{font-size:13px;font-weight:600;letter-spacing:-.015em;line-height:1.25;display:block}
-.ws .sb{font-size:10.5px;color:var(--tx-3)}
+.ws .sb{font-size:11px;color:var(--tx-3)}
 nav{flex:1;overflow-y:auto;padding:9px 8px}
 /* 사이드바 하단 제공자 표시. 위 .ws 와 같은 48px 로 좌측 기둥의 위아래를 맞춘다.
    nav 가 flex:1 이라 이 블록은 늘 바닥에 붙는다. 누를 수 없다 */
@@ -217,15 +217,15 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ck li[data-nid]>.nx,.ck li[data-nid]>.tgh>.nx{border-radius:3px}
 /* 고칠 수 있게 된 줄. 중계 서버가 「고칠 수 있다」고 한 뒤에야 이 꼴이 된다 —
    contenteditable 은 화면이 아니라 중계 서버의 판정으로만 붙는다 */
-.nx[contenteditable]{outline:none;cursor:text;padding:0 3px;margin:0 -3px}
+.nx[contenteditable]{outline:none;cursor:text;padding:0 3px;margin:0 -3px;caret-color:var(--caret)}
+.nsx[contenteditable],.nti{caret-color:var(--caret)}
+.nx[contenteditable].ed-hint{display:inline-block;width:calc(100% - 6px);min-width:2px;
+  min-height:1.65em;vertical-align:top}
 .nx[contenteditable]:hover{background:var(--accent-bg)}
 .nx[contenteditable]:focus{background:var(--accent-bg);box-shadow:0 0 0 1px var(--accent)}
-/* 고친 줄 · 보탠 줄 · 지운 줄 — 저장 전까지 눈에 띈다. 저장을 누르기 전에는
-   노션에 아무것도 나가지 않았으므로, 무엇이 나갈 것인지가 한눈에 보여야 한다 */
-.ck li.ed-dirty{box-shadow:inset 2px 0 var(--accent);border-radius:3px}
-.ck li.ed-new{box-shadow:inset 2px 0 var(--ok);border-radius:3px}
-.ck li.ed-new.ed-blank{box-shadow:none}
-.ck li.ed-fail{box-shadow:inset 2px 0 var(--no);border-radius:3px}
+/* 저장 상태는 상단 상태줄에서만 알린다. 본문 앞에 색 띠를 두면 커서나
+   인용선처럼 보여 작성 흐름을 끊는다. */
+.ck li.ed-dirty,.ck li.ed-new,.ck li.ed-fail{box-shadow:none}
 /* 지울 줄은 화면에서 치우지 않고 그어 둔다. 치우면 저장 전에 무엇이 사라질지
    셀 수 없고, 잘못 눌렀을 때 되돌릴 곳도 없다.
    자손 선택자다 — 그릇을 지우면 노션이 안엣줄도 함께 지운다 */
@@ -249,17 +249,46 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ed-note .cur{margin:5px 0;padding:6px 8px;background:var(--panel);border-radius:5px;color:var(--tx)}
 .ed-note button{font-size:11px;border-radius:5px;padding:2px 9px;
   border:1px solid var(--line-2);margin-right:5px}
-/* 저장 창구 — 공지 밑에 붙어 스크롤해도 남는다. 고친 것이 어디로 나가는지
-   한 곳만 보면 되게 한다 */
-.ed-bar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;
-  margin-top:14px;padding:9px 12px;background:var(--panel);border:1px solid var(--line);
-  border-radius:9px;font-size:12px;box-shadow:0 -3px 14px rgba(0,0,0,.07)}
-.ed-bar .cnt{color:var(--tx-3)}
-.ed-bar .msg{margin-left:auto;color:var(--tx-2);text-align:right}
+/* 편집 상태와 게시 창구 — 공지 위에 붙어 스크롤해도 남는다. 초안 보존 여부와
+   고객 공개 여부를 한 곳만 보면 되게 한다 */
+.ed-bar{position:sticky;top:12px;z-index:25;display:flex;align-items:center;gap:14px;
+  margin:-12px 0 24px;padding:10px 12px;background:var(--panel);border:1px solid var(--line-2);
+  border-radius:10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.ed-state{display:grid;grid-template-columns:8px minmax(0,auto);align-items:center;
+  column-gap:8px;min-width:0}
+.ed-state::before{content:'';grid-row:1/3;width:7px;height:7px;border-radius:50%;
+  background:var(--tx-3)}
+.ed-state[data-state=saving]::before{background:var(--run);animation:edpulse 1s ease-in-out infinite}
+.ed-state[data-state=saved]::before{background:var(--ok)}
+.ed-state[data-state=dirty]::before{background:var(--run)}
+.ed-state[data-state=error]::before,.ed-state[data-state=offline]::before{background:var(--no)}
+.ed-state[data-state=published]::before{background:var(--ok)}
+@keyframes edpulse{50%{opacity:.35;transform:scale(.75)}}
+.ed-bar .cnt{color:var(--tx);font-weight:600;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.ed-bar .msg{grid-column:2;color:var(--tx-3);font-size:11px;line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52ch}
 .ed-bar .msg.bad{color:var(--no)}
-.ed-bar button{font-size:12px;border-radius:6px;padding:4px 13px;border:1px solid var(--line-2)}
-.ed-bar .save{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.ed-actions{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}
+.ed-bar button{font-size:12px;border-radius:6px;padding:5px 11px;border:1px solid var(--line-2);
+  color:var(--tx-2)}
+.ed-bar button:hover:not([disabled]){background:var(--hover);color:var(--tx)}
+.ed-bar .publish{background:var(--accent);border-color:var(--accent);color:#fff;
+  font-weight:600;padding-inline:16px}
+.ed-bar .publish:hover:not([disabled]){background:var(--accent);color:#fff;filter:brightness(1.08)}
 .ed-bar button[disabled]{opacity:.5;cursor:default}
+.ed-meta{display:flex;align-items:center;gap:7px;margin:-8px 0 20px;color:var(--tx-3);
+  font-size:11.5px;font-variant-numeric:tabular-nums}
+.ed-meta i{font-style:normal;color:var(--line-2)}
+.notice[data-nsec]{border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;
+  margin:0;padding:18px 0 12px}
+.notice[data-nsec]:first-of-type{border-top:0;padding-top:6px}
+.notice[data-nsec]>.bd{padding:3px 2px 8px}
+.notice[data-nsec]>h3{font-size:15px;padding:6px 2px 8px;cursor:default}
+.notice[data-nsec]>h3>.nsx{min-width:8em;box-shadow:none;font-weight:650}
+.notice[data-nsec]>h3>.nsx:empty::before{content:'섹션 제목';color:var(--tx-3);font-weight:500}
+.notice[data-nsec] .ck{max-width:76ch}
+.ed-retry[hidden]{display:none}
 /* 서식 막대 — 글자를 고른 자리 위에 뜬다. 안 고르면 없다 */
 .ed-tb{position:absolute;z-index:60;display:none;gap:2px;padding:3px;background:var(--panel);
   border:1px solid var(--line-2);border-radius:7px;box-shadow:0 4px 14px rgba(0,0,0,.18);
@@ -284,28 +313,14 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ed-sl button{font-size:12px;color:var(--tx-2);text-align:left;padding:4px 9px;
   border-radius:5px}
 .ed-sl button.on,.ed-sl button:hover{background:var(--accent-bg);color:var(--accent)}
-/* 지우기 — 평소에는 안 보이다가 그 줄에 손이 갈 때만 나온다.
-   늘 떠 있으면 읽는 데 방해가 되고, 잘못 누르기도 쉽다.
-   .nx 바깥에 둔다 — 안에 두면 고치는 글의 일부가 되어 노션에 딸려 들어간다 */
-.nx-del{opacity:0;margin-left:8px;font-size:11px;color:var(--tx-3);padding:0 4px;
-  border-radius:4px;vertical-align:.05em}
-.ck li[data-nid]:hover>.nx-del,
-.ck li[data-nid]:hover>.tgh>.nx-del{opacity:1}
-.nx-del:hover{color:var(--no);background:var(--no-bg)}
-.nx-del:focus-visible{opacity:1}
-/* 지우기로 표시해 둔 줄의 단추. 늘 보인다 — 되돌릴 곳이 마우스를 얹어야만
-   나타나면, 잘못 지운 담당자는 되돌릴 길이 없다고 읽는다 */
-.nx-del.undo{opacity:1;color:var(--tx-3);border:1px solid var(--line-2);border-radius:5px;
-  padding:1px 7px;font-size:10.5px}
-.nx-del.undo:hover{color:var(--accent);border-color:var(--accent);background:none}
-/* 옮기기·들여쓰기·종류 — 지우기와 같은 자리에서 같은 규칙으로 나온다.
+/* 옮기기·들여쓰기·종류 — 편집 중인 줄 곁에서 같은 규칙으로 나온다.
    .nx 바깥에 둔다 — 안에 두면 고치는 글의 일부가 되어 노션에 딸려 들어간다.
    못 하는 것은 감추지 않고 흐린 채로 둔다. 자리가 들쭉날쭉하면 담당자는
    같은 단추를 매번 다른 곳에서 찾는다 */
-.nx-mv{opacity:0;margin-left:5px;white-space:nowrap;vertical-align:.05em}
+.nx-mv{display:none}
 .ck li[data-nid]:hover>.nx-mv,
 .ck li[data-nid]:hover>.tgh>.nx-mv,
-.nx-mv:focus-within{opacity:1}
+.nx-mv:focus-within,.nx-mv.on{opacity:1}
 .nx-mv button{font-size:11px;color:var(--tx-3);padding:0 3px;border-radius:4px}
 .nx-mv button:hover:not([disabled]){color:var(--accent);background:var(--accent-bg)}
 .nx-mv button[disabled]{opacity:.28;cursor:default}
@@ -313,13 +328,14 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
   background:var(--panel-2);border:1px solid var(--line-2);border-radius:4px;padding:1px 2px}
 .nx-mv select[disabled]{opacity:.35}
 /* ── 칸(섹션) 손질 ──
-   줄의 것과 같은 꼴이다. 머리말에 마우스를 얹어야 나타난다 — 클라이언트가
-   보는 화면에는 애초에 그려지지 않는다 */
+   화살표 기호 대신 뜻을 바로 읽을 수 있는 짧은 말로 둔다. 클라이언트가 보는
+   화면에는 애초에 그려지지 않는다 */
 .ns-mv{opacity:0;margin-left:auto;white-space:nowrap;flex:none}
 .notice>h3:hover .ns-mv,.ns-mv:focus-within{opacity:1}
-.ns-mv button{font-size:11px;color:var(--tx-3);padding:0 3px;border-radius:4px}
+.ns-mv button{font-size:11px;color:var(--tx-3);padding:2px 6px;border-radius:4px}
 .ns-mv button:hover:not([disabled]){color:var(--accent);background:var(--accent-bg)}
 .ns-mv button[disabled]{opacity:.28;cursor:default}
+.ns-mv [data-nsmv]{display:none}
 /* 이름을 고칠 수 있다는 것만 알린다. 제목처럼 보이는 것은 그대로 둔다 */
 .notice>h3>.nsx{border-radius:3px;padding:0 3px;margin:0 -3px;min-width:5em;
   cursor:text;box-shadow:inset 0 -1px 0 var(--line-2)}
@@ -329,9 +345,7 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
    화면이 글이 아니라 채워야 할 서식으로 읽힌다. 이름은 안 붙여도 된다 */
 .notice>h3:hover>.nsx:empty::before,.notice>h3>.nsx:focus:empty::before{
   content:'섹션 이름';color:var(--tx-3);font-weight:400}
-.notice.ed-dirty{box-shadow:inset 2px 0 var(--accent)}
-.notice.ed-new{box-shadow:inset 2px 0 var(--ok)}
-.notice.ed-secdel{box-shadow:inset 2px 0 var(--no)}
+.notice.ed-dirty,.notice.ed-new,.notice.ed-secdel{box-shadow:none}
 .notice.ed-secdel>h3>.nsx,.notice.ed-secdel .bd{opacity:.42}
 .notice.ed-secdel>h3>.nsx{text-decoration:line-through}
 /* ＋ 새 섹션 — 점선 상자를 걷는다. 늘 눈에 띄어야 할 것이 아니라, 필요할 때
@@ -339,8 +353,8 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .nsadd{margin:2px 0 14px}
 .nsadd>.nadd-b{width:auto;border:0;padding:5px 4px;opacity:.5}
 .nsadd>.nadd-b:hover{opacity:1;border:0}
-/* 옮긴 줄. 고친 줄과 색을 나눈다 — 저장 창구가 둘을 갈라서 세기 때문이다 */
-.ck li.ed-moved{box-shadow:inset 2px 0 var(--run);border-radius:3px}
+/* 옮긴 상태도 상단 저장 상태로만 알린다. */
+.ck li.ed-moved{box-shadow:none}
 /* 바꿀 종류. 화면은 지금 모양 그대로 그린다 — 글머리를 번호로 다시 그리는
    일은 다음 빌드가 한다. 그때까지 무엇으로 바뀔지를 여기 적어 둔다 */
 .ed-rt{font-size:10.5px;color:var(--tx-3);margin-left:7px;padding:0 5px;border-radius:4px;
@@ -367,6 +381,89 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ed-help-b dd code{font-size:10.5px}
 .ed-help-n{grid-column:1/-1;margin:12px 0 0;padding-top:9px;font-size:11.5px;
   color:var(--tx-3);border-top:1px solid var(--line)}
+.ed-preview{width:min(820px,calc(100vw - 32px));max-height:calc(100vh - 32px);
+  padding:0;border:0;border-radius:12px;background:var(--bg);
+  color:var(--tx);box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.ed-preview::backdrop{background:rgba(0,0,0,.48)}
+.ed-preview-h{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;
+  padding:11px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.ed-preview-h strong{font-size:13px}
+.ed-preview-h span{font-size:11px;color:var(--tx-3)}
+.ed-preview-h button{margin-left:auto;border:1px solid var(--line-2);border-radius:6px;
+  padding:4px 10px;color:var(--tx-2)}
+.ed-preview-b{padding:28px 30px 48px}
+.ed-preview-b>h1{font-size:22px;letter-spacing:-.025em;margin-bottom:5px}
+.ed-preview-b>.date{font-size:11.5px;color:var(--tx-3);margin-bottom:24px}
+.ed-preview-b .notice{background:var(--panel)}
+/* ── 한 장의 문서로 쓰는 공지 편집 화면 ──
+   기존 공지 카드 안에 편집 도구를 얹지 않는다. 편집 모드에서는 스크롤 영역
+   전체가 문서 작업대가 되고, 저장·게시 도구는 얇은 상단 막대로만 남는다. */
+main.notice-edit .scroll{background:var(--panel);scroll-padding-top:72px}
+main.notice-edit .view{max-width:none;margin:0;padding:0 0 110px}
+main.notice-edit .top .rpt{display:none}
+.ed-workspace{min-height:100%;background:var(--panel)}
+.ed-workspace::selection,.ed-workspace *::selection{background:var(--accent-bg);color:var(--tx)}
+.ed-bar{top:0;margin:0;padding:9px 18px;min-height:48px;border:0;border-bottom:1px solid var(--line);
+  border-radius:0;box-shadow:none;background:var(--panel);gap:18px}
+.ed-bar-start{display:flex;align-items:center;gap:12px;min-width:154px;flex:none}
+.ed-path{display:flex;align-items:center;gap:7px;color:var(--tx-3);font-size:11.5px;white-space:nowrap}
+.ed-path b{color:var(--tx);font-weight:600}.ed-path i{font-style:normal;color:var(--line-2)}
+.ed-bar .ed-exit{padding:5px 8px;border-color:transparent;color:var(--tx-2)}
+.ed-bar .ed-exit:hover:not([disabled]){border-color:var(--line);background:var(--hover)}
+.ed-bar .ed-state{flex:1;max-width:440px}
+.ed-bar .ed-actions{gap:5px}
+.ed-bar .quiet{border-color:transparent}
+.ed-bar .quiet:hover:not([disabled]){border-color:var(--line)}
+.ed-page{width:min(900px,100%);margin:0 auto;padding:72px 72px 120px;
+  animation:edPageIn .22s cubic-bezier(.16,1,.3,1)}
+@keyframes edPageIn{from{opacity:.985;transform:translateY(3px)}to{opacity:1;transform:none}}
+.ed-page-head,.ed-body{max-width:74ch;margin-inline:auto}
+.ed-page-head{margin-bottom:22px}
+.ed-page-title h1{line-height:1.15}
+.ed-page .nti{display:block;width:100%;max-width:none;min-width:0;padding:0;border:0;
+  font-size:40px;line-height:1.18;font-weight:700;letter-spacing:-.035em;caret-color:var(--caret)}
+.ed-page .nti:focus{border:0;outline:none}
+.ed-page .nti::placeholder{color:var(--tx-3);font-weight:650;opacity:.72}
+.ed-page .ed-meta{margin:14px 0 0;min-height:22px;gap:8px;font-size:12px;color:var(--tx-3)}
+.ed-page .ed-meta [data-edpublished]{color:var(--tx-2)}
+.ed-page .notice[data-nsec]{border:0;border-radius:0;background:transparent;margin:0;padding:0}
+.ed-page .notice[data-nsec]+.notice[data-nsec]{margin-top:42px}
+.ed-page .notice[data-nsec]>.bd{padding:0;min-height:42px}
+.ed-page .notice[data-nsec]>h3{padding:18px 0 8px;font-size:25px;line-height:1.3;
+  font-weight:700;letter-spacing:-.03em;cursor:text}
+.ed-page .notice[data-nsec]>h3>.nsx{min-width:4em;padding:0;margin:0;box-shadow:none}
+.ed-page .notice[data-nsec]>h3>.nsx:focus{background:transparent;box-shadow:none;outline:none}
+.ed-page .notice[data-nsec]>h3>.nsx:empty::before{content:'섹션 제목';color:var(--tx-3);font-weight:600}
+.ed-page .notice[data-nsec].nsec-untitled>h3{display:none}
+.ed-page .notice[data-nsec] .ck{max-width:none;margin-left:38px}
+.ed-page .notice[data-nsec] .ck li{font-size:16px;line-height:1.65;min-height:30px;
+  padding-top:2px;padding-bottom:2px;letter-spacing:-.012em}
+.ed-page .notice[data-nsec] .ck li.para{padding-left:0}
+.ed-page .notice[data-nsec] .ck ul{margin:2px 0 4px 28px}
+.ed-page .notice[data-nsec] .nx[contenteditable]{min-height:1.65em;caret-color:var(--caret)}
+.ed-page .nx[contenteditable]{padding:1px 3px;margin:-1px -3px;box-shadow:none}
+.ed-page .nx[contenteditable]:hover{background:transparent}
+.ed-page .nx[contenteditable]:focus{background:transparent;box-shadow:none}
+.ed-page .ck>li.hd1{font-size:30px;line-height:1.3;font-weight:750;margin:34px 0 8px}
+.ed-page .ck>li.hd2{font-size:24px;line-height:1.35;font-weight:700;margin:28px 0 6px}
+.ed-page .ck>li.hd3{font-size:19px;line-height:1.45;font-weight:650;margin:22px 0 4px;color:var(--tx)}
+.ed-page .notice[data-nsec] .ck li.hd1,.ed-page .notice[data-nsec] .ck li.hd2,
+.ed-page .notice[data-nsec] .ck li.hd3{padding-left:0}
+.ed-page .nx-rail{left:-38px;top:4px;gap:2px}
+.ed-page .nx-plus,.ed-page .nx-gr{width:18px;height:22px}
+.ed-page .ntail{min-height:96px}
+.ed-page .ck li[data-nid]:only-child>.nx.ed-hint:not(:focus)::before{
+  content:'내용을 입력하거나 ‘/’를 눌러 블록을 선택하세요';color:var(--tx-3);opacity:.78}
+.ed-page .nsadd{margin:28px 0 0 38px}
+.ed-page .nsadd>.nadd-b{padding:7px 4px;font-size:12px;color:var(--tx-3);opacity:.56}
+.ed-page .ed-help{margin:34px 0 0 38px;padding-top:16px;border-top:1px solid var(--line)}
+.ed-page .ed-help-b{border:0;border-radius:0;padding:14px 0;background:transparent}
+.ed-sl{width:300px;max-width:calc(100vw - 16px);max-height:min(470px,calc(100vh - 24px));
+  overflow-y:auto;padding:6px;border-radius:10px;box-shadow:0 12px 34px rgba(0,0,0,.22)}
+.ed-sl button{display:block;width:100%;padding:8px 10px;text-align:left;border-radius:6px}
+.ed-sl button strong{display:block;font-size:12.5px;font-weight:600;color:var(--tx);line-height:1.35}
+.ed-sl button small{display:block;margin-top:2px;font-size:11px;line-height:1.35;color:var(--tx-3)}
+.ed-sl button.on strong,.ed-sl button:hover strong{color:var(--accent)}
 /* ── 편집 모드의 할 일 ──
    클라이언트 화면은 읽기 전용이라 작은 원과 체크 표시만 둔다. 편집 모드에서는
    **누를 수 있는 네모**여야 한다 — 5px 원은 글머리 점과 구별이 안 되고,
@@ -422,9 +519,8 @@ table.ntb td>.nx{display:block;min-height:1.2em}
 .ntbc button{font-size:11px;color:var(--tx-3);border:1px solid var(--line-2);
   border-radius:5px;padding:2px 8px}
 .ntbc button:hover{color:var(--accent);border-color:var(--accent)}
-/* 고친 칸에도 줄과 같은 자국을 붙인다 */
-.ck td.ed-dirty{box-shadow:inset 2px 0 var(--accent)}
-.ck td.ed-new{box-shadow:inset 2px 0 var(--ok)}
+/* 표의 저장 상태도 상단 상태줄에서만 알린다. */
+.ck td.ed-dirty,.ck td.ed-new{box-shadow:none}
 /* ── 줄 안의 제목 ──
    칸 이름보다 작다. 칸이 이미 그 공지의 큰 제목이라, 줄 안의 제목이 그보다
    커지면 위계가 뒤집힌다 */
@@ -438,18 +534,24 @@ table.ntb td>.nx{display:block;min-height:1.2em}
 /* 편집 모드에서는 손잡이 자리가 있어야 하므로 왼쪽 여백을 도로 준다 */
 .notice[data-nsec] .ck li.hd1,.notice[data-nsec] .ck li.hd2,
 .notice[data-nsec] .ck li.hd3{padding-left:2px}
-/* ── 끌어서 옮기기 ──
-   편집 모드에서만 목록을 오른쪽으로 밀어, 줄 왼쪽에 손잡이가 앉을 자리를 낸다.
-   `[data-nsec]` 는 편집 모드에서만 붙으므로 클라이언트 화면은 그대로다 */
-.notice[data-nsec] .ck{margin-left:16px}
-.nx-gr{position:absolute;left:-16px;top:3px;width:13px;text-align:center;opacity:0;
-  cursor:grab;font-size:11px;line-height:1.4;color:var(--tx-3);user-select:none;
-  border-radius:4px}
-.ck ul>li>.nx-gr{top:1px}
-.ck li[data-nid]:hover>.nx-gr,.nx-gr:focus-visible{opacity:1}
-.nx-gr:hover{color:var(--accent);background:var(--accent-bg)}
+/* ── 블록 왼쪽 레일 ──
+   편집 모드에서만 목록을 오른쪽으로 밀어 노션처럼 `추가`와 `끌기`를 같은
+   자리에 둔다. `[data-nsec]` 는 편집 모드에만 붙어 고객 화면은 그대로다 */
+.notice[data-nsec] .ck{margin-left:36px}
+.nx-rail{position:absolute;left:-36px;top:2px;display:flex;align-items:center;gap:1px;
+  opacity:0;color:var(--tx-3);user-select:none}
+.ck ul>li>.nx-rail{top:0}
+.ck li[data-nid]:hover>.nx-rail,.ck li[data-nid]:focus-within>.nx-rail,
+.nx-rail:focus-within{opacity:1}
+.nx-plus,.nx-gr{display:inline-grid;place-items:center;width:17px;height:19px;border-radius:4px;
+  font-size:13px;line-height:1;color:inherit}
+.nx-gr{display:none}
+.nx-plus:hover,.nx-gr:hover{color:var(--accent);background:var(--accent-bg)}
+.nx-gr{cursor:grab;font-size:11px}
 .nx-gr:active{cursor:grabbing}
 .ck li.ed-dragging{opacity:.4}
+@media(pointer:coarse){.nx-rail{opacity:.68}.nx-plus,.nx-gr{width:19px;height:22px}
+  .ns-mv{opacity:1}}
 /* 여러 줄 잡기 — 무엇에 걸리는지 보이게. 글자 위의 파란 칠(브라우저가 그리는
    것)은 고른 글자만 덮어서, 그 줄 통째로 걸린다는 것이 드러나지 않는다 */
 .ck li[data-nid].ed-pick{background:var(--accent-bg);border-radius:3px}
@@ -462,8 +564,7 @@ table.ntb td>.nx{display:block;min-height:1.2em}
 .ntail{min-height:32px;cursor:text}
 /* 빈 줄의 안내 글자. 커서가 놓인 줄과, 칸에 하나뿐인 줄에만 뜬다 —
    빈 줄마다 떠 있으면 글이 아니라 서식처럼 보인다 */
-.nx.ed-hint:focus::before,
-.ck li[data-nid]:only-child>.nx.ed-hint::before{content:'내용을 입력하거나 / 로 블록 유형을 선택하세요';
+.ck li[data-nid]:only-child>.nx.ed-hint:not(:focus)::before{content:'내용을 입력하거나 / 로 블록 유형을 선택하세요';
   color:var(--tx-3);font-weight:400;pointer-events:none}
 /* ＋ 새 섹션 — 공지 맨 끝 */
 .nadd-b{font-size:12px;color:var(--tx-3);border:1px dashed var(--line-2);border-radius:7px;
@@ -501,27 +602,28 @@ table.ntb td>.nx{display:block;min-height:1.2em}
 .ck .ic{font-size:12px;flex:none;opacity:.85;line-height:1.5}
 /* 표가 좁은 화면에서 넘칠 때 가로 스크롤로 흘린다 */
 .ck li>table{overflow-x:auto}
-/* 읽기 전용 화면이라 입력 컨트롤처럼 보이는 체크박스를 두지 않는다.
-   끝난 일은 체크 표시만, 남은 일은 빈 원만 둔다. */
-.ck li.chk{color:var(--tx)}                    /* 지금 해야 할 일 */
-/* 빈 원은 1.5px 링이라 --line-2 로는 두 테마 모두 1.5:1 대비로 묻힌다 */
-.ck li.chk::before{content:'';position:absolute;left:2px;top:11px;
-  width:5px;height:5px;border-radius:50%;border:1.5px solid var(--tx-3)}
-.ck li.chk.on{color:var(--tx-2)}               /* 끝난 일은 한 단계 죽인다 */
-.ck li.chk.on::before{                         /* 박스 없이 체크 모양만 */
-  left:3px;top:8.5px;width:6px;height:10px;border-radius:1px;
-  border:solid var(--ok);border-width:0 2px 2px 0;transform:rotate(45deg)}
+/* 할 일은 편집 화면과 미리보기·고객 화면에서 같은 사각 체크박스로 보인다. */
+.ck li.chk{color:var(--tx)}
+.ck li.chk::before{content:'';position:absolute;left:0;top:5px;width:13px;height:13px;
+  border-radius:3.5px;border:1.5px solid var(--tx-3);background:var(--panel)}
+.ck li.chk.on{color:var(--tx-2)}
+.ck li.chk.on::before{content:'✓';left:0;top:5px;width:13px;height:13px;
+  border:1.5px solid var(--ok);border-radius:3.5px;background:var(--ok);color:#fff;
+  font-size:9.5px;line-height:12px;text-align:center;font-weight:700;transform:none}
+.ck li.chk.on>.ntx,.notice[data-nsec] .ck li.chk.on>.nx{
+  text-decoration:line-through;text-decoration-thickness:1.5px;
+  text-decoration-color:currentColor}
 .ck li.plain::before{content:'';position:absolute;left:4px;top:11px;width:4px;height:4px;
   border-radius:50%;background:var(--tx-3)}
-.ck ul{list-style:none;margin:2px 0 4px}
+.ck ul{list-style:none;margin:2px 0 4px 14px}
 /* 후손 선택자라 2단 이하가 모두 같은 크기·색이다 — 깊어져도 더 죽이지 않는다 */
 .ck ul li{padding:2px 0 2px 14px;position:relative;font-size:12.5px;
   color:var(--tx-2);line-height:1.65}
 /* 들여쓰기는 4단까지만 늘린다. 더 들어가면 본문이 오른쪽으로 밀려 읽기 나쁘다.
    ul 이 4개 겹치는 지점(5단)부터 부모가 준 들여쓰기를 되돌린다 */
 .ck ul ul ul ul{margin-left:-14px}
-.ck ul li.chk::before{left:1px;top:9px;width:4px;height:4px;border-width:1.5px}
-.ck ul li.chk.on::before{left:2px;top:6.5px;width:5px;height:8px;border-width:0 2px 2px 0}
+.ck ul li.chk::before,.ck ul li.chk.on::before{
+  left:0;top:3px;width:12px;height:12px;line-height:11px}
 /* 하위 불릿은 상위와 위계가 갈리도록 한 단계 더 죽인다 */
 .ck ul li.plain::before{left:4px;top:9px;width:3px;height:3px;background:var(--line-2)}
 /* ── 항목의 종류 ──
@@ -847,6 +949,27 @@ body.locked #gate{display:grid}
 ::-webkit-scrollbar{width:9px}
 ::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px}
 @media(max-width:820px){body{overflow:auto}aside{display:none}main{height:auto}}
+@media(max-width:680px){
+  .view{padding:20px 16px 76px}
+  main.notice-edit .view{padding:0 0 72px}
+  .ed-bar{top:0;margin:0;padding:8px 10px;gap:7px;align-items:center}
+  .ed-bar-start{min-width:0}.ed-path{display:none}
+  .ed-state{padding-top:0;min-width:0;flex:1}
+  .ed-bar .cnt{font-size:11.5px}.ed-bar .msg{display:none}
+  .ed-actions{gap:4px}
+  .ed-actions [data-edrev],.ed-actions [data-edhelp],.ed-actions [data-ednew]{display:none}
+  .ed-bar button{padding:5px 7px}
+  .ed-bar .publish{padding-inline:11px}
+  .ed-page{padding:48px 24px 90px}
+  .ed-page .nti{font-size:34px}
+  .ed-page .notice[data-nsec] .ck{margin-left:30px}
+  .ed-page .notice[data-nsec] .ck ul{margin-left:22px}
+  .ed-page .nx-rail{left:-30px}
+  .ed-page .notice[data-nsec] .ck li{font-size:16px}
+  .ed-page .ck>li.hd1{font-size:27px}.ed-page .ck>li.hd2{font-size:22px}
+  .ed-page .nsadd,.ed-page .ed-help{margin-left:30px}
+  .ed-preview-b{padding:22px 18px 40px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* ══ 인쇄 ══════════════════════════════════════════════════════════
@@ -1739,12 +1862,15 @@ function init(D){
       : c === true ? 'chk on' : c === false ? 'chk' : 'plain';
     /* 적은 만큼 다 낸다. depth 상한은 깊이를 제한하려는 것이 아니라 봉투가
        망가져 순환이 생겼을 때 멈추는 자리다 — 저장 쪽 상한과 같은 값이다 */
-    const kids = depth < 50 ? (it.children || []) : [];
+    /* 게시된 봉투는 children, 작성 중인 미리보기 문서는 items를 쓴다.
+       둘을 함께 읽어야 Tab으로 만든 하위 항목이 미리보기에서 사라지지 않는다. */
+    const kids = depth < 50
+      ? (Array.isArray(it.children) ? it.children : (it.items || [])) : [];
     const sub = kids.length
       ? `<ul>${kids.map(k=>noticeItem(k, depth+1, edit)).join('')}</ul>` : '';
 
     const body = noticeHtml(it.html);
-    let mark = '', text = body;
+    let mark = '', text = `<span class="ntx">${body}</span>`;
     /* 주소와 종류만 싣는다. 편집 모드는 봉투로 그린 이 화면을 고치지 않는다 —
        저장소의 공지 문서를 받아 화면을 다시 그린 뒤에야 고칠 수 있게 된다 */
     if(edit && it.id){
@@ -1763,7 +1889,7 @@ function init(D){
     /* 노션에서 접어 둔 항목은 접힌 채로 시작한다 — 접어 둔 의도를 따른다 */
     if(it.toggle && sub){
       return `<li class="tg"${mark}><span class="tgh"><i class="tw">▸</i>
-        ${edit && it.id ? text : `<span>${body}</span>`}</span>${sub}</li>`;
+        ${text}</span>${sub}</li>`;
     }
     return `<li class="${cls}"${mark}>${text}${sub}</li>`;
   }
@@ -1793,7 +1919,8 @@ function init(D){
     const opened = (s,si) => edit || si===0 || !(s.heading_html || s.heading);
 
     return boxes.map((s,si)=>`
-      <div class="notice${opened(s,si)?' open':''}"${
+      <div class="notice${opened(s,si)?' open':''}${
+        edit && !(s.heading_html || s.heading) ? ' nsec-untitled' : ''}"${
         edit ? ` data-nsec="${esc(s.id || '')}"` : ''}>${secHead(s, edit)}<div class="bd">
        ${(s.items||[]).length
          ? `<ul class="ck">${s.items.map(i=>noticeItem(i,1,edit)).join('')}</ul>`
@@ -1804,7 +1931,7 @@ function init(D){
        ${edit ? `<div class="ntail" data-ntail></div>` : ''}
       </div></div>`).join('')
       + (edit ? `<div class="nsadd"><button class="nadd-b" data-nsadd>＋ 새 섹션</button></div>`
-              + saveBar() : '');
+              + edGuide() : '');
   }
 
   /**
@@ -1822,20 +1949,29 @@ function init(D){
     /* 접기 손잡이(▸)를 그리지 않는다. 편집 모드에서는 접을 일이 없다 */
     return `<h3><span class="nsx" data-nsx>${body}</span>
       <span class="ns-mv">
-        <button data-nsmv="up" title="섹션 위로">↑</button>
-        <button data-nsmv="down" title="섹션 아래로">↓</button>
-        <button data-nsdel title="섹션 삭제">✕</button>
+        <button type="button" data-nsmv="up">위로</button>
+        <button type="button" data-nsmv="down">아래로</button>
+        <button type="button" data-nsdel>삭제</button>
       </span></h3>`;
   }
 
-  /* 저장 창구. 고친 줄이 몇인지, 무엇이 나갔는지가 여기 한 곳에만 뜬다 */
+  /* 편집 상태와 공개 행동은 화면 위 한 곳에만 둔다. 초안은 자동으로 보존되고,
+     고객에게 보이는 변화는 「게시」를 눌렀을 때만 생긴다. */
   function saveBar(){
     return `<div class="ed-bar" id="edbar">
-      <button class="save" data-edsave disabled>저장</button>
-      <button data-edundo disabled>전체 취소</button>
-      <button data-edrev>이전 버전</button>
-      <span class="cnt" data-edcnt>공지를 불러오는 중…</span>
-      <span class="msg" data-edmsg></span></div>` + edGuide();
+      <span class="ed-bar-start"><button class="ed-exit" data-edoff>편집 종료</button>
+        <span class="ed-path"><b>공지사항</b><i>/</i><span>문서 편집</span></span></span>
+      <span class="ed-state" data-edstate="loading">
+        <span class="cnt" data-edcnt>공지를 불러오는 중…</span>
+        <span class="msg" data-edmsg>잠시만 기다려 주세요</span></span>
+      <span class="ed-actions">
+        <button class="quiet" data-ednew>새 공지</button>
+        <button class="quiet" data-edhelp>도움말</button>
+        <button data-edpreview disabled>미리보기</button>
+        <button data-edrev disabled>이전 버전</button>
+        <button class="ed-retry" data-edretry hidden>다시 시도</button>
+        <button class="publish" data-edpublish disabled>게시</button>
+      </span></div>`;
   }
 
   /**
@@ -1850,7 +1986,7 @@ function init(D){
       ['기본 편집', [
         ['Enter', '줄 나누기 · 줄 끝이면 새 줄 추가'],
         ['Shift + Enter', '한 줄 안에서 줄바꿈'],
-        ['Backspace', '줄 처음에서 — 유형 해제 → 내어쓰기 → 윗줄과 병합'],
+        ['Backspace', '줄 처음에서 — 유형 해제 → 윗줄과 병합'],
         ['Ctrl + Z', '실행 취소'],
         ['Ctrl + Shift + Z', '다시 실행'],
         ['Ctrl + D', '줄 복제'],
@@ -1879,12 +2015,10 @@ function init(D){
         ['색 · 형광펜', '텍스트 선택 시 나타나는 도구막대의 🎨'],
         ['주소 붙여넣기', '텍스트 선택 후 붙여넣으면 링크'],
       ]],
-      ['이동 · 선택', [
+      ['커서 · 선택', [
         ['Tab / Shift + Tab', '들여쓰기 · 내어쓰기'],
-        ['Ctrl + Shift + ↑ ↓', '줄 이동'],
         ['↑ ↓', '줄 사이 커서 이동'],
-        ['Shift + ↑ ↓', '여러 줄 선택 — Tab · 이동 · Backspace 가 전체에 적용'],
-        ['줄 왼쪽 ⠿', '드래그로 이동'],
+        ['Shift + ↑ ↓', '여러 줄 선택 — Tab · Backspace · Delete가 전체에 적용'],
       ]],
       ['표 · 할 일', [
         ['Tab', '표 안에서 다음 셀 · 마지막 셀이면 행 추가'],
@@ -1896,8 +2030,8 @@ function init(D){
       <div class="ed-help-b">${rows.map(([name, list]) => `<section>
         <h4>${name}</h4><dl>${list.map(([key, what]) =>
           `<dt>${key}</dt><dd>${what}</dd>`).join('')}</dl></section>`).join('')}
-      <p class="ed-help-n">변경 사항은 「저장」을 눌러야 반영됩니다.
-        저장 후 1~2분이면 클라이언트 화면에 나타납니다.</p></div></details>`;
+      <p class="ed-help-n">작성 내용은 자동으로 초안에 저장됩니다.
+        고객에게 보여 줄 준비가 되었을 때 화면 위의 「게시」를 눌러 주세요.</p></div></details>`;
   }
 
   /* ══ 편집 모드 ═══════════════════════════════════════════════════
@@ -2000,21 +2134,21 @@ function init(D){
 
   /* ══ 공지 편집기 ═══════════════════════════════════════════════════
      편집 모드를 켜면 공지 전체가 그 자리에서 편집된다. 고치기·보태기·지우기가
-     모두 화면에 쌓였다가 「저장」을 눌러야 한 번에 나간다 — 그래서 저장 전에
-     되돌릴 수 있고, 재빌드도 한 번만 돈다.
+     입력이 멈추면 별도 초안에 자동 저장된다. 고객이 보는 게시본은 「게시」를
+     눌렀을 때만 바뀌고, 재빌드도 그때 한 번만 돈다.
 
      **공지의 원본은 저장소다**(docs/adr/0004-공지-원본-이사.md). 편집을 열 때
-     `GET /notice/doc` 으로 공지 문서를 통째로 받아 **그것으로 화면을 다시
+     `GET /notice/doc/draft` 로 공지 초안을 통째로 받아 **그것으로 화면을 다시
      그린다.** 봉투로 그린 화면을 고치지 않는 까닭은, 봉투가 지난 빌드의 것이라
      그 사이에 저장된 것을 화면이 모르기 때문이다 — 그대로 저장하면 남이
      적어 둔 줄이 소리 없이 사라진다.
 
-     저장은 **문서를 통째로** 보낸다. 줄마다 따로 보내지 않으므로 무게 상한도,
-     부분 실패도, 「이 줄만 저장 안 됨」도 없다. 화면을 걸어 다니며 지금 보이는
-     그대로를 문서로 다시 지어 보내고, 저장소는 그것을 통째로 덮어쓴다.
+     자동저장은 **초안 문서를 통째로** 보낸다. 줄마다 따로 보내지 않으므로
+     부분 실패나 「이 줄만 저장 안 됨」이 없다. 화면을 걸어 다니며 지금 보이는
+     그대로를 문서로 다시 지어 보내고, 저장소는 초안만 통째로 덮어쓴다.
 
      문서는 **판 번호**를 안고 있다. 편집을 연 뒤 판이 올랐으면(다른 담당자가
-     먼저 저장했으면) 저장이 통째로 거절되고 저장소의 지금 문서가 함께 온다.
+     먼저 저장했으면) 자동저장이 통째로 거절되고 저장소의 지금 초안이 함께 온다.
      화면에 적어 둔 글은 그대로 둔다 — 담당자가 견주고 고른다.
 
      저장할 때 브라우저가 만든 DOM 을 그대로 보내지는 않는다. contenteditable
@@ -2034,7 +2168,7 @@ function init(D){
    * 손대 둔 것을 통째로 잊는다.
    *
    * 화면을 다시 그리기 **직전에** 부른다. 남겨 두면 그 장부가 사라질 DOM 을
-   * 가리킨 채로 「저장하지 않은 것이 있다」고 한 번 더 묻고, 담당자가 거기서
+    * 가리킨 채로 「아직 초안에 닿지 않은 입력이 있다」고 한 번 더 묻고, 담당자가
    * 취소하면 화면과 장부가 서로 다른 것을 가리키게 된다.
    */
   function edForgetAll(){
@@ -2061,7 +2195,7 @@ function init(D){
    *   base     손대기 전의 편집용 HTML. 고쳤는지를 이것과 견준다
    *   home     처음 앉아 있던 자리. 옮겼는지를 이것과 견준다
    *   type     그 줄의 종류. 저장할 때 문서에 그대로 실린다
-   *   retype   바꾸려는 종류. 저장 전까지 화면에만 있다
+   *   retype   바꾸려는 종류. 다음 자동저장까지 화면에만 있다
    */
   /** 장부에 오르는 것 — 줄과 표의 칸. 둘 다 고치고 저장에 실린다 */
   const ED_ROWS = '.ck li[data-nid], .ck td[data-nid]';
@@ -2074,6 +2208,131 @@ function init(D){
 
   /** 공지 제목 칸. {input, base, seen} — 줄이 아니라 공지 한 건의 것이라 따로 둔다 */
   let edTitle = null;
+
+  /* ── 초안 자동저장 상태 ──────────────────────────────────────────────
+     화면에서 쓰는 동안에는 고객에게 아무것도 나가지 않는다. 현재 DOM 과 마지막
+     서버 초안을 지문으로 견주어, 실제 내용이 달라졌을 때만 저장한다. */
+  const ED_SAVE_DELAY = 1000;
+  let edReady = false;
+  let edSaving = false;
+  let edPublishing = false;
+  let edOffline = false;
+  let edComposing = false;
+  let edSaveTimer = 0;
+  let edSaveAgain = false;
+  let edSavedFingerprint = '';
+  let edRecovered = false;
+
+  const edCacheKey = id => id ? `gh:notice-draft:${CLIENT}:${id}` : '';
+  const edCacheLatestKey = () => `gh:notice-draft:${CLIENT}:latest`;
+
+  /** 지금 화면의 문서. localIds 면 아직 서버 이름이 없는 줄에도 임시 이름을 싣는다. */
+  function edCurrentDoc(localIds){
+    const parcel = edParcel();
+    const item = k => ({
+      ...k.row,
+      ...(localIds && !k.row.id ? {id: k.li.dataset.nid} : {}),
+      items: k.kids.map(item),
+    });
+    return {
+      title: edTitle ? edTitle.input.value.trim() : ((edDoc && edDoc.title) || ''),
+      sections: parcel.map(p => ({
+        ...p.row,
+        ...(localIds && !p.row.id ? {id: p.box.dataset.nsec} : {}),
+        items: p.kids.map(item),
+      })),
+    };
+  }
+
+  const edDocFingerprint = doc => JSON.stringify({
+    title: (doc && doc.title) || '', sections: (doc && doc.sections) || [],
+  });
+
+  function edFingerprint(){
+    return (!edReady || !edDoc || !document.getElementById('edbar'))
+      ? edSavedFingerprint : edDocFingerprint(edCurrentDoc(false));
+  }
+
+  function edCacheWrite(){
+    if(!edDoc) return;
+    try {
+      const now = edCurrentDoc(true);
+      sessionStorage.setItem(edCacheKey(edDoc.noticeId), JSON.stringify({
+        noticeId: edDoc.noticeId,
+        draftVersion: edDoc.draftVersion,
+        publishedVersion: edDoc.publishedVersion,
+        basePublishedVersion: edDoc.basePublishedVersion,
+        publishedAt: edDoc.publishedAt || null,
+        date: edDoc.date,
+        title: now.title,
+        sections: now.sections,
+        at: new Date().toISOString(),
+      }));
+      sessionStorage.setItem(edCacheLatestKey(), edDoc.noticeId);
+    } catch(_){}
+  }
+
+  /**
+   * 탭 임시본에는 다시 그릴 때 필요한 `new-*` 주소가 들어 있다. 이 주소를
+   * 서버에 그대로 보내면 영구 주소가 된 뒤, 다음에 만든 줄의 임시 주소와
+   * 겹친다. 복구 요청을 만들 때만 임시 주소를 걷어 서버가 새 이름을 붙이게 한다.
+   */
+  function edCachePayload(doc){
+    const item = row => {
+      const out = {...row, items: (row.items || []).map(item)};
+      if(typeof out.id === 'string' && out.id.startsWith('new-')) delete out.id;
+      return out;
+    };
+    return {
+      title: doc.title || '',
+      sections: (doc.sections || []).map(sec => {
+        const out = {...sec, items: (sec.items || []).map(item)};
+        if(typeof out.id === 'string' && out.id.startsWith('new-')) delete out.id;
+        return out;
+      }),
+    };
+  }
+
+  function edCacheRead(id){
+    try {
+      const raw = sessionStorage.getItem(edCacheKey(id));
+      const doc = raw && JSON.parse(raw);
+      return doc && doc.noticeId === id && Array.isArray(doc.sections) ? doc : null;
+    } catch(_){ return null; }
+  }
+
+  function edCacheLatest(){
+    try { return edCacheRead(sessionStorage.getItem(edCacheLatestKey()) || ''); }
+    catch(_){ return null; }
+  }
+
+  function edCacheClear(id){
+    try {
+      sessionStorage.removeItem(edCacheKey(id));
+      if(sessionStorage.getItem(edCacheLatestKey()) === id)
+        sessionStorage.removeItem(edCacheLatestKey());
+    } catch(_){}
+  }
+
+  function edPublishedLabel(){
+    if(!edDoc || !edDoc.publishedAt) return '아직 게시되지 않음';
+    const d = new Date(edDoc.publishedAt);
+    if(Number.isNaN(d.getTime())) return '게시 시각 확인 불가';
+    return `마지막 게시 ${d.toLocaleString('ko-KR', {
+      month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:false,
+    })}`;
+  }
+
+  function edHasWritten(){
+    const doc = edCurrentDoc(false);
+    const text = html => {
+      const bin = document.createElement('div');
+      bin.innerHTML = html || '';
+      return bin.textContent.trim();
+    };
+    const any = items => (items || []).some(i => text(i.html) || any(i.items));
+    return doc.sections.some(s => any(s.items));
+  }
 
   /* 줄바꿈은 태그로 싣는다. 그냥 두면 편집기가 공백으로 뭉갠다 —
      중계 서버의 escText() 와 같은 규칙이다 */
@@ -2252,26 +2511,61 @@ function init(D){
    * 다시 그리면 이 함수가 또 불리는데, 그때는 문서를 이미 들고 있으므로 화면의
    * 줄에 편집용 글을 갈아 끼우는 일만 한다.
    *
-   * 손대 둔 것을 지키려 들지 않는다. 화면을 다시 그리는 길은 `go` 하나뿐이고,
-   * 그 앞에 「저장하지 않고 떠나시겠습니까」가 서 있다.
+   * 서버에 아직 닿지 않은 입력이 있으면 화면을 다시 그리는 길인 `go` 앞에서
+   * 한 번 확인한다. 연결이 끊겨도 탭 임시본으로 다시 열 수 있다.
    */
   async function edLoad(){
     if(!document.getElementById('edbar')) return;
 
     if(!edLoaded){
+      edReady = false;
       edStatus('공지를 불러오는 중…');
       let doc = null;
-      try { doc = await ED.call('GET', '/notice/doc?slug=' + encodeURIComponent(CLIENT)); }
+      try {
+        doc = await ED.call('GET', '/notice/doc/draft?slug=' + encodeURIComponent(CLIENT));
+        edOffline = false;
+        /* 직전 연결 실패 때 탭 안에 남겨 둔 내용이 서버 초안보다 새로우면 먼저
+           복구한다. 같은 초안 판에서 출발했을 때만 자동으로 보내 남의 저장을
+           덮지 않는다. */
+        const cached = edCacheRead(doc.noticeId);
+        if(cached && cached.draftVersion === doc.draftVersion
+           && Date.parse(cached.at || 0) > Date.parse(doc.updatedAt || 0)
+           && edDocFingerprint(cached) !== edDocFingerprint(doc)){
+          try {
+            const recover = edCachePayload(cached);
+            doc = await ED.call('PUT', '/notice/doc/draft', {
+              slug: CLIENT, noticeId: doc.noticeId, draftVersion: doc.draftVersion,
+              title: recover.title, sections: recover.sections,
+            });
+            edRecovered = true;
+            edCacheClear(doc.noticeId);
+          } catch(e){
+            if(e.status === 409 && e.data && e.data.current) doc = e.data.current;
+            else throw e;
+          }
+        }
+      }
       catch(e){
         if(e.status !== 404){
-          edMsg(edErr(e, '공지를 불러오지 못했습니다'), true);
-          edStatus('불러오지 못했습니다 — 편집 모드를 껐다 켜 주세요');
-          return;
+          /* 네트워크가 끊겼더라도 이 탭에 임시본이 있으면 계속 쓸 수 있다.
+             다시 연결되면 같은 초안 판을 기준으로 자동저장한다. */
+          const cached = !e.status && edCacheLatest();
+          if(cached){
+            doc = { ...cached, version: cached.publishedVersion,
+                    hasUnpublishedChanges: true, updatedAt: cached.at };
+            edOffline = true;
+            edRecovered = true;
+          } else {
+            edMsg(edErr(e, '공지를 불러오지 못했습니다'), true);
+            edStatus('불러오지 못했습니다 — 연결을 확인해 주세요');
+            return;
+          }
         }
         /* 공지가 한 건도 없는 기업이다. 실패가 아니라 만들어야 할 까닭이다 */
       }
       edLoaded = true;
       edDoc = doc;
+      edSavedFingerprint = edOffline ? '' : edDocFingerprint(doc);
       /* 저장소의 문서로 화면을 다시 그린다. 봉투로 그린 화면은 지난 빌드의
          것이라, 그 위에서 고쳐 저장하면 그 사이에 저장된 줄이 사라진다 */
       notice = doc ? edDocView(doc) : null;
@@ -2306,7 +2600,13 @@ function init(D){
     edItems.forEach((it, id) => edOpen(it, index.get(id)));
     edSeedLines();
     edMvSync();
-    edStatus();
+    edReady = true;
+    edStatus(undefined, false);
+    if(edRecovered){
+      edMsg(edOffline ? '이 탭의 임시본입니다 · 연결되면 자동 저장됩니다'
+                       : '이 탭에 남아 있던 내용을 복구했습니다', edOffline);
+      edRecovered = false;
+    }
   }
 
   /**
@@ -2368,7 +2668,7 @@ function init(D){
     edReset(it);
     if(!node) return;
     edPaint(it, node.html || '');
-    it.type = node.type || 'bullet';
+    it.type = node.type || 'paragraph';
     if(it.type !== 'cell'){
       it.checked = it.checkBase = node.type === 'todo' && !!node.checked;
       it.home = edWhereKey(it);
@@ -2531,19 +2831,17 @@ function init(D){
   /**
    * 커서 자리를 지킨 채로 그 줄을 움직인다.
    *
-   * DOM 에서 옮기면 브라우저가 초점을 거둔다. 그대로 두면 **방금 보탠 빈 줄이
-   * `onblur` 에 걷혀 사라지고**, 담당자는 Tab 한 번에 쓰던 줄을 잃는다.
+   * DOM 에서 옮기면 브라우저가 초점을 거둔다. 옮긴 뒤 같은 글자 위치에
+   * 커서를 돌려놓아 Tab을 연속으로 써도 작성 흐름이 끊기지 않게 한다.
    */
   function edKeepCaret(nx, run){
     const at = edOffset(nx);
-    edHolding = true;
-    try { run(); } finally { edHolding = false; }
+    let result;
+    result = run();
     nx.focus();
     edSeek(nx, at);
+    return result;
   }
-
-  /** 옮기는 중인가. 그동안의 `onblur` 는 못 본 척한다 */
-  let edHolding = false;
 
   /** 커서가 이 칸의 몇 글자째에 있는가 */
   function edOffset(nx){
@@ -2732,8 +3030,8 @@ function init(D){
       mv.querySelector('[data-nsmv="up"]').disabled = sec.del || !edSecSib(sec.box, 'up');
       mv.querySelector('[data-nsmv="down"]').disabled = sec.del || !edSecSib(sec.box, 'down');
       const del = mv.querySelector('[data-nsdel]');
-      del.textContent = sec.del ? '↺' : '✕';
-      del.title = sec.del ? '삭제 취소' : '섹션 삭제';
+      del.textContent = sec.del ? '삭제 취소' : '삭제';
+      del.title = sec.del ? '섹션 삭제 취소' : '섹션 삭제';
       sec.box.classList.toggle('ed-secdel', sec.del);
       sec.box.classList.toggle('ed-dirty', edSecDirty(sec) && !sec.del);
       sec.nsx.contentEditable = sec.del ? 'false' : 'true';
@@ -2771,7 +3069,7 @@ function init(D){
     const name = sec.nsx.textContent.trim() || '(이름 없는 섹션)';
     if(!confirm(`이 섹션을 삭제합니다.\n\n${name}` +
                 (n ? `\n\n포함된 ${n}줄도 함께 삭제됩니다.` : '') +
-                '\n\n「저장」을 눌러야 실제로 반영됩니다.')) return;
+                '\n\n삭제는 초안에 자동 저장됩니다. 게시 전까지 고객 화면은 바뀌지 않습니다.')) return;
     sec.del = true;
     edSecSync();
     edStatus();
@@ -2828,11 +3126,11 @@ function init(D){
     const box = document.createElement('div');
     box.className = 'notice open ed-new';
     box.dataset.nsec = `new-s${edSecSeq}`;
-    box.innerHTML = `<h3><i class="tw">▸</i><span class="nsx" data-nsx></span>
+    box.innerHTML = `<h3><span class="nsx" data-nsx></span>
       <span class="ns-mv">
-        <button data-nsmv="up" title="섹션 위로">↑</button>
-        <button data-nsmv="down" title="섹션 아래로">↓</button>
-        <button data-nsdel title="섹션 삭제">✕</button>
+        <button type="button" data-nsmv="up">위로</button>
+        <button type="button" data-nsmv="down">아래로</button>
+        <button type="button" data-nsdel>삭제</button>
       </span></h3><div class="bd">
       <ul class="ck"></ul>
       <div class="ntail" data-ntail></div>
@@ -2904,22 +3202,22 @@ function init(D){
 
   /** 화면에서 한 칸 옮긴다. **저장소에는 나가지 않는다** — 저장이 함께 내보낸다 */
   function edMove(it, dir, quiet){
-    edMark();
     const li = it.li;
+    const sib = (dir === 'up' || dir === 'down' || dir === 'in')
+      ? edSib(li, dir === 'in' ? 'up' : dir) : null;
+    const up = dir === 'out' ? edParentLi(li) : null;
+    if((dir === 'up' || dir === 'down' || dir === 'in') && !sib) return false;
+    if(dir === 'out' && !up) return false;
+    edMark();
     if(dir === 'up' || dir === 'down'){
-      const sib = edSib(li, dir);
-      if(!sib) return;
       li.parentElement.insertBefore(li, dir === 'up' ? sib : sib.nextSibling);
     } else if(dir === 'in'){
-      const sib = edSib(li, 'up');
-      if(!sib) return;
       edSubList(sib).appendChild(li);
     } else {
-      const up = edParentLi(li);
-      if(!up) return;
       up.parentElement.insertBefore(li, up.nextSibling);
     }
     edSettle(it, !quiet);
+    return true;
   }
 
   /* 옮기고 난 뒤 장부와 화면을 맞춘다. 손으로 끌어 옮긴 것과 단추로 옮긴 것이
@@ -3015,10 +3313,16 @@ function init(D){
   }
 
   /** 줄의 종류. 공지 문서가 싣는 여섯 가지다 */
-  const ED_TYPES = [['bullet','글머리'], ['number','번호'], ['todo','할 일'],
-                    ['paragraph','본문'], ['quote','인용'], ['toggle','토글'],
-                    ['heading1','제목 1'], ['heading2','제목 2'], ['heading3','제목 3'],
-                    ['code','코드']];
+  const ED_TYPES = [['paragraph','본문','자유롭게 이어 쓰는 일반 문단'],
+                    ['heading1','제목 1','가장 큰 문서 제목'],
+                    ['heading2','제목 2','내용을 나누는 중간 제목'],
+                    ['heading3','제목 3','작은 단락 제목'],
+                    ['bullet','글머리','순서 없는 목록'],
+                    ['number','번호','순서가 있는 목록'],
+                    ['todo','할 일','체크할 수 있는 항목'],
+                    ['quote','인용','중요한 문장 강조'],
+                    ['toggle','토글','접었다 펼치는 내용'],
+                    ['code','코드','고정폭 글꼴의 코드 블록']];
 
   /**
    * 줄 앞에서 이것을 치고 빈칸을 누르면 그 종류가 된다.
@@ -3091,21 +3395,41 @@ function init(D){
     li.className = [edNewCls(kind), ...keep].join(' ');
   }
 
-  /**
-   * 줄 왼쪽의 끌기 손잡이. 노션의 그 자리다.
-   *
-   * `.nx` 바깥에 둔다 — 안에 두면 고치는 글의 일부가 되어 저장소에 딸려
-   * 들어간다. 편집 모드에서만 그려지는 `.notice[data-nsec]` 안에서 목록이
-   * 오른쪽으로 밀려나 이 손잡이가 앉을 자리가 난다.
-   */
+  /** 줄 왼쪽의 `추가 + 끌기` 레일. `.nx` 바깥이라 공지 본문에는 섞이지 않는다. */
   function edGrab(it){
-    if(it.li.querySelector(':scope>.nx-gr')) return;
+    if(it.li.querySelector(':scope>.nx-rail')) return;
     edDragWire();
-    const g = document.createElement('span');
+    const rail = document.createElement('span');
+    rail.className = 'nx-rail';
+    const plus = document.createElement('button');
+    plus.type = 'button';
+    plus.className = 'nx-plus';
+    plus.textContent = '+';
+    plus.title = '아래에 블록 추가';
+    plus.setAttribute('aria-label', '아래에 블록 추가');
+    plus.onclick = e => {
+      e.preventDefault();
+      e.stopPropagation();
+      edAdd(li => it.li.parentElement.insertBefore(li, it.li.nextSibling),
+            {type: 'paragraph'});
+    };
+    const g = document.createElement('button');
+    g.type = 'button';
     g.className = 'nx-gr';
     g.draggable = true;
     g.textContent = '⠿';
-    g.title = '드래그해서 이동';
+    g.title = '이동 옵션';
+    g.setAttribute('aria-label', '블록 이동 옵션');
+    g.setAttribute('aria-expanded', 'false');
+    g.onclick = e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const box = it.li.querySelector(':scope>.nx-mv, :scope>.tgh>.nx-mv');
+      const open = box && !box.classList.contains('on');
+      if(box) box.classList.toggle('on', open);
+      it.li.classList.toggle('ed-options', !!open);
+      g.setAttribute('aria-expanded', String(!!open));
+    };
     g.ondragstart = e => {
       edDrag = it;
       it.li.classList.add('ed-dragging');
@@ -3115,13 +3439,14 @@ function init(D){
       e.dataTransfer.setData('text/plain', it.li.dataset.nid);
       e.dataTransfer.setDragImage(it.li, 8, 8);
     };
-    it.li.insertBefore(g, it.li.firstChild);
+    rail.append(plus, g);
+    it.li.insertBefore(rail, it.li.firstChild);
   }
 
-  /* 옮기기 단추와 종류 고르개. 지우기 단추 옆에 함께 둔다 */
+  /* 옮기기 단추와 종류 고르개. 편집 중인 줄 바로 뒤에 둔다 */
   function edMvBox(it){
     edGrab(it);
-    const anchor = it.nx.parentElement.querySelector(':scope>.nx-del') || it.nx;
+    const anchor = it.nx;
     const box = document.createElement('span');
     box.className = 'nx-mv';
     box.innerHTML = `
@@ -3187,7 +3512,7 @@ function init(D){
   }
 
   /**
-   * 옮긴 줄을 제자리로, 바꾸려던 종류를 물린다. 저장 전이라 노션은 그대로다.
+   * 옮긴 줄을 제자리로, 바꾸려던 종류를 물린다. 게시 전이라 고객 화면은 그대로다.
    *
    * @returns {boolean} 되돌렸는가. 제자리를 찾지 못하면 false 다
    */
@@ -3253,7 +3578,7 @@ function init(D){
    */
   function edSplit(it){
     const nx = it.nx;
-    const kind = it.retype || it.type || 'bullet';
+    const kind = it.retype || it.type || 'paragraph';
     const below = li => it.li.parentElement.insertBefore(li, it.li.nextSibling);
     const sel = document.getSelection();
     /* 커서를 잃었으면 그냥 빈 줄 하나를 아래에 세운다 */
@@ -3282,7 +3607,7 @@ function init(D){
    * 일이기 때문이다. 잘못 눌렀을 때 벗겨지기만 하는 편이 낫다.
    */
   function edBack(it){
-    const kind = it.retype || it.type || 'bullet';
+    const kind = it.retype || it.type || 'paragraph';
     if(kind !== 'paragraph'){ edRetype(it, 'paragraph'); return; }
     if(edParentLi(it.li)){ edKeepCaret(it.nx, () => edMove(it, 'out')); return; }
     edJoin(it);
@@ -3331,7 +3656,7 @@ function init(D){
     /* 글머리 글자가 없는 줄은 **붙여넣기를 시작한 줄**의 종류가 된다.
        바로 위 줄을 따르게 하면, 목록 하나가 토글로 시작했다는 이유로 그
        아래 예사 줄까지 줄줄이 토글이 된다 */
-    const base = it.retype || it.type || 'bullet';
+    const base = it.retype || it.type || 'paragraph';
     let anchor = it;
     parts.forEach((raw, i) => {
       const cut = edPasted(raw);
@@ -3383,7 +3708,9 @@ function init(D){
   const ED_SL_TBL = '@table';
 
   /** 쳐 넣은 글자로 추린다. 한글 이름과 저장소가 쓰는 이름을 함께 본다 */
-  const edSlHits = q => [...ED_TYPES, [ED_SL_TBL, '표'], [ED_SL_SEC, '새 섹션']]
+  const edSlHits = q => [...ED_TYPES,
+      [ED_SL_TBL, '표', '행과 열로 정보를 정리'],
+      [ED_SL_SEC, '새 섹션', '클라이언트 화면에서 접을 수 있는 구역']]
     .filter(([v, name]) => !q || name.indexOf(q) === 0 || v.indexOf(q.toLowerCase()) === 0);
 
   /** 지금 커서 앞이 「/무엇」인가. 맞으면 목록을 띄운다 */
@@ -3400,8 +3727,9 @@ function init(D){
 
   function edSlDraw(){
     const box = edSlBox();
-    box.innerHTML = edSlAt.hits.map(([v, name], i) =>
-      `<button data-slk="${v}"${i === edSlAt.hit ? ' class="on"' : ''}>${name}</button>`)
+    box.innerHTML = edSlAt.hits.map(([v, name, desc], i) =>
+      `<button data-slk="${v}"${i === edSlAt.hit ? ' class="on"' : ''}>
+        <strong>${name}</strong><small>${desc || ''}</small></button>`)
       .join('');
     box.classList.add('on');
     const at = edCaretRect();
@@ -3458,12 +3786,20 @@ function init(D){
   function edCheckBind(it){
     it.li.onclick = e => {
       if(e.target !== it.li || it.del) return;
-      if((it.retype || it.type) !== 'todo') return;
+      if((it.retype || it.type) !== 'todo'){
+        /* 빈 블록은 글자가 없어 클릭할 실제 폭도 없다. 말머리 점이나 줄의
+           빈 공간을 눌러도 그 블록으로 커서가 들어가게 한다. */
+        if(edEmpty(it.nx)) edFocusEnd(it.nx);
+        return;
+      }
       edMark();
       /* 표시가 그려진 왼쪽 여백 안에서만이다. 글 오른쪽의 빈 자리까지 받으면
          줄 끝을 누르려던 손이 체크를 켠다 */
       const box = it.li.getBoundingClientRect();
-      if(e.clientX - box.left > (parseFloat(getComputedStyle(it.li).paddingLeft) || 22)) return;
+      if(e.clientX - box.left > (parseFloat(getComputedStyle(it.li).paddingLeft) || 22)){
+        if(edEmpty(it.nx)) edFocusEnd(it.nx);
+        return;
+      }
       it.checked = !it.checked;
       it.li.classList.toggle('on', it.checked);
       edStatus();
@@ -3543,8 +3879,7 @@ function init(D){
     const keep = sel && sel.rangeCount
       ? {a: sel.anchorNode, ao: sel.anchorOffset, f: sel.focusNode, fo: sel.focusOffset}
       : null;
-    edHolding = true;
-    try { run(); } finally { edHolding = false; }
+    run();
     if(keep){
       try { sel.setBaseAndExtent(keep.a, keep.ao, keep.f, keep.fo); } catch(_){}
     }
@@ -3570,21 +3905,17 @@ function init(D){
       edKeepPick(() => edManyMove(many, e.shiftKey ? 'out' : 'in'));
       return true;
     }
-    if(mod && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){
-      e.preventDefault();
-      edKeepPick(() => edManyMove(many, e.key === 'ArrowUp' ? 'up' : 'down'));
-      return true;
-    }
     if(e.key === 'Backspace' || e.key === 'Delete'){
       e.preventDefault();
-      /* 여러 줄은 먼저 묻는다. 한 줄은 그 자리에 「되돌리기」가 있지만,
-         여러 줄이 한꺼번에 그어지면 무엇이 사라졌는지 짚기 어렵다 */
+      /* 여러 줄은 먼저 묻고 화면에서 바로 걷는다. 직전 상태는 Ctrl+Z로
+         되돌릴 수 있고, 별도의 ‘이 줄 지우기’ UI는 두지 않는다. */
       const kids = many.reduce((n, it) =>
         n + it.li.querySelectorAll('li[data-nid]').length, 0);
       if(!confirm(`선택한 ${many.length}줄을 삭제합니다.` +
             (kids ? `\n\n하위 줄까지 함께 삭제됩니다.` : '') +
-            '\n\n「저장」을 눌러야 실제로 반영됩니다.')) return true;
-      many.forEach(it => edMarkDel(it, true));
+            '\n\n삭제는 초안에 자동 저장됩니다. 게시 전까지 고객 화면은 바뀌지 않습니다.')) return true;
+      const tops = many.filter(it => !many.some(o => o !== it && o.li.contains(it.li)));
+      tops.forEach(it => edForget(it));
       edPickClear();
       return true;
     }
@@ -3656,7 +3987,6 @@ function init(D){
                        {base: '', isNew: true, type: 'table'});
     edItems.set(li.dataset.nid, box);
     edCheckBind(box);
-    bindDelete(box.nx);
     edMvBox(box);
     edTableBind(box);
     li.scrollIntoView({block: 'nearest'});
@@ -3736,7 +4066,7 @@ function init(D){
   }
 
   const edTableTooSmall = () =>
-    edMsg('마지막 하나는 남습니다 — 표 전체를 삭제하려면 표의 ✕ 를 누르세요', true);
+    edMsg('표에는 행과 열이 각각 하나 이상 필요합니다', true);
 
   /* 글이 든 칸이 사라지려 하면 먼저 묻는다. 빈 칸은 잃을 것이 없어 그냥 간다 */
   function edTableMayLose(cells){
@@ -3824,7 +4154,7 @@ function init(D){
   let edSnapAt = 0;             /* 마지막으로 뜬 때 — 타이핑을 뭉치는 데 쓴다 */
 
   /** 화면에서 편집기가 붙인 것을 걷는다. 다시 걸어 줄 것이라 뜰 때는 뺀다 */
-  const ED_CHROME = '.nx-del,.nx-mv,.nx-gr,.ntbc,.ed-rt,.ed-note,.ed-tb,.ed-sl';
+  const ED_CHROME = '.nx-mv,.nx-rail,.ntbc,.ed-rt,.ed-note,.ed-tb,.ed-sl';
 
   function edView(){ return document.querySelector('#scroll > .view'); }
 
@@ -3892,8 +4222,6 @@ function init(D){
 
     edItems.forEach(it => {
       edWire(it);
-      /* 지울 줄은 고칠 수 없는 채로, 바꿀 종류는 딱지를 붙인 채로 돌아온다 */
-      if(it.del && !it.isNew){ it.nx.removeAttribute('contenteditable'); edDelBtn(it); }
       if(it.retype) edRtChip(it);
     });
 
@@ -3998,7 +4326,9 @@ function init(D){
    * 편집기는 제 `input` 을 나르는 동안 걸려 온 지우기·넣기를 못 본 척한다 —
    * 그 안에서 부르면 아무 일도 일어나지 않는다.
    */
-  const edWrapLater = it => setTimeout(() => edWrapScan(it), 0);
+  const edWrapLater = it => setTimeout(() => {
+    if(!edComposing && it.nx.isConnected) edWrapScan(it);
+  }, 0);
 
   /**
    * 방금 친 글자가 서식을 닫았는지 본다. 닫았으면 표시 글자를 걷고 서식을 입힌다.
@@ -4048,7 +4378,7 @@ function init(D){
    * 다른 일이고, 묶음째는 끌어다 놓는 편이 눈에 보인다.
    */
   function edDup(it){
-    const kind = it.retype || it.type || 'bullet';
+    const kind = it.retype || it.type || 'paragraph';
     if(kind === 'table' || kind === 'cell') return;
     const made = edAdd(li => it.li.parentElement.insertBefore(li, it.li.nextSibling),
                        {type: kind, html: edSerialize(it.nx)});
@@ -4066,18 +4396,24 @@ function init(D){
     const nx = it.nx;
     edCheckBind(it);
     /* 코드 안에서는 `/` 목록을 부르지 않는다. 주소와 나눗셈이 거기 산다 */
-    nx.oninput = () => {
+    nx.oninput = e => {
       edTouch(it);
+      /* 한글 조합이 끝나기 전에 DOM을 다시 쓰면 아직 조합 중인 글자가 사라질
+         수 있다. 슬래시 메뉴와 마크다운 치환은 조합이 끝난 뒤 한 번만 한다. */
+      if(e.isComposing || edComposing) return;
       if((it.retype || it.type) !== 'code') edSlScan(it);
       edWrapLater(it);
     };
     nx.onclick = e => e.stopPropagation();   /* 토글 항목이 접히지 않게 */
-    /* 눌러만 두고 아무것도 쓰지 않은 줄은 떠날 때 걷는다. 남겨 두면 노션에
-       없는 빈 줄이 화면에만 쌓인다 */
     nx.onblur = () => {
       if(edSlAt && edSlAt.it === it) edSlHide();
-      if(!edHolding && it.isNew && edEmpty(nx) && !edLone(it.li)) edForget(it);
     };
+    nx.oncompositionend = () => setTimeout(() => {
+      if(!nx.isConnected) return;
+      if((it.retype || it.type) !== 'code') edSlScan(it);
+      edWrapScan(it);
+      edTouch(it);
+    }, 0);
     nx.onkeydown = e => {
       /* **한글을 짓는 중에는 아무것도 가로채지 않는다.** 「ㅎㅏㄴ」을 맺는
          Enter 까지 줄 쪼개기로 읽으면 한 글자 칠 때마다 줄이 갈라진다.
@@ -4141,11 +4477,6 @@ function init(D){
       }
       if((e.key === 'ArrowUp' || e.key === 'ArrowDown')){
         const dir = e.key === 'ArrowUp' ? 'up' : 'down';
-        if(mod && e.shiftKey){                 /* 줄을 옮긴다 */
-          e.preventDefault();
-          edKeepCaret(nx, () => edMove(it, dir));
-          return;
-        }
         /* Shift 를 쥔 채 줄 끝에 닿으면 **이웃 줄까지 함께 잡는다.** 편집기는
            칸 하나를 넘어가는 고르기를 저 혼자 하지 못한다 — 여기서 늘려 준다 */
         if(!mod && e.shiftKey && edAtEdge(nx, dir)){
@@ -4172,7 +4503,11 @@ function init(D){
       }
       if(e.key === 'Tab'){
         e.preventDefault();
-        edKeepCaret(nx, () => edMove(it, e.shiftKey ? 'out' : 'in'));
+        const dir = e.shiftKey ? 'out' : 'in';
+        const moved = edKeepCaret(nx, () => edMove(it, dir));
+        if(!moved) edMsg(dir === 'in'
+          ? '들여쓰려면 이 줄 위에 먼저 줄을 만들어 주세요'
+          : '이미 가장 바깥 단계입니다');
         return;
       }
       /* 줄 앞에서 `- ` `1. ` `[] ` `> ` `" ` — 노션과 같은 글자다.
@@ -4195,7 +4530,7 @@ function init(D){
         /* **빈 글머리에서 Enter 는 목록을 빠져나온다.** 노션과 같다. 그러지
            않으면 빈 글머리가 끝없이 이어지고, 멈추려면 Backspace 를 따로
            찾아야 한다. 들여쓴 줄은 한 칸 나오는 것이 먼저다 */
-        const kind = it.retype || it.type || 'bullet';
+        const kind = it.retype || it.type || 'paragraph';
         if(kind !== 'paragraph' && kind !== 'code' && edEmpty(nx)
            && !it.li.querySelector('li[data-nid]')){
           if(edParentLi(it.li)) edKeepCaret(nx, () => edMove(it, 'out'));
@@ -4215,16 +4550,29 @@ function init(D){
         return;
       }
       /* 빈 줄에서 Backspace 는 그 줄을 지운다. 확인창을 띄우지 않는다 —
-         빈 줄에는 잃을 것이 없고, 저장 전이라 「되돌리기」로 물릴 수 있다.
+         빈 줄에는 잃을 것이 없고, 직전 조작은 「되돌리기」로 물릴 수 있다.
          안에 든 줄이 있으면 놔둔다. 노션은 그릇을 지울 때 안엣것도 지운다 */
       if(e.key === 'Backspace' && !mod){
         if(edEmpty(nx) && !it.li.querySelector('li[data-nid]')){
           e.preventDefault();
+          /* 문서의 마지막 빈 본문은 지우지 않는다. 빈 페이지처럼 언제나
+             제목 아래에 커서가 머물 한 줄은 남긴다. */
+          const live = [...it.li.parentElement.children].filter(li => {
+            const row = li.matches('li[data-nid]') && edItems.get(li.dataset.nid);
+            return row && !row.del;
+          });
+          if(!edParentLi(it.li) && live.length === 1){
+            if((it.retype || it.type) !== 'paragraph') edRetype(it, 'paragraph');
+            else edFocusStart(nx);
+            return;
+          }
           /* 커서를 먼저 옮기고 나서 지운다. 지우면서 옮기면 브라우저가 사라진
              줄에서 초점을 거두어 본문에 놓아 버리고, 담당자는 커서를 잃는다 */
           const back = edPrev(it.li);
+          const next = back ? null : edNextEditable(it.li, 'down');
           if(back) edFocusEnd(back.nx);
-          edMarkDel(it, true);
+          else if(next) edFocusStart(next.nx);
+          edForget(it);
           return;
         }
         /* 글이 든 줄의 맨 앞. 지울 글자가 없으니 구조를 한 겹 벗긴다 */
@@ -4293,7 +4641,7 @@ function init(D){
       if(sec.del){ out.push({sec, op:'secdel'}); return; }
       if(sec.isNew){
         /* 이름도 줄도 없는 칸은 저장에 나가지 않는다. 세지도 않는다 —
-           세면 「저장하지 않은 것이 있다」가 영영 붙잡는다 */
+          세면 빈 초안까지 변경으로 잡혀 자동저장이 끝나지 않는다 */
         if(sec.nsx.textContent.trim() || edSecLines(sec.box)) out.push({sec, op:'secadd'});
         return;
       }
@@ -4339,30 +4687,59 @@ function init(D){
     return out;
   }
 
-  function edStatus(text){
+  function edSetState(state, title, detail, bad){
     const bar = document.getElementById('edbar');
     if(!bar) return;
-    const pend = edPending();
-    const n = pend.length;
-    /* 무엇이 몇 줄 나가는지를 갈라서 센다. 「5줄 바뀜」으로 뭉치면 담당자는
-       그 안에 지우기가 몇 줄인지 모른 채 저장을 누른다 */
-    const count = (op) => pend.filter(p => p.op === op).length;
-    const said = (pend.some(p => p.op === 'title') ? ['제목'] : [])
-      .concat([['edit','수정'], ['add','추가'], ['move','이동'],
-               ['retype','유형 변경'], ['check','체크'], ['remove','삭제']]
-        .map(([op, word]) => [count(op), word])
-        .filter(([c]) => c).map(([c, word]) => `${c}줄 ${word}`))
-      .concat([['secadd','추가'], ['secname','이름 수정'],
-               ['secmove','이동'], ['secdel','삭제']]
-        .map(([op, word]) => [count(op), word])
-        .filter(([c]) => c).map(([c, word]) => `섹션 ${c}개 ${word}`)).join(' · ');
-    bar.querySelector('[data-edcnt]').textContent =
-      text !== undefined ? text
-      : !n ? '변경 사항 없음'
-      /* 몇 개까지라는 말이 없다. 문서를 통째로 보내므로 상한이 없다 */
-      : said;
-    bar.querySelector('[data-edsave]').disabled = !n;
-    bar.querySelector('[data-edundo]').disabled = !n;
+    const box = bar.querySelector('[data-edstate]');
+    if(box) box.dataset.state = state;
+    bar.querySelector('[data-edcnt]').textContent = title || '';
+    const msg = bar.querySelector('[data-edmsg]');
+    msg.className = 'msg' + (bad ? ' bad' : '');
+    msg.textContent = detail || '';
+  }
+
+  function edScheduleSave(immediate){
+    clearTimeout(edSaveTimer);
+    if(!edReady || !edDoc || edOffline || edPublishing) return;
+    edSaveTimer = setTimeout(() => edSave(), immediate ? 80 : ED_SAVE_DELAY);
+  }
+
+  /**
+   * 상태 문구와 행동 가능 여부를 한 번에 맞춘다.
+   *
+   * changed 가 거짓인 호출은 서버 응답이나 첫 화면 정리다. 나머지는 탭 안에
+   * 임시본을 남기고 자동저장을 예약한다.
+   */
+  function edStatus(text, changed = true, immediate = false){
+    const bar = document.getElementById('edbar');
+    if(!bar) return;
+    if(edReady && changed && !edComposing) edCacheWrite();
+
+    const unsaved = edReady && edDoc && edFingerprint() !== edSavedFingerprint;
+    if(edPublishing) edSetState('saving', '게시 중…', '중복 게시를 막고 있습니다');
+    else if(edSaving) edSetState('saving', '초안 저장 중…', '계속 작성해도 됩니다');
+    else if(edOffline) edSetState('offline', '인터넷 연결을 기다리는 중',
+                                  '내용은 이 탭에 안전하게 남아 있습니다', true);
+    else if(text !== undefined) edSetState(
+      /못|없습니다|확인/.test(text) ? 'error' : 'loading', text,
+      text.includes('불러오는') ? '잠시만 기다려 주세요' : '', /못/.test(text));
+    else if(unsaved) edSetState('dirty', '초안 저장 대기',
+                                '입력을 멈추면 자동으로 저장됩니다');
+    else if(edDoc && edDoc.hasUnpublishedChanges)
+      edSetState('saved', '초안 저장됨', '고객에게는 아직 보이지 않습니다');
+    else if(edDoc && !edDoc.publishedAt)
+      edSetState('saved', '새 공지 초안', '내용을 작성한 뒤 게시해 주세요');
+    else edSetState('published', '모든 변경사항 저장됨', '게시된 내용과 같습니다');
+
+    const preview = bar.querySelector('[data-edpreview]');
+    const revisions = bar.querySelector('[data-edrev]');
+    const publish = bar.querySelector('[data-edpublish]');
+    if(preview) preview.disabled = !edDoc;
+    if(revisions) revisions.disabled = !edDoc;
+    if(publish) publish.disabled = !edDoc || unsaved || edSaving || edPublishing
+      || !edDoc.hasUnpublishedChanges || !edHasWritten();
+
+    if(unsaved && !edSaving && !edComposing) edScheduleSave(immediate);
   }
 
   function edMsg(text, bad){
@@ -4376,13 +4753,10 @@ function init(D){
   /* 알림은 그 줄 바로 밑에 붙인다. 항목 안에 넣으면 고치는 글의 일부가 된다 */
   function edNote(it){
     edClearNote(it);
-    /* 지우기 단추 뒤에 붙인다. 사이에 끼우면 알림이 한 켜를 차지하면서
-       ✕ 가 다음 줄로 밀려난다 */
     const top = it.nx.closest('.tgh') || it.nx;
-    const anchor = top.parentElement.querySelector(':scope>.nx-del') || top;
     const box = document.createElement('div');
     box.className = 'ed-note bad';
-    anchor.parentElement.insertBefore(box, anchor.nextSibling);
+    top.parentElement.insertBefore(box, top.nextSibling);
     return box;
   }
   function edClearNote(it){
@@ -4393,16 +4767,9 @@ function init(D){
 
 
 
-  /* 눌러만 두고 아무것도 쓰지 않은 빈 줄을 걷는다. 저장소는 빈 줄도 받지만,
-     쓰지 않은 줄을 내보내 봐야 다음 빌드가 버린다 */
+  /* 빈 줄도 문서의 한 블록이다. 글을 모두 지운 뒤에도 커서와 자리를 보존한다. */
   function edSweep(){
-    edItems.forEach(it => {
-      /* 표와 그 칸은 이 자로 재지 않는다. 표의 글 칸은 언제나 비어 있고,
-         칸은 비워 두는 것이 뜻이 있다 — 재면 새로 세운 표가 저장 직전에
-         소리 없이 걷혀 아무것도 나가지 않는다 */
-      if(it.type === 'table' || it.type === 'cell') return;
-      if(it.isNew && !it.del && edEmpty(it.nx)) edForget(it);
-    });
+    /* 자동저장 전에 DOM을 건드리지 않는다. */
   }
 
   /**
@@ -4442,10 +4809,7 @@ function init(D){
       if(!li.matches('li[data-nid]')) return;
       const it = edItems.get(li.dataset.nid);
       if(!it || it.del) return;                    /* 지울 줄. 안엣것도 함께 간다 */
-      const kind = it.retype || it.type || 'bullet';
-      /* 표는 글 칸이 비어 있는 것이 정상이다. 빈 줄과 같은 자로 재면 새로
-         세운 표가 저장에 실리지 않는다 */
-      if(kind !== 'table' && it.isNew && edEmpty(it.nx)) return;
+      const kind = it.retype || it.type || 'paragraph';
       if(kind === 'table'){
         const cells = edParcelCells(li);
         if(!cells.length) return;                  /* 칸이 없는 표는 표가 아니다 */
@@ -4560,53 +4924,197 @@ function init(D){
     edSecSync();
   }
 
-  /**
-   * 저장 — 공지 문서를 **통째로** 보낸다.
-   *
-   * 무게 상한이 없다. 줄마다 따로 보내지 않으므로 통째로 들어가거나 통째로
-   * 거절되고, 반쯤 들어간 상태가 생기지 않는다.
-   */
+  /** 자동저장 응답의 새 주소만 화면에 받아들이고, 커서와 실행취소 기록은 지킨다. */
+  function edAdoptDraft(parcel, doc, removedItems, removedSecs){
+    const walk = (kids, nodes) => kids.forEach((k, at) => {
+      const node = nodes[at];
+      if(!node || !k.it.li.isConnected) return;
+      const {li, it} = k;
+      const desiredType = it.retype || it.type;
+      const desiredChecked = it.checked;
+      const desiredHtml = edSerialize(it.nx);
+      if(it.isNew){
+        edItems.delete(li.dataset.nid);
+        li.dataset.nid = node.id;
+        edItems.set(node.id, it);
+        li.classList.remove('ed-new');
+        it.isNew = false;
+      }
+      it.type = node.type;
+      it.retype = desiredType === node.type ? null : desiredType;
+      it.checkBase = node.type === 'todo' && !!node.checked;
+      it.checked = desiredChecked;
+      it.display = node.html || '';
+      it.base = node.html || '';
+      li.classList.toggle('on', desiredType === 'todo' && desiredChecked);
+      li.classList.toggle('ed-dirty', desiredHtml !== (node.html || ''));
+      edSkin(it);
+      edRtChip(it);
+      edClearNote(it);
+      walk(k.kids, node.items || []);
+      if(it.type === 'table'){
+        const body = li.querySelector('tbody');
+        it.tbase = body ? body.cloneNode(true) : null;
+      }
+    });
+
+    parcel.forEach((p, at) => {
+      const node = (doc.sections || [])[at];
+      if(!node || !p.box.isConnected) return;
+      if(node.id && node.id !== p.box.dataset.nsec){
+        edSecs.delete(p.box.dataset.nsec);
+        p.box.dataset.nsec = node.id;
+        if(p.sec) edSecs.set(node.id, p.sec);
+      }
+      if(p.sec){
+        p.sec.isNew = false;
+        p.sec.base = node.title || '';
+        p.box.classList.remove('ed-new');
+      }
+      walk(p.kids, node.items || []);
+    });
+
+    /* 요청을 보낼 때 이미 삭제 표시였던 것만 걷는다. 저장 중 새로 지웠거나
+       삭제를 취소한 것은 다음 자동저장이 처리한다. */
+    removedSecs.forEach(sec => { if(sec.del && sec.box.isConnected) edSecForget(sec); });
+    removedItems.forEach(it => { if(it.del && it.li.isConnected) edForget(it); });
+    edDoc = doc;
+    edSavedFingerprint = edDocFingerprint(doc);
+    if(edTitle) edTitle.base = doc.title || '';
+    edSecs.forEach(sec => { if(sec.box.isConnected) sec.home = edSecWhere(sec.box); });
+    edItems.forEach(it => { if(it.li.isConnected) it.home = edWhereKey(it); });
+    edSecSync();
+    edMvSync();
+  }
+
+  /** 입력이 멈추면 초안을 통째로 저장한다. 고객 화면과 재빌드는 건드리지 않는다. */
   async function edSave(){
+    clearTimeout(edSaveTimer);
+    if(edSaving){ edSaveAgain = true; return; }
+    if(!edReady || !edDoc) return;
     edSweep();
-    if(!edPending().length) return;
-    if(!edDoc){
-      edMsg('공지가 없습니다 — 「＋ 새 공지」로 먼저 만들어 주세요', true);
-      return;
-    }
+    if(edFingerprint() === edSavedFingerprint) return;
+
     edItems.forEach(it => edClearNote(it));
     edClearPanels();
-    document.querySelector('[data-edsave]').disabled = true;
-    edMsg('저장 중…');
-
     const parcel = edParcel();
+    const removedItems = [...edItems.values()].filter(it => it.del);
+    const removedSecs = [...edSecs.values()].filter(sec => sec.del);
+    const title = edTitle ? edTitle.input.value.trim() : (edDoc.title || '');
+    edCacheWrite();
+    edSaving = true;
+    edOffline = false;
+    edStatus(undefined, false);
+
     let out;
     try {
-      out = await ED.call('PUT', '/notice/doc', {
-        slug: CLIENT, noticeId: edDoc.noticeId, version: edDoc.version,
-        title: edTitle ? edTitle.input.value.trim() : (edDoc.title || ''),
-        sections: parcel.map(p => p.row),
+      out = await ED.call('PUT', '/notice/doc/draft', {
+        slug: CLIENT, noticeId: edDoc.noticeId, draftVersion: edDoc.draftVersion,
+        title, sections: parcel.map(p => p.row),
       });
     } catch(e){
-      /* 판이 어긋났다 — 다른 담당자가 먼저 저장했다. 화면에 적어 둔 글은
-         그대로 두고 저장소의 지금 내용을 나란히 보여 준다 */
+      edSaving = false;
+      const retry = document.querySelector('[data-edretry]');
+      if(retry) retry.hidden = false;
       if(e.status === 409 && e.data && e.data.current){
         edConflict(e.data.current);
-        edMsg('다른 담당자가 먼저 저장했습니다 — 아래에서 비교해 주세요', true);
+        edSetState('error', '다른 화면에서 초안이 바뀌었습니다',
+                   '아래에서 내용을 비교해 주세요', true);
+      } else if(!e.status){
+        edOffline = true;
+        edSetState('offline', '인터넷 연결을 기다리는 중',
+                   '내용은 이 탭에 안전하게 남아 있습니다', true);
       } else {
-        edMsg(edErr(e, '저장하지 못했습니다'), true);
+        edSetState('error', '초안을 저장하지 못했습니다',
+                   edErr(e, '연결을 확인하고 다시 시도해 주세요'), true);
       }
-      edStatus();
       return;
     }
 
-    edAdoptDoc(parcel, out);
-    edHist.length = edAhead.length = 0;
-    /* 재빌드 신호가 나갔는지는 중계 서버만 안다. 안 나갔는데 「1~2분 뒤 반영」을
-       띄우면 담당자는 닿지 않을 것을 닿았다고 읽는다 */
-    edMsg(out.rebuild === 'sent' ? '저장했습니다 · 1~2분 뒤 반영'
-      : out.rebuild === 'empty' ? '저장했습니다 · 한 줄 이상 적어야 화면에 오릅니다'
-      : '저장했습니다 · 클라이언트 화면은 다음 빌드에 바뀝니다');
-    edStatus();
+    edSaving = false;
+    edOffline = false;
+    const retry = document.querySelector('[data-edretry]');
+    if(retry) retry.hidden = true;
+    edAdoptDraft(parcel, out, removedItems, removedSecs);
+    const more = edFingerprint() !== edSavedFingerprint;
+    if(more) edCacheWrite(); else edCacheClear(edDoc.noticeId);
+    edStatus(undefined, false, more);
+    if(more || edSaveAgain){
+      edSaveAgain = false;
+      edScheduleSave(true);
+    }
+  }
+
+  /** 저장된 초안만 게시한다. 저장 대기 중인 글이 있으면 버튼 자체가 잠긴다. */
+  async function edPublish(){
+    if(!edDoc || edSaving || edPublishing || edFingerprint() !== edSavedFingerprint) return;
+    if(!edHasWritten()){
+      edSetState('error', '게시할 내용이 없습니다', '내용을 한 줄 이상 적어 주세요', true);
+      return;
+    }
+    if(!confirm('이 초안을 고객 화면에 게시할까요?\n\n게시 후 보통 1~2분 안에 반영됩니다.')) return;
+
+    edPublishing = true;
+    edStatus(undefined, false);
+    let out;
+    try {
+      out = await ED.call('POST', '/notice/doc/publish', {
+        slug: CLIENT, noticeId: edDoc.noticeId,
+        draftVersion: edDoc.draftVersion, publishedVersion: edDoc.publishedVersion,
+      });
+    } catch(e){
+      edPublishing = false;
+      edStatus(undefined, false);
+      if(e.status === 409 && e.data && e.data.current){
+        edConflict(e.data.current);
+        edSetState('error', '게시하기 전에 공지가 바뀌었습니다',
+                   '아래에서 최신 내용을 확인해 주세요', true);
+      } else {
+        edSetState('error', '게시하지 못했습니다', edErr(e, '다시 시도해 주세요'), true);
+      }
+      return;
+    }
+
+    edPublishing = false;
+    edDoc = out;
+    edSavedFingerprint = edDocFingerprint(out);
+    edCacheClear(out.noticeId);
+    const stamp = document.querySelector('[data-edpublished]');
+    if(stamp) stamp.textContent = edPublishedLabel();
+    edStatus(undefined, false);
+    const changedWhilePublishing = edFingerprint() !== edSavedFingerprint;
+    if(changedWhilePublishing){
+      edCacheWrite();
+      edScheduleSave(true);
+    } else if(out.rebuild === 'sent')
+      edSetState('published', '게시됨 · 고객 화면 반영 중', '보통 1~2분 안에 반영됩니다');
+    else if(out.rebuild === 'failed')
+      edSetState('error', '게시됨 · 자동 반영 요청 실패', '다음 정기 빌드에는 반영됩니다', true);
+    else edSetState('published', '게시됨', '고객 화면은 다음 빌드에 반영됩니다');
+  }
+
+  /** 지금 작성 중인 초안을 고객이 읽는 모양으로 확인한다. */
+  function edPreview(){
+    if(!edDoc) return;
+    const doc = edCurrentDoc(false);
+    const dialog = document.createElement('dialog');
+    dialog.className = 'ed-preview';
+    dialog.setAttribute('aria-label', '공지 미리보기');
+    dialog.innerHTML = `<div class="ed-preview-h"><strong>고객 화면 미리보기</strong>
+      <span>아직 게시되지 않았습니다</span><button type="button">닫기</button></div>
+      <div class="ed-preview-b"><h1>${esc(doc.title || '공지사항')}</h1>
+      <div class="date">${esc(edDoc.date || '')}</div>${doc.sections.map((s, at) =>
+        `<div class="notice${at === 0 ? ' open' : ''}">${s.title
+          ? `<h3><i class="tw">▸</i><span>${esc(s.title)}</span></h3>` : ''}
+          <div class="bd"><ul class="ck">${s.items.map(i => noticeItem(i, 1, false)).join('')}
+          </ul></div></div>`).join('') || '<p class="empty">작성된 내용이 없습니다.</p>'}
+      </div>`;
+    document.body.appendChild(dialog);
+    const close = () => dialog.close();
+    dialog.querySelector('button').onclick = close;
+    dialog.onclick = e => { if(e.target === dialog) close(); };
+    dialog.onclose = () => dialog.remove();
+    dialog.showModal();
   }
 
   /**
@@ -4633,7 +5141,7 @@ function init(D){
     const box = document.createElement('div');
     box.className = 'ed-cf';
     box.id = 'edcf';
-    box.innerHTML = `<div class="cf-t">저장소의 지금 공지
+    box.innerHTML = `<div class="cf-t">서버의 최신 초안
         <span class="cf-v">${esc(String(cur.title || '(제목 없음)'))}</span></div>
       <div class="cf-b">${lines.join('') || '<div class="cf-e">(줄이 없습니다)</div>'}</div>
       <div class="cf-a"><button class="edt-b" data-cftake>지금 내용으로 다시 열기</button>
@@ -4641,11 +5149,17 @@ function init(D){
     bar.parentElement.insertBefore(box, bar.nextSibling);
     box.querySelector('[data-cfclose]').onclick = edClearConflict;
     box.querySelector('[data-cftake]').onclick = () => {
-      if(!confirm('작성 중인 내용을 버리고 저장된 최신 공지를 불러옵니다.')) return;
+      if(!confirm('이 탭에서 작성 중인 내용을 버리고 서버의 최신 초안을 불러올까요?')) return;
       edClearConflict();
-      edLoaded = false;
+      edReady = false;
+      edDoc = cur;
+      edLoaded = true;
+      edSavedFingerprint = edDocFingerprint(cur);
+      edOffline = false;
+      edCacheClear(cur.noticeId);
       edForgetAll();
-      edLoad();
+      notice = edDocView(cur);
+      go('notice');
     };
   }
 
@@ -4705,30 +5219,28 @@ function init(D){
     });
   }
 
-  /**
-   * 그 판으로 되돌린다. **되돌리기도 저장이다** — 새 판이 되므로 되돌린 것도
-   * 다시 되돌릴 수 있고, 재빌드도 똑같이 걸린다.
-   */
+  /** 지난 게시본을 공개하지 않고 초안으로 불러온다. */
   async function edRestore(version){
-    /* 화면에 손대 둔 것이 있으면 먼저 묻는다. 되돌리면 그것은 사라진다 */
-    if(edPending().length &&
-       !confirm(`저장하지 않은 변경 ${edPending().length}개가 사라집니다. 계속할까요?`)) return;
-    if(!confirm(`버전 ${version} 으로 되돌립니다.\n\n` +
-                '현재 내용도 버전으로 남아 다시 되돌릴 수 있습니다.\n' +
-                '1~2분 뒤 클라이언트 화면에 반영됩니다.')) return;
+    if(edFingerprint() !== edSavedFingerprint &&
+       !confirm('아직 서버에 저장되지 않은 입력이 있습니다. 버리고 계속할까요?')) return;
+    if(!confirm(`버전 ${version}을 편집 초안으로 불러올까요?\n\n` +
+                '「게시」를 누르기 전까지 고객 화면은 바뀌지 않습니다.')) return;
 
-    edMsg('되돌리는 중…');
+    edSetState('saving', '이전 버전을 불러오는 중…', '고객 화면은 바뀌지 않습니다');
     let out;
     try {
-      out = await ED.call('POST', '/notice/doc/restore', {
-        slug: CLIENT, noticeId: edDoc.noticeId, version: edDoc.version, revision: version,
+      out = await ED.call('POST', '/notice/doc/revision-to-draft', {
+        slug: CLIENT, noticeId: edDoc.noticeId,
+        draftVersion: edDoc.draftVersion, revision: version,
       });
     } catch(e){
       if(e.status === 409 && e.data && e.data.current){
         edConflict(e.data.current);
-        edMsg('다른 담당자가 먼저 저장했습니다 — 아래에서 비교해 주세요', true);
+        edSetState('error', '다른 화면에서 초안이 바뀌었습니다',
+                   '아래에서 내용을 비교해 주세요', true);
       } else {
-        edMsg(edErr(e, '되돌리지 못했습니다'), true);
+        edSetState('error', '이전 버전을 불러오지 못했습니다',
+                   edErr(e, '다시 시도해 주세요'), true);
       }
       return;
     }
@@ -4736,13 +5248,17 @@ function init(D){
     edClearPanels();
     edDoc = out;
     edLoaded = true;
-    /* 장부를 먼저 비운다. 남겨 두면 `go` 가 「저장하지 않은 것이 있다」고
+    edReady = false;
+    edSavedFingerprint = edDocFingerprint(out);
+    edCacheClear(out.noticeId);
+    /* 장부를 먼저 비운다. 남겨 두면 `go` 가 「아직 저장되지 않은 입력이 있다」고
        한 번 더 묻고, 담당자가 거기서 취소하면 화면은 되돌리기 전 그대로인데
        손에 쥔 문서만 새것이 된다 */
     edForgetAll();
     notice = edDocView(out);
     go('notice');
-    edMsg(`버전 ${version} 으로 되돌렸습니다 · 1~2분 뒤 반영`);
+    edSetState('saved', `버전 ${version}을 초안으로 불러왔습니다`,
+               '고객에게 보여 주려면 게시해 주세요');
   }
 
   function edClearPanels(){
@@ -4751,12 +5267,12 @@ function init(D){
     if(rv) rv.remove();
   }
 
-  /* 저장 전이라면 되돌린다. 저장소에는 아직 아무것도 나가지 않았다 */
+  /* 현재 화면을 처음 연 기준으로 되돌린다. 되돌린 결과도 초안에 자동 저장된다 */
   function edUndo(){
     const pend = edPending();
     if(!pend.length) return;
     /* 「줄」이라 하지 않는다 — 제목도 여기에 함께 세어져 있다 */
-    if(!confirm(`변경 ${pend.length}개를 모두 취소합니다. 저장 전이라 원본은 그대로입니다.`)) return;
+    if(!confirm(`변경 ${pend.length}개를 모두 되돌릴까요?\n\n되돌린 결과도 초안에 자동 저장되며, 게시 전까지 고객 화면은 바뀌지 않습니다.`)) return;
     let whole = true;
     pend.forEach(p => {
       if(p.op === 'title'){
@@ -4768,23 +5284,23 @@ function init(D){
       if(p.op === 'secname'){ p.sec.nsx.textContent = p.sec.base; edSecSync(); return; }
       if(p.op === 'secmove'){ whole = edSecUndo(p.sec) && whole; return; }
       if(p.op === 'add'){ edForget(p.it); return; }
-      if(p.op === 'remove'){ edMarkDel(p.it, false); return; }
       if(edStruct(p.op)){ whole = edUndoOne(p.it) && whole; return; }
       if(p.it.type === 'table'){ edTableUndo(p.it); return; }
       edPaint(p.it, p.it.base);
       p.it.li.classList.remove('ed-dirty', 'ed-fail');
       edClearNote(p.it);
     });
-    edSweep();   /* 쓰지 않은 빈 줄도 함께 걷는다 — 저장에는 안 나가지만 보인다 */
+    edSweep();
     edStatus();
     /* 하나라도 제자리를 못 찾았으면 `edUndoOne` 이 남긴 말을 지우지 않는다 */
     if(whole) edMsg('');
   }
 
-  /* 저장하지 않은 것이 있으면 붙잡는다. 화면을 떠나면 그대로 사라진다 */
+  /* 아직 서버 초안에 닿지 않은 입력이 있으면 화면을 떠나기 전에 한 번 알린다 */
   function edMayLeave(){
-    const n = edPending().length;
-    return !n || confirm(`저장하지 않은 변경이 ${n}개 있습니다. 나가시겠습니까?`);
+    const pending = edReady && edDoc && edFingerprint() !== edSavedFingerprint;
+    return (!pending && !edSaving)
+      || confirm('아직 초안 서버에 저장되지 않은 입력이 있습니다. 이 화면을 나갈까요?');
   }
 
   /* ── 서식 막대 ──
@@ -4980,24 +5496,28 @@ function init(D){
        중계 서버가 모르는 것이 되어 그 줄이 거절당한다 */
     try { document.execCommand('styleWithCSS', false, false); } catch(_){}
 
-    document.querySelectorAll('.ck li[data-nid]').forEach(li => {
-      const nx = li.querySelector(':scope>.nx, :scope>.tgh>.nx');
-      if(!nx) return;
-      if(!nx.parentElement.querySelector(':scope>.nx-del'))
-        nx.insertAdjacentHTML('afterend', delBtn());
-      bindDelete(nx);
-    });
-
     const bar = document.getElementById('edbar');
     if(bar){
-      bar.querySelector('[data-edsave]').onclick = edSave;
-      bar.querySelector('[data-edundo]').onclick = edUndo;
-      bar.querySelector('[data-edrev]').onclick = edRevisions;
+      const preview = bar.querySelector('[data-edpreview]');
+      const publish = bar.querySelector('[data-edpublish]');
+      const retry = bar.querySelector('[data-edretry]');
+      const revisions = bar.querySelector('[data-edrev]');
+      const help = bar.querySelector('[data-edhelp]');
+      if(preview) preview.onclick = edPreview;
+      if(publish) publish.onclick = edPublish;
+      if(retry) retry.onclick = () => { edOffline = false; edSave(); };
+      if(revisions) revisions.onclick = edRevisions;
+      if(help) help.onclick = () => {
+        const guide = document.querySelector('.ed-help');
+        if(!guide) return;
+        guide.open = true;
+        guide.scrollIntoView({block:'center', behavior:'smooth'});
+      };
     }
     const newBtn = document.querySelector('[data-ednew]');
     if(newBtn) newBtn.onclick = edNewNotice;
-    /* 칸 끝에 빈 줄 하나를 세우고 커서를 그리로 보낸다. 저장을 눌러야
-       나가는 것은 다른 줄과 같다 */
+    /* 칸 끝에 빈 줄 하나를 세우고 커서를 그리로 보낸다. 작성한 내용은 다른
+       줄과 같이 초안에 자동 저장된다 */
     document.querySelectorAll('.notice').forEach(bindNoticeBox);
     const secAdd = document.querySelector('[data-nsadd]');
     if(secAdd) secAdd.onclick = () => edSecAdd();
@@ -5009,53 +5529,35 @@ function init(D){
       /* 한글을 짓기 시작할 때도 걸음을 뜬다. 조합 중에는 keydown 을 가로채지
          않으므로, 여기서 뜨지 않으면 한글로 적은 글은 되돌릴 수가 없다 */
       document.addEventListener('compositionstart', e => {
-        if(ED.on() && edEditable(e.target)) edMark(true);
+        if(ED.on() && edEditable(e.target)){
+          edComposing = true;
+          edMark(true);
+        }
+      }, true);
+      document.addEventListener('compositionend', e => {
+        edComposing = false;
+        if(ED.on() && edEditable(e.target)) edStatus();
       }, true);
       const sc = document.getElementById('scroll');
       if(sc) sc.addEventListener('scroll', () => { if(edTb) edTb.classList.remove('on'); });
       window.addEventListener('beforeunload', e => {
-        if(!edPending().length) return;
+        if(!edReady || !edDoc || edFingerprint() === edSavedFingerprint) return;
         e.preventDefault();
         e.returnValue = '';
       });
+      window.addEventListener('online', () => {
+        if(!ED.on() || !edReady || !edDoc) return;
+        edOffline = false;
+        edStatus(undefined, false, true);
+      });
+      window.addEventListener('offline', () => {
+        if(!ED.on() || !edReady || !edDoc) return;
+        edOffline = true;
+        edCacheWrite();
+        edStatus(undefined, false);
+      });
     }
     if(!(opt && opt.keep)) edLoad();
-  }
-
-  /* 지우기 단추. .nx 바깥에 둔다 — 안에 두면 고치는 글의 일부가 되어
-     노션에 딸려 들어간다. 지우기로 표시해 둔 줄에서는 「되돌리기」가 된다 */
-  const delBtn = () => `<button class="nx-del" data-ndel title="이 줄 지우기">✕</button>`;
-
-  function edDelBtn(it){
-    const btn = it.nx.parentElement.querySelector(':scope>.nx-del');
-    if(!btn) return;
-    btn.classList.toggle('undo', !!it.del);
-    btn.textContent = it.del ? '되돌리기' : '✕';
-    btn.title = it.del ? '지우기를 물린다' : '이 줄 지우기';
-  }
-
-  /**
-   * 지울 줄로 표시한다. **저장소에는 아직 나가지 않는다** — 저장이 함께 내보낸다.
-   *
-   * 화면에서 치우지 않고 그은 채로 남기는 까닭은 둘이다. 저장 전에 무엇이
-   * 사라질지 세어 볼 수 있어야 하고, 잘못 눌렀을 때 되돌릴 곳이 그 자리에
-   * 있어야 한다. 방금 보탠 줄만은 그냥 없앤다 — 되돌릴 것이 없다.
-   */
-  function edMarkDel(it, on){
-    edMark();
-    if(on && it.isNew){ edForget(it); return; }
-    it.del = !!on;
-    it.li.classList.toggle('ed-del', it.del);
-    if(it.del){
-      it.nx.removeAttribute('contenteditable');
-      edClearNote(it);
-      it.li.classList.remove('ed-fail');
-    } else {
-      it.nx.contentEditable = 'true';
-    }
-    edDelBtn(it);
-    edMvSync();   /* 지울 줄은 옮기지도, 종류를 바꾸지도 않는다 */
-    edStatus();
   }
 
   /* 화면과 장부에서 통째로 지운다. 안에 든 줄도 함께 — 노션이 그릇을 지울 때
@@ -5068,27 +5570,6 @@ function init(D){
     edTrimLists();
     edMvSync();
     edStatus();
-  }
-
-  function bindDelete(nx){
-    const btn = nx.parentElement.querySelector(':scope>.nx-del');
-    if(!btn) return;
-    /* 항목은 그때 찾는다. 이 단추는 편집용 원본이 오기 전에 붙고, 보탠 줄은
-       저장되면서 주소가 바뀐다 */
-    btn.onclick = e => {
-      e.stopPropagation();                   /* 토글이 접히지 않게 */
-      const it = edOf(nx);
-      if(!it) return;
-      if(it.del){ edMarkDel(it, false); return; }
-
-      /* 그릇을 지우면 그 안의 줄도 함께 간다. 몇 줄이 딸려 가는지 먼저
-         말해 준다 — 지운 뒤에 알면 늦다 */
-      const kids = it.li.querySelectorAll('li[data-nid]').length;
-      const text = nx.textContent.trim().slice(0, 60) || '(빈 줄)';
-      if(it.isNew || confirm(`이 줄을 삭제합니다.\n\n${text}` +
-            (kids ? `\n\n하위 ${kids}줄도 함께 삭제됩니다.` : '') +
-            '\n\n「저장」을 눌러야 실제로 반영됩니다.')) edMarkDel(it, true);
-    };
   }
 
   /* 실패를 사람 말로. 상태 코드는 화면에 내보내지 않는다 */
@@ -5135,7 +5616,7 @@ function init(D){
   /** 보탠 줄에 붙는 임시 이름. 저장하면 중계 서버가 지은 주소로 갈린다 */
   let edSeq = 0;
 
-  /** 공지는 대부분 글머리 기호다. 보탠 줄은 글머리로 시작한다 */
+  /** 새 줄은 본문으로 시작한다. 제목 아래에서 Enter 만으로 계속 써 내려간다. */
   /* 보탠 줄이 그 종류로 보이게. 클라이언트 화면을 그리는 표를 그대로 쓴다 —
      할 일만 따로인 것은 그 표가 체크 여부까지 함께 셈하기 때문이다 */
   const edNewCls = t => t === 'todo' ? 'chk' : (KIND_CLS[t] || 'plain');
@@ -5145,7 +5626,7 @@ function init(D){
     const li = document.createElement('li');
     li.className = `${edNewCls(type)} ed-new`;
     li.dataset.nid = `new-${edSeq}`;
-    li.innerHTML = `<span class="nx"></span>${delBtn()}`;
+    li.innerHTML = '<span class="nx"></span>';
     return li;
   }
 
@@ -5163,7 +5644,7 @@ function init(D){
   function edAdd(mount, opts){
     edMark();
     const o = opts || {};
-    const type = o.type || 'bullet';
+    const type = o.type || 'paragraph';
     const li = edNewRow(type);
     const nx = li.querySelector(':scope>.nx');
     const it = edItem(li, nx, {base: '', isNew: true, type});
@@ -5173,8 +5654,7 @@ function init(D){
     nx.contentEditable = 'true';
     nx.spellcheck = false;
     edBindItem(it);
-    bindDelete(nx);
-    /* 보탠 줄도 저장 전에 옮기고 들여쓴다. 화면에 놓인 자리가 곧 저장될
+    /* 보탠 줄도 자동저장 전에 옮기고 들여쓴다. 화면에 놓인 자리가 곧 저장될
        자리라, 주소가 아직 없다는 것은 아무 상관이 없다 */
     edMvBox(it);
     edHint(it);
@@ -5202,12 +5682,8 @@ function init(D){
    */
   async function edNewNotice(){
     if(!edMayLeave()) return;
-    /* 빌더는 가장 최근 공지 하나만 페이지에 올린다. 만드는 순간 지난 공지는
-       클라이언트 화면에서 내려간다 — 누르기 전에 그것부터 말한다 */
     if(!confirm('오늘 날짜로 새 공지를 만듭니다.\n\n' +
-                '다음 빌드부터 클라이언트에게는 이 공지가 보입니다. ' +
-                '지난 공지는 저장소에 그대로 남습니다.\n\n' +
-                '제목과 내용을 적고 「저장」을 눌러 주세요.')) return;
+                '게시하기 전까지 고객에게는 기존 공지가 계속 보입니다.')) return;
 
     edMsg('새 공지를 만드는 중…');
     let out;
@@ -5218,12 +5694,15 @@ function init(D){
     edForgetAll();
     edDoc = out;
     edLoaded = true;
+    edReady = false;
+    edOffline = false;
+    edSavedFingerprint = edDocFingerprint(out);
     notice = edDocView(out);
     go('notice');
     /* 제목 칸에 커서를 둔다. 갓 만든 공지에서 담당자가 처음 할 일이 그것이다 */
     if(edTitle) edTitle.input.focus();
     edMsg(out.existing ? '오늘 만들어 둔 공지가 있어 그리로 왔습니다'
-                       : '새 공지를 만들었습니다');
+                       : '새 공지 초안을 만들었습니다');
   }
 
   /* 공지 요약 카드 — 조달현황 옆자리. 섹션 제목을 접었다 펴는 형태다.
@@ -5617,15 +6096,20 @@ function init(D){
      클라이언트가 보는 화면에 입력칸이 뜨면 안 된다.
      여기 넣는 값은 임시다. 진짜 값은 `edTitleOpen` 이 정한다 */
   const noticeTitleBox = () => ED.on()
-    ? `<h1><input class="nti" id="ntitle" placeholder="공지 제목"
+    ? `<h1><input class="nti" id="ntitle" placeholder="제목 없음"
          aria-label="공지 제목" maxlength="200" autocomplete="off"
          value="${esc((notice&&notice.title)||'')}"></h1>`
     : `<h1>${esc((notice&&notice.title)||'공지사항')}</h1>`;
 
-  V.notice=()=>`<div class="vh">${noticeTitleBox()}
-    ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
-    ${editSwitch()}${ED.on() ? `<button class="edt-b" data-ednew>＋ 새 공지</button>` : ''}</div>
-   ${noticeFeed(ED.on())}`;
+  V.notice=()=> ED.on()
+    ? `<section class="ed-workspace">${saveBar()}<article class="ed-page">
+        <header class="ed-page-head"><div class="ed-page-title">${noticeTitleBox()}</div>
+          ${edDoc ? `<div class="ed-meta"><span>공지일 ${esc(edDoc.date || '')}</span><i>·</i>
+            <span data-edpublished>${edPublishedLabel()}</span></div>` : ''}</header>
+        <div class="ed-body">${noticeFeed(true)}</div></article></section>`
+    : `<div class="vh">${noticeTitleBox()}
+        ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
+        ${editSwitch()}</div>${noticeFeed(false)}`;
 
   V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
@@ -5932,6 +6416,7 @@ function init(D){
        하나라도 남기면 그 장부가 사라진 DOM 을 가리킨 채로 「손대 둔 것이
        있다」고 우기고, 그 위에서 저장하면 지금 화면에 없는 것이 나간다 */
     edForgetAll();
+    document.querySelector('main').classList.toggle('notice-edit', id === 'notice' && ED.on());
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        빌드 시각도 화면 어디에도 두지 않는다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
