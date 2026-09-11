@@ -10,9 +10,10 @@ export const SHARE_DB = "21e815d7-12b9-80dc-8310-d038abd8a502";
 export const NOTICE_DB = "3aa815d7-12b9-80db-a5b4-e2065ddad4a4";
 export const NOTICE_PAGE = "a4a815d7-12b9-82ce-a740-01f430175bad";
 export const OTHER_PAGE = "ffffffff-0000-0000-0000-000000000001";
-export const TALK_DB = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de";
+export const TALK_DB = "13d815d7-12b9-8066-aed3-fcff75ae4492";
 export const TALK_PAGE = "22222222-3333-4444-5555-666666666666";
 export const OTHER_TALK_PAGE = "77777777-8888-9999-aaaa-bbbbbbbbbbbb";
+export const COMPANY_PAGE = "cccccccc-dddd-eeee-ffff-000000000001";
 
 export const ITEM = "11111111-2222-3333-4444-555555555555";
 export const NESTED = "66666666-7777-8888-9999-000000000000";
@@ -54,16 +55,16 @@ export function block(id, type, runs, parent, extra = {}) {
 export const inPage = (pageId) => ({ type: "page_id", page_id: pageId });
 export const inBlock = (blockId) => ({ type: "block_id", block_id: blockId });
 
-export function talk(id = TALK_PAGE, major = false, clientId = "share-row") {
+export function talk(id = TALK_PAGE, major = false, company = "위프코리아", published = true) {
   return {
     object: "page",
     id,
     properties: {
-      "제목": { type: "title", title: [run("9월 정기 미팅")] },
+      "상세내용": { type: "title", title: [run("9월 정기 미팅")] },
       "일자": { type: "date", date: { start: "2026-09-11" } },
-      "상태": { type: "select", select: { name: "공개" } },
-      "클라이언트": { type: "relation", relation: [{ id: clientId }] },
-      "주요": { type: "checkbox", checkbox: major },
+      "기업명": { type: "multi_select", multi_select: [{ name: company }] },
+      "고객 공개": { type: "checkbox", checkbox: published },
+      "주요사항 확인": { type: "checkbox", checkbox: major },
     },
   };
 }
@@ -100,6 +101,7 @@ export function installNotion(opts = {}) {
       id: "share-row",
       properties: {
         "슬러그": { type: "rich_text", rich_text: [run("whiffkorea")] },
+        "기업 DB": { type: "relation", relation: [{ id: COMPANY_PAGE }] },
         "공지 DB": { type: "url", url: `https://app.notion.com/p/${NOTICE_DB.replace(/-/g, "")}?v=abc` },
       },
     }],
@@ -153,6 +155,13 @@ export function installNotion(opts = {}) {
     }
     if (method === "POST" && path === `/databases/${NOTICE_DB}/query`) return reply(notice);
     if (method === "POST" && path === `/databases/${TALK_DB}/query`) return reply(talks);
+
+    if (method === "GET" && path === `/pages/${COMPANY_PAGE}`) {
+      return reply({
+        object: "page", id: COMPANY_PAGE,
+        properties: { "기업명": { type: "title", title: [run("위프코리아")] } },
+      });
+    }
 
     // 새 공지 한 행. 노션은 만든 페이지를 그대로 돌려준다.
     if (method === "POST" && path === "/pages") {

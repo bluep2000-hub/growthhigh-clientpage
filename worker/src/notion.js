@@ -12,11 +12,13 @@ const API = "https://api.notion.com/v1";
 /** 공유페이지 DB (클라이언트 레지스트리). 빌더의 SHARE_DB_ID 와 같다. */
 export const SHARE_DB_ID = "21e815d7-12b9-80dc-8310-d038abd8a502";
 
-/** 소통 내역 DB. 빌더의 TALKS_DB_ID 와 같다. */
-export const TALKS_DB_ID = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de";
+/** PM 커뮤니케이션보드. 빌더의 TALKS_DB_ID 와 같다. */
+export const TALKS_DB_ID = "13d815d7-12b9-8066-aed3-fcff75ae4492";
 
 const TALKS_OUTPUT_MAX = 100;
-const TALK_STATUS_HIDDEN = "보류";
+const TALK_COMPANY = "기업명";
+const TALK_PUBLIC = "고객 공개";
+export const TALK_MAJOR = "주요사항 확인";
 
 /** 섹션을 여는 블록. 빌더의 NOTICE_HEADING_TYPES 와 같다. */
 export const HEADING_TYPES = new Set(["heading_1", "heading_2", "heading_3"]);
@@ -127,6 +129,24 @@ export function plainTitle(page) {
   return runs.map((r) => r.plain_text ?? r.text?.content ?? "").join("").trim();
 }
 
+/** title/rich_text 어느 쪽이어도 속성의 글자만 꺼낸다. */
+function plainProperty(property) {
+  const runs = property?.title || property?.rich_text || [];
+  return runs.map((r) => r.plain_text ?? r.text?.content ?? "").join("").trim();
+}
+
+/** 공유페이지 항목이 가리키는 기업의 정식 기업명. */
+async function companyNameForClient(nt, client) {
+  const companyIds = client?.properties?.["기업 DB"]?.relation || [];
+  if (companyIds.length !== 1 || !companyIds[0]?.id) {
+    throw foreign("공유페이지 항목의 기업 연결을 확인해 주세요");
+  }
+  const company = await nt.get(`/pages/${companyIds[0].id}`);
+  const name = plainProperty(company?.properties?.[TALK_COMPANY]);
+  if (!name) throw foreign("연결된 기업의 기업명이 비어 있습니다");
+  return name;
+}
+
 /**
  * 슬러그 → 공유페이지 DB 의 그 기업 행. 없으면 404.
  *
@@ -157,18 +177,16 @@ export async function talkKey(pageId) {
 /**
  * 암호화 봉투의 talk_key 로 해당 기업 소통의 원본 페이지를 찾는다.
  *
- * 목록을 기업 릴레이션으로 먼저 거르고, 찾은 뒤에도 릴레이션을 다시 확인한다.
+ * 목록을 기업명과 고객 공개 체크로 먼저 거르고, 찾은 뒤에도 다시 확인한다.
  * 정적 페이지에 있던 키 하나만으로 다른 기업의 소통을 바꿀 수 없어야 한다.
  */
-export async function findTalkForClient(nt, clientPageId, key) {
+export async function findTalkForClient(nt, client, key) {
+  const companyName = await companyNameForClient(nt, client);
   const rows = await nt.post(`/databases/${TALKS_DB_ID}/query`, {
     page_size: TALKS_OUTPUT_MAX,
     filter: { and: [
-      { property: "클라이언트", relation: { contains: clientPageId } },
-      { or: [
-        { property: "상태", select: { does_not_equal: TALK_STATUS_HIDDEN } },
-        { property: "상태", select: { is_empty: true } },
-      ] },
+      { property: TALK_COMPANY, multi_select: { contains: companyName } },
+      { property: TALK_PUBLIC, checkbox: { equals: true } },
     ] },
     sorts: [{ property: "일자", direction: "descending" }],
   });
@@ -176,9 +194,12 @@ export async function findTalkForClient(nt, clientPageId, key) {
   let found = null;
   for (const page of rows.results || []) {
     if (await talkKey(page.id) !== key) continue;
-    const relations = page.properties?.["클라이언트"]?.relation || [];
-    if (!relations.some((r) => sameId(r.id, clientPageId))) {
+    const companies = page.properties?.[TALK_COMPANY]?.multi_select || [];
+    if (!companies.some((item) => item.name === companyName)) {
       throw foreign("그 기업의 소통 내역이 아닙니다");
+    }
+    if (page.properties?.[TALK_PUBLIC]?.checkbox !== true) {
+      throw foreign("고객 공개가 아닌 소통 내역입니다");
     }
     if (found) throw upstream("소통 식별 키가 겹쳤습니다");
     found = page;

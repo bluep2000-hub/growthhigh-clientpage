@@ -35,6 +35,12 @@ from pathlib import Path
 
 import requests
 
+from talk_source import (
+    COMMUNICATION_DB_ID,
+    parse_public_talk,
+    query_payload as talk_query_payload,
+)
+
 from check_imap import decode_mime, imap_utf7_decode
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.hashes import SHA256
@@ -1668,8 +1674,12 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 #   첨부는 BODYSTRUCTURE 로 파일명만 읽고 내려받지 않는다
 # ══════════════════════════════════════════════════════════════════════════
 
-# 소통 내역 DB. database_id 라우트 + 2022-06-28 로 접근된다 (확인 완료).
-TALKS_DB_ID = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de"
+# PM이 실제로 쓰는 커뮤니케이션보드. 고객 페이지는 「고객 공개」가 체크된
+# 그 기업 기록만 직접 읽는다.
+TALKS_DB_ID = COMMUNICATION_DB_ID
+# 이메일 자동 수집은 별도 승인 전까지 기존 원본에만 쓴다. 커뮤니케이션보드로
+# 옮기며 곧바로 고객 공개하는 것은 이번 변경 범위가 아니다.
+MAIL_TALKS_DB_ID = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de"
 # 「검토대기」는 지금 아무것도 쓰지 않지만 옵션은 남겨둔다.
 # 통화·미팅 AI 요약이 붙으면 그때는 사람이 거를 대상이 생긴다.
 TALK_STATUS_NEW = "검토대기"
@@ -2386,7 +2396,7 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
     """새 메일만 「검토대기」로 넣는다. 화면에는 아직 나가지 않는다."""
     # 기존 Message-ID 를 한 번에 받아 메모리에서 대조한다. 건마다 조회하지 않는다.
     try:
-        rows = nt.query_all(TALKS_DB_ID, {
+        rows = nt.query_all(MAIL_TALKS_DB_ID, {
             "filter": {"property": "클라이언트",
                        "relation": {"contains": client_page_id}},
         })
@@ -2420,7 +2430,7 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
             props["일자"] = {"date": {"start": m["date"]}}
 
         try:
-            nt.post("/pages", {"parent": {"database_id": TALKS_DB_ID},
+            nt.post("/pages", {"parent": {"database_id": MAIL_TALKS_DB_ID},
                                "properties": props})
             seen.add(mid)                        # 같은 실행 안의 중복도 막는다
             added += 1
@@ -2563,6 +2573,12 @@ def talk_body_html(nt: Notion, blocks: list[dict], depth: int = 0,
             if h:
                 parts.append(f"<p>{h}</p>")
 
+        elif t == "to_do":
+            h = runs_to_html(block_runs(b))
+            if h:
+                mark = "☑" if (b.get("to_do") or {}).get("checked") else "☐"
+                parts.append(f"<p>{mark} {h}</p>")
+
         elif t == "divider":
             parts.append("<hr>")
 
@@ -2590,14 +2606,41 @@ def talk_body_html(nt: Notion, blocks: list[dict], depth: int = 0,
     return "".join(p for p in parts if p)
 
 
-def fetch_talk_body(nt: Notion, page_id: str, title: str) -> tuple[str, list[dict]]:
-    """회의록 본문 HTML 과, 그 안에서 뽑아낸 할 일."""
+def talk_preview(blocks: list[dict], limit: int = 180) -> str:
+    """보드 본문에서 목록용 짧은 미리보기를 만든다."""
+    headings: list[str] = []
+    lines: list[str] = []
+    generic = {"소통 내용", "체크 사항", "체크사항", "action items"}
+    for block in blocks:
+        kind = block.get("type") or ""
+        if kind not in TALK_HEADING_TAG and kind not in {
+            "paragraph", "bulleted_list_item", "numbered_list_item", "to_do",
+        }:
+            continue
+        value = runs_plain(block_runs(block))
+        if not value:
+            continue
+        if kind in TALK_HEADING_TAG:
+            normalized = value.strip().lower()
+            if normalized in generic or "체크 사항" in normalized:
+                continue
+            headings.append(value)
+        else:
+            lines.append(value)
+    picked = headings or lines[:2]
+    text = " · ".join(picked)
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
+def fetch_talk_body(nt: Notion, page_id: str, title: str) -> tuple[str, list[dict], str]:
+    """소통 본문 HTML, 본문에서 뽑은 할 일, 목록용 미리보기."""
     acts: list[dict] = []
     try:
-        return talk_body_html(nt, nt.children(page_id), actions=acts), acts
+        blocks = nt.children(page_id)
+        return talk_body_html(nt, blocks, actions=acts), acts, talk_preview(blocks)
     except ClientFailure as e:
         warn(f"회의록 본문 조회 실패 — 본문 없이 내보냅니다({title[:24]}): {e}")
-        return "", []
+        return "", [], ""
 
 
 def talk_key(page_id: str) -> str:
@@ -2612,59 +2655,40 @@ def public_talk(talk: dict) -> dict:
 
 # ── 노션 소통 DB: 읽기 (보류만 제외) ─────────────────────────────────────
 
-def read_talks(nt: Notion, client_page_id: str) -> list[dict]:
-    """클라이언트 릴레이션으로 거르고 「보류」만 뺀다.
-    화면에 무엇이 나갈지는 이 함수 하나가 정한다."""
+def read_talks(nt: Notion, company_name: str) -> list[dict]:
+    """커뮤니케이션보드에서 그 기업의 공개 체크된 기록만 읽는다."""
     try:
-        res = nt.post(f"/databases/{TALKS_DB_ID}/query", {
-            "page_size": TALKS_OUTPUT_MAX,
-            "filter": {"and": [
-                {"property": "클라이언트", "relation": {"contains": client_page_id}},
-                # 상태가 비어 있어도 내보낸다. 빼는 것은 「보류」뿐이다.
-                {"or": [
-                    {"property": "상태", "select": {"does_not_equal": TALK_STATUS_HIDDEN}},
-                    {"property": "상태", "select": {"is_empty": True}},
-                ]},
-            ]},
-            "sorts": [{"property": "일자", "direction": "descending"}],
-        })
+        res = nt.post(
+            f"/databases/{TALKS_DB_ID}/query",
+            talk_query_payload(company_name, TALKS_OUTPUT_MAX),
+        )
     except ClientFailure as e:
         warn(f"소통 DB 조회 실패 — talks=[]: {e}")
         return []
 
     out = []
     for pg in res.get("results", []):
-        pr = pg.get("properties", {})
-        channel = p_select(pr, "채널") or ""
-        summary = p_text(pr, "요약")
-
-        # 미팅·통화는 회의록이 페이지 본문에 있다. 메일은 지금처럼 「요약」이 본문이다.
-        body = body_html = None
-        actions: list[dict] = []
-        if channel in TALK_CHANNELS_WITH_MINUTES:
-            body_html, actions = fetch_talk_body(nt, pg["id"], p_text(pr, "제목"))
-            body_html = body_html or None
-        else:
-            body = nn(summary)
+        source = parse_public_talk(pg, company_name)
+        if source is None or not source.page_id:
+            warn("소통 DB가 다른 기업 또는 비공개 항목을 돌려줘서 건너뜁니다")
+            continue
+        body_html, actions, preview = fetch_talk_body(nt, source.page_id, source.title)
 
         row = {
-            "date": (p_date(pr, "일자").get("start") or "")[:10],
-            "channel": channel,
-            "title": p_text(pr, "제목"),
-            # 목록 한 줄은 채널과 무관하게 「요약」을 쓴다
-            "preview": nn(summary),
-            "body": body,
-            "body_html": body_html,
-            "direction": p_select(pr, "방향"),
-            # 담당자가 노션에서 골라 둔 것. 화면 맨 위 「주요 소통」이 이것만 모은다.
-            # 거르지 않고 표시만 싣는다 — 주요가 아닌 것도 목록에는 그대로 남는다.
-            "major": p_checkbox(pr, "주요"),
+            "date": source.date,
+            "channel": source.channel,
+            "title": source.title,
+            "preview": nn(preview),
+            "body": None,
+            "body_html": body_html or None,
+            "direction": None,
+            "major": source.major,
             # 노션 페이지 주소. 할 일을 그 회의록에 잇는 데만 쓰고 봉투에는
             # 싣지 않는다 — 클라이언트에게 우리 노션 안쪽 주소를 줄 까닭이 없다.
-            "pid": pg["id"],
+            "pid": source.page_id,
             # 담당자 화면이 별을 바꿀 때 쓰는 비가역 키. 원본 페이지 주소는
             # 계속 봉투에서 빼고, Worker도 같은 계산으로 원본을 다시 찾는다.
-            "talk_key": talk_key(pg["id"]),
+            "talk_key": talk_key(source.page_id),
         }
         # 없는 미팅이 대부분이라 있을 때만 싣는다.
         if actions:
@@ -2823,7 +2847,7 @@ def build_talks(nt: Notion, client: dict, company_name: str,
         elif mails:
             sync_mails_to_notion(nt, client["page_id"], mails)
     # IMAP 이 실패해도 읽기는 그대로 진행한다.
-    return read_talks(nt, client["page_id"])
+    return read_talks(nt, company_name)
 
 
 # ══════════════════════════════════════════════════════════════════════════

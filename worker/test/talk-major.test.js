@@ -66,8 +66,19 @@ describe("PUT /talk/major", () => {
     expect(dispatches(calls)).toHaveLength(0);
   });
 
+  it("기업명이 맞아도 고객 공개가 꺼진 소통은 바꾸지 않는다", async () => {
+    const hidden = talk(TALK_PAGE, false, "위프코리아", false);
+    const { calls } = installNotion({ talks: { results: [hidden] } });
+    const res = await call(request(true));
+
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toMatchObject({ error: "not_mine" });
+    expect(writes(calls)).toHaveLength(0);
+    expect(dispatches(calls)).toHaveLength(0);
+  });
+
   it("조회 결과의 고객사 릴레이션을 다시 확인한다", async () => {
-    const outsider = talk(OTHER_TALK_PAGE, false, "other-client");
+    const outsider = talk(OTHER_TALK_PAGE, false, "다른기업");
     const { calls } = installNotion({ talks: { results: [outsider] } });
     const res = await call(request(true, { talkKey: keyFor(OTHER_TALK_PAGE) }));
 
@@ -87,9 +98,14 @@ describe("PUT /talk/major", () => {
     expect(writes(calls)).toEqual([expect.objectContaining({
       method: "PATCH",
       path: `/pages/${TALK_PAGE}`,
-      body: { properties: { "주요": { checkbox: true } } },
+      body: { properties: { "주요사항 확인": { checkbox: true } } },
     })]);
     expect(dispatches(calls)).toHaveLength(1);
+    const query = calls.find((c) => c.path === `/databases/${TALK_DB}/query`);
+    expect(query.body.filter).toEqual({ and: [
+      { property: "기업명", multi_select: { contains: "위프코리아" } },
+      { property: "고객 공개", checkbox: { equals: true } },
+    ] });
   });
 
   it("주요 지정을 해제한다", async () => {
@@ -98,7 +114,9 @@ describe("PUT /talk/major", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ major: false, rebuild: "sent" });
-    expect(writes(calls)[0].body).toEqual({ properties: { "주요": { checkbox: false } } });
+    expect(writes(calls)[0].body).toEqual({
+      properties: { "주요사항 확인": { checkbox: false } },
+    });
   });
 
   it("이미 같은 값이면 쓰거나 재빌드하지 않는다", async () => {

@@ -45,7 +45,8 @@ import { assertEditable, blockToHtml, markdownToRuns, runsToMarkdown } from "./m
 import {
   assertBlockInPage, createNotion, ensureNoticeDate, findClient, findNoticePage,
   findNoticeSource, findTalkForClient, HEADING_TYPES, ITEM_TYPES, listChildren,
-  parentIdOf, plainTitle, sameId, SHELL_TYPES, titleProp, todayKst, walkChildren,
+  parentIdOf, plainTitle, sameId, SHELL_TYPES, TALK_MAJOR, titleProp, todayKst,
+  walkChildren,
 } from "./notion.js";
 import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
@@ -927,14 +928,14 @@ async function route(request, env) {
 
     const nt = createNotion(env);
     const client = await findClient(nt, slug);
-    const talk = await findTalkForClient(nt, client.id, key);
-    const before = talk.properties?.["주요"]?.checkbox === true;
+    const talk = await findTalkForClient(nt, client, key);
+    const before = talk.properties?.[TALK_MAJOR]?.checkbox === true;
     if (before === major) {
       return json({ talkKey: key, major, rebuild: "skipped" }, 200);
     }
 
     await nt.patch(`/pages/${talk.id}`, {
-      properties: { "주요": { checkbox: major } },
+      properties: { [TALK_MAJOR]: { checkbox: major } },
     });
     return json({ talkKey: key, major, rebuild: await requestRebuild(env, slug) }, 200);
   }

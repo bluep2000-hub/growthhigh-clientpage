@@ -31,6 +31,19 @@ class TalkKeyTests(unittest.TestCase):
         self.assertNotIn("pid", public)
         self.assertNotIn("actions", public)
 
+    def test_board_preview_prefers_meaningful_headings(self):
+        blocks = [
+            {"type": "heading_3", "heading_3": {"rich_text": [{"plain_text": "소통 내용"}]}},
+            {"type": "bulleted_list_item", "bulleted_list_item": {
+                "rich_text": [{"plain_text": "판로개척 보고서 제출"}],
+            }},
+            {"type": "heading_2", "heading_2": {
+                "rich_text": [{"plain_text": "후속 절차 확인"}],
+            }},
+        ]
+
+        self.assertEqual(builder.talk_preview(blocks), "후속 절차 확인")
+
 
 if __name__ == "__main__":
     unittest.main()

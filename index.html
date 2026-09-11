@@ -750,6 +750,8 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 [data-theme="light"] .ch-mail{background:var(--hover)}
 .ch-call{background:var(--ok-bg);color:var(--ok)}
 .ch-meet{background:var(--accent-bg);color:var(--accent)}
+.ch-chat{background:var(--warn-bg);color:var(--warn)}
+.ch-sms{background:var(--panel-2);color:var(--tx-2)}
 
 /* 미팅 리듬 — 요약 타일 바로 밑 한 줄. 카드로 세우지 않는다. 사실 셋뿐이라
    테두리를 두르면 그 무게가 내용보다 커진다 */
@@ -6142,15 +6144,17 @@ function init(D){
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
   V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
 
-  /* 소통 내역 — 노션 소통 DB 에서 「공개」인 것만 온다.
+  /* 소통 내역 — 커뮤니케이션보드에서 「고객 공개」인 것만 온다.
      목록에는 일자·채널·제목만 두고, 본문은 행을 눌렀을 때 펼친다.
      body 가 null 이면 펼칠 것이 없으므로 표시도 하지 않는다. */
   /* 소통 내역 — 채널 탭으로 거른다. 좌측 메뉴는 「소통 내역」 하나로 둔다.
      preview 는 미팅·통화(안건 목록)만 한 줄 보여준다. 메일 preview 는
      본문 첫머리라 인사말·서명만 나와 목록에서 값을 못 한다. */
   const TALK_TABS = [{k:'all',nm:'전체'},{k:'메일',nm:'메일'},
-                     {k:'통화',nm:'통화'},{k:'미팅',nm:'미팅'}];
-  const TALK_BADGE = {'메일':'ch-mail','통화':'ch-call','미팅':'ch-meet'};
+                     {k:'통화',nm:'통화'},{k:'미팅',nm:'미팅'},
+                     {k:'카톡',nm:'카톡'},{k:'문자',nm:'문자'}];
+  const TALK_BADGE = {'메일':'ch-mail','통화':'ch-call','미팅':'ch-meet',
+                      '카톡':'ch-chat','문자':'ch-sms'};
   const talkCount = k => k==='all' ? talks.length : talks.filter(t=>t.channel===k).length;
   let talkTab = 'all';
   let talkPageError = '';
@@ -6259,7 +6263,7 @@ function init(D){
      </tbody></table></div>`;
   }
 
-  /* 주요 소통 — 담당자가 노션 「주요」에 체크해 둔 것만 목록 위로 올린다.
+  /* 주요 소통 — 담당자가 「주요사항 확인」에 체크해 둔 것만 목록 위로 올린다.
      골라 둔 것이 없으면 이 덩어리는 아예 나오지 않는다. 기계가 대신 추려
      올리지 않는 까닭은, 「주요」라고 적힌 자리에 기계가 고른 것이 앉으면
      그 표시가 값을 잃기 때문이다 — 읽는 사람은 그것을 사람이 짚어 준

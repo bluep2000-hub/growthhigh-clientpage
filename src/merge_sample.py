@@ -128,17 +128,6 @@ def find_company(nt: B.Notion, name: str) -> str:
     return (with_body or rows)[0]["id"]
 
 
-def find_client_page(nt: B.Notion, name: str) -> str | None:
-    """공유페이지 DB 에서 이 기업의 클라이언트 행을 찾는다. 소통 DB 조회에 쓴다."""
-    rows = nt.query_all(B.SHARE_DB_ID, {
-        "filter": {"property": "페이지 유형",
-                   "multi_select": {"contains": B.CLIENT_PAGE_TYPE}}})
-    for r in rows:
-        if name in B.p_text(r.get("properties", {}), "페이지명"):
-            return r["id"]
-    return None
-
-
 def fetch_projects(nt: B.Notion, company_id: str, wanted: list[str]) -> list[dict]:
     rows = B.fetch_projects(nt, company_id)
     if not wanted:
@@ -189,27 +178,12 @@ def fetch_mails(name: str, days: int, exclude: str) -> list[dict]:
              "body_html": None, "direction": m["direction"]} for m in mails]
 
 
-def fetch_meetings(nt: B.Notion, client_page: str) -> list[dict]:
-    """노션 소통 DB 의 미팅·통화. 회의록은 페이지 본문에 있다."""
-    rows = nt.query_all(B.TALKS_DB_ID, {
-        "filter": {"property": "클라이언트", "relation": {"contains": client_page}}})
-    out = []
-    for pg in rows:
-        pr = pg.get("properties", {})
-        channel = B.p_select(pr, "채널") or ""
-        if channel not in B.TALK_CHANNELS_WITH_MINUTES:
-            continue
-        if B.p_select(pr, "상태") == B.TALK_STATUS_HIDDEN:
-            continue
-        title = B.p_text(pr, "제목")
-        out.append({
-            "date": (B.p_date(pr, "일자").get("start") or "")[:10],
-            "channel": channel, "title": title,
-            "preview": B.nn(B.p_text(pr, "요약")), "body": None,
-            "body_html": B.fetch_talk_body(nt, pg["id"], title) or None,
-            "direction": B.p_select(pr, "방향"),
-        })
-    return out
+def fetch_meetings(nt: B.Notion, company_name: str) -> list[dict]:
+    """공개 커뮤니케이션보드에서 미팅·통화만 읽는다."""
+    return [
+        talk for talk in B.read_talks(nt, company_name)
+        if talk.get("channel") in B.TALK_CHANNELS_WITH_MINUTES
+    ]
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -243,8 +217,7 @@ def main() -> int:
         projects = fetch_projects(nt, company_id, cfg.get("projects") or [])
         print(f"  프로젝트 {len(projects)}건")
 
-    client_page = find_client_page(nt, args.company)
-    meetings = fetch_meetings(nt, client_page) if client_page else []
+    meetings = fetch_meetings(nt, args.company)
     print(f"  미팅·통화 {len(meetings)}건")
 
     mails = fetch_mails(args.company, cfg.get("talks_days", 0),
