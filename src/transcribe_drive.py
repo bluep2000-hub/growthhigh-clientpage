@@ -42,6 +42,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from client_mapping import UnknownCompanyError, client_slug_for
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # 구글 드라이브 데스크톱이 「클라이언트 통화 미팅기록」 을 붙이는 자리.
@@ -80,6 +82,7 @@ class TranscriptionPlan:
     stem: str
     digest: str
     company: str | None
+    client_slug: str
     channel: str | None
 
 # 들릴 만한 고유명사를 미리 일러 주면 받아쓰기 정확도가 눈에 띄게 오른다.
@@ -183,6 +186,10 @@ def plan_sources(folder: Path, ledger: dict[str, str],
         day, parsed_company, parsed_channel = parse_name(source.path.name)
         company = source.company or parsed_company
         channel = source.channel or parsed_channel
+        try:
+            client_slug = client_slug_for(company or "")
+        except UnknownCompanyError as exc:
+            raise SourceLayoutError(str(exc)) from exc
 
         # 경로만 같고 내용이 바뀐 파일은 새 녹음이다. 파일 내용이 같을 때만
         # 처리 완료로 본다.
@@ -225,6 +232,7 @@ def plan_sources(folder: Path, ledger: dict[str, str],
             stem=stem,
             digest=digest,
             company=company,
+            client_slug=client_slug,
             channel=channel,
         ))
 
@@ -325,7 +333,8 @@ def main() -> int:
         mark = "" if company else "   ← 고객사 미상. 요약할 때 본문 보고 정한다"
         size = p.stat().st_size / 1048576
         print(f"  {plan.source.relative_path}\n"
-              f"    → {stem}.txt  ({size:.1f}MB){mark}")
+              f"    → {stem}.txt  ({size:.1f}MB){mark}\n"
+              f"    → 고객 페이지 {plan.client_slug}")
 
     if args.dry_run:
         print("dry-run 이라 여기서 멈춘다.")
@@ -352,6 +361,7 @@ def main() -> int:
             ledger[f"path:{plan.source.relative_path}"] = plan.digest
             ledger[f"sha256:{plan.digest}"] = stem
             ledger[f"sha256-company:{plan.digest}"] = company or ""
+            ledger[f"sha256-client-slug:{plan.digest}"] = plan.client_slug
             LEDGER.write_text(json.dumps(ledger, ensure_ascii=False, indent=2),
                               encoding="utf-8")
             print(f"    → {stem}.txt ({len(text):,}자)")

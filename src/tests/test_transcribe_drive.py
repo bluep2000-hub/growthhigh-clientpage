@@ -2,12 +2,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC))
 
 import transcribe_drive as transcriber  # noqa: E402
+import client_mapping  # noqa: E402
 
 
 class RecordingInboxTests(unittest.TestCase):
@@ -34,6 +36,7 @@ class RecordingInboxTests(unittest.TestCase):
         self.assertEqual(plans[0].source.company, "위프코리아")
         self.assertEqual(plans[0].source.channel, "통화")
         self.assertEqual(plans[0].company, "위프코리아")
+        self.assertEqual(plans[0].client_slug, "whiffkorea")
         self.assertEqual(plans[0].channel, "통화")
         self.assertEqual(
             plans[0].source.relative_path,
@@ -59,7 +62,8 @@ class RecordingInboxTests(unittest.TestCase):
         self.audio("수집대기/위프코리아/통화.m4a", b"same-call")
         self.audio("수집대기/다른기업/통화.m4a", b"same-call")
 
-        with self.assertRaisesRegex(transcriber.SourceLayoutError, "둘 이상의 고객사"):
+        with patch.dict(client_mapping.COMPANY_SLUGS, {"다른기업": "other"}), \
+                self.assertRaisesRegex(transcriber.SourceLayoutError, "둘 이상의 고객사"):
             transcriber.plan_sources(self.root, {}, set())
 
     def test_processed_content_in_another_customer_fails_closed(self):
@@ -70,8 +74,15 @@ class RecordingInboxTests(unittest.TestCase):
             f"sha256-company:{digest}": "위프코리아",
         }
 
-        with self.assertRaisesRegex(transcriber.SourceLayoutError, "다른 고객사"):
+        with patch.dict(client_mapping.COMPANY_SLUGS, {"다른기업": "other"}), \
+                self.assertRaisesRegex(transcriber.SourceLayoutError, "다른 고객사"):
             transcriber.plan_sources(self.root, ledger, set())
+
+    def test_unregistered_customer_folder_fails_closed(self):
+        self.audio("수집대기/위프 코리아/통화.m4a")
+
+        with self.assertRaisesRegex(transcriber.SourceLayoutError, "등록되지 않은 고객사"):
+            transcriber.plan_sources(self.root, {}, set())
 
     def test_same_path_with_new_content_is_a_new_recording(self):
         path = self.audio("수집대기/위프코리아/통화.m4a", b"new-call")
