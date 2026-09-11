@@ -45,6 +45,7 @@ jobs:
       - name: 빌드하고 배포
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          BUILD_TOKEN: ${{ secrets.BUILD_TOKEN }}
           CALENDAR_ICS_URL: ${{ secrets.CALENDAR_ICS_URL }}
           # IMAP 은 쓰지 않는다. 공지 한 줄 고친 것을 반영하려고 메일함까지
           # 뒤질 이유가 없고, 기존 소통 내역은 노션에서 그대로 읽어 온다.
