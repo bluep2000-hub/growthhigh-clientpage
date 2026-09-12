@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -6,7 +7,11 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC))
 
-from summarize_transcript import SummaryNeedsReview, validate_summary  # noqa: E402
+from summarize_transcript import (  # noqa: E402
+    SummaryNeedsReview,
+    summarize,
+    validate_summary,
+)
 
 
 VALID_MINUTES = """## 1. 지원사업 서류 진행
@@ -24,6 +29,57 @@ VALID_MINUTES = """## 1. 지원사업 서류 진행
 
 
 class SummaryValidationTests(unittest.TestCase):
+    def test_accepts_legitimate_short_call(self):
+        transcript = (
+            "화자1: 지원사업 안내 메일을 받았습니다.\n"
+            "화자2: 메일을 전달해 주시면 확인하겠습니다.\n"
+        ) * 8
+        self.assertGreater(len(transcript), 300)
+        self.assertLess(len(transcript), 500)
+
+        class FakeResponse:
+            candidates = []
+            text = json.dumps({
+                "title": "지원사업 메일 확인",
+                "minutes_markdown": VALID_MINUTES,
+            }, ensure_ascii=False)
+
+        calls = []
+
+        class FakeModels:
+            def generate_content(self, **kwargs):
+                calls.append(kwargs)
+                return FakeResponse()
+
+        class FakeClient:
+            models = FakeModels()
+
+        summary = summarize(
+            FakeClient(),
+            model="test-model",
+            transcript=transcript,
+            company="테스트 고객사",
+            occurred_at="2026-08-27",
+            channel="통화",
+        )
+
+        self.assertEqual(summary.title, "지원사업 메일 확인")
+        self.assertNotIn(
+            "additionalProperties",
+            calls[0]["config"].response_schema,
+        )
+
+    def test_rejects_effectively_empty_transcript(self):
+        with self.assertRaisesRegex(SummaryNeedsReview, "너무 짧"):
+            summarize(
+                object(),
+                model="test-model",
+                transcript="화자1: 네.\n화자2: 네, 감사합니다.",
+                company="테스트 고객사",
+                occurred_at="2026-08-27",
+                channel="통화",
+            )
+
     def test_accepts_minutes_with_exact_action_table(self):
         summary = validate_summary("지원사업 서류 협의", VALID_MINUTES)
 
@@ -44,6 +100,16 @@ class SummaryValidationTests(unittest.TestCase):
         summary = validate_summary("진행 상황 공유", minutes)
 
         self.assertEqual(summary.title, "진행 상황 공유")
+
+    def test_allows_unnumbered_action_items_heading(self):
+        minutes = VALID_MINUTES.replace(
+            "## 2. 향후 일정 및 Action Items",
+            "## Action Items",
+        )
+
+        summary = validate_summary("지원사업 서류 협의", minutes)
+
+        self.assertEqual(summary.title, "지원사업 서류 협의")
 
     def test_rejects_title_over_25_characters(self):
         with self.assertRaisesRegex(SummaryNeedsReview, "25자"):
