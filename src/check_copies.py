@@ -156,7 +156,9 @@ def classify(root_text: str, recon: str) -> tuple[str, int, int]:
     사본에만 있는 줄이 하나라도 있으면 「손댐」이다. 루트에만 있는 줄은
     「뒤처짐」이다. 둘 다면 갈라진 것이고, 재빌드하면 사본 쪽 내용이 사라진다.
     """
-    if root_text == recon:
+    # Windows 작업 트리의 CRLF와 빌드가 만든 LF는 화면 내용 차이가 아니다.
+    # 줄 내용이 같으면 최신 사본으로 본다.
+    if root_text == recon or root_text.splitlines() == recon.splitlines():
         return OK, 0, 0
 
     a, b = recon.splitlines(), root_text.splitlines()

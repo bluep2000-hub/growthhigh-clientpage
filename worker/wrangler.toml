@@ -9,6 +9,7 @@ compatibility_date = "2026-09-01"
 #   npx wrangler secret put EDITOR_PASSWORD
 #   npx wrangler secret put GITHUB_DISPATCH_TOKEN
 #   npx wrangler secret put BUILD_TOKEN
+#   npx wrangler secret put AUTOMATION_TOKEN
 #
 # 로컬에서는 .dev.vars 에 넣는다 (.gitignore 에 들어 있다).
 

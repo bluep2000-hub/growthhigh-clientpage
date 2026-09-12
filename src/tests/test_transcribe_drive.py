@@ -10,6 +10,7 @@ sys.path.insert(0, str(SRC))
 
 import transcribe_drive as transcriber  # noqa: E402
 import client_mapping  # noqa: E402
+from recording_jobs import RecordingJobStore  # noqa: E402
 
 
 class RecordingInboxTests(unittest.TestCase):
@@ -101,6 +102,42 @@ class RecordingInboxTests(unittest.TestCase):
         plans = transcriber.plan_sources(self.root, {}, set())
 
         self.assertEqual(plans, [])
+
+    def test_interrupted_job_keeps_its_original_transcript_name(self):
+        audio = self.audio("수집대기/위프코리아/통화.m4a", b"one-call")
+        digest = transcriber.file_sha256(audio)
+        stem = "260901_위프코리아_통화"
+
+        plans = transcriber.plan_sources(
+            self.root,
+            {},
+            {stem},
+            {digest: stem},
+        )
+
+        self.assertEqual(plans[0].stem, stem)
+
+    def test_recovers_transcript_saved_just_before_interruption(self):
+        audio = self.audio("수집대기/위프코리아/통화.m4a", b"one-call")
+        plan = transcriber.plan_sources(self.root, {}, set())[0]
+        store = RecordingJobStore(self.root / "jobs.json")
+        transcriber.ensure_job(store, plan)
+        store.mark_transcribing(plan.digest)
+        (self.root / f"{plan.stem}.txt").write_text("화자1: 내용", encoding="utf-8")
+        ledger = {}
+        ledger_path = self.root / "legacy.json"
+
+        with patch.object(transcriber, "LEDGER", ledger_path):
+            count = transcriber.recover_finished_transcripts(
+                self.root,
+                ledger,
+                store,
+            )
+
+        self.assertEqual(count, 1)
+        self.assertEqual(ledger[f"sha256:{plan.digest}"], plan.stem)
+        self.assertEqual(store.get(plan.digest)["state"], "transcribed")
+        self.assertTrue(ledger_path.is_file())
 
 
 if __name__ == "__main__":

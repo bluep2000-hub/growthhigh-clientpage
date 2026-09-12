@@ -43,6 +43,7 @@ from google import genai
 from google.genai import types
 
 from client_mapping import UnknownCompanyError, client_slug_for
+from recording_jobs import RecordingJobError, RecordingJobStore
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -173,8 +174,8 @@ def discover_sources(folder: Path) -> list[AudioSource]:
     return found
 
 
-def plan_sources(folder: Path, ledger: dict[str, str],
-                 taken: set[str]) -> list[TranscriptionPlan]:
+def plan_sources(folder: Path, ledger: dict[str, str], taken: set[str],
+                 stored_stems: dict[str, str] | None = None) -> list[TranscriptionPlan]:
     """외부 API 호출 없이 이번 회차의 안전한 처리 계획을 만든다."""
     plans: list[TranscriptionPlan] = []
     seen: dict[str, tuple[AudioSource, str | None]] = {}
@@ -218,14 +219,18 @@ def plan_sources(folder: Path, ledger: dict[str, str],
             continue
         seen[digest] = (source, company)
 
-        base = "_".join([
-            day or datetime.fromtimestamp(source.path.stat().st_mtime).strftime("%y%m%d"),
-            company or "미분류",
-            channel or "녹음",
-        ])
-        stem, n = base, 2
-        while stem in taken:
-            stem, n = f"{base}_{n}", n + 1
+        stored_stem = (stored_stems or {}).get(digest)
+        if stored_stem:
+            stem = stored_stem
+        else:
+            base = "_".join([
+                day or datetime.fromtimestamp(source.path.stat().st_mtime).strftime("%y%m%d"),
+                company or "미분류",
+                channel or "녹음",
+            ])
+            stem, n = base, 2
+            while stem in taken:
+                stem, n = f"{base}_{n}", n + 1
         taken.add(stem)
         plans.append(TranscriptionPlan(
             source=source,
@@ -244,6 +249,91 @@ def load_ledger() -> dict[str, str]:
         return json.loads(LEDGER.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return {}
+
+
+def save_json_atomic(path: Path, value: dict) -> None:
+    """중간 종료에도 기존 JSON 장부가 반쯤 잘리지 않게 교체 저장한다."""
+    temp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temp.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def write_text_atomic(path: Path, value: str) -> None:
+    """완성된 전사본만 최종 파일명으로 보이게 한다."""
+    temp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temp.write_text(value, encoding="utf-8")
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def source_modified_at(path: Path) -> str:
+    return datetime.fromtimestamp(
+        path.stat().st_mtime,
+    ).astimezone().isoformat(timespec="seconds")
+
+
+def occurred_at(stem: str) -> str:
+    try:
+        return datetime.strptime(stem[:6], "%y%m%d").date().isoformat()
+    except ValueError:
+        return ""
+
+
+def ensure_job(store: RecordingJobStore, plan: TranscriptionPlan) -> dict:
+    source = plan.source
+    return store.ensure_received(
+        job_id=plan.digest,
+        source_relative_path=source.relative_path,
+        source_name=source.path.name,
+        source_size=source.path.stat().st_size,
+        source_modified_at=source_modified_at(source.path),
+        company_name=plan.company or "",
+        company_slug=plan.client_slug,
+        channel=plan.channel or "녹음",
+        occurred_at=occurred_at(plan.stem),
+        transcript_name=f"{plan.stem}.txt",
+    )
+
+
+def recover_finished_transcripts(folder: Path, ledger: dict[str, str],
+                                 store: RecordingJobStore) -> int:
+    """전사본 저장 직후 중단된 작업을 외부 API 재호출 없이 복구한다."""
+    recovered: list[str] = []
+    for job in store.all():
+        if job.get("state") != "transcribing":
+            continue
+        transcript_name = str(job.get("transcript_name") or "")
+        if not transcript_name or Path(transcript_name).name != transcript_name:
+            continue
+        transcript = folder / transcript_name
+        if not transcript.is_file() or transcript.stat().st_size <= 0:
+            continue
+
+        digest = str(job.get("id") or "")
+        relative_path = str(job.get("source_relative_path") or "")
+        if not digest or not relative_path:
+            continue
+        ledger[f"path:{relative_path}"] = digest
+        ledger[f"sha256:{digest}"] = Path(transcript_name).stem
+        ledger[f"sha256-company:{digest}"] = str(job.get("company_name") or "")
+        ledger[f"sha256-client-slug:{digest}"] = str(job.get("company_slug") or "")
+        recovered.append(digest)
+
+    if not recovered:
+        return 0
+
+    save_json_atomic(LEDGER, ledger)
+    for digest in recovered:
+        store.mark_transcribed(digest)
+    return len(recovered)
 
 
 def prompt_for(company: str | None) -> str:
@@ -313,9 +403,19 @@ def main() -> int:
                  "구글 드라이브 데스크톱이 켜져 있는지 확인해라.")
 
     ledger = load_ledger()
-    taken = {p.stem for p in folder.glob("*.txt")}
     try:
-        todo = plan_sources(folder, ledger, taken)
+        jobs = RecordingJobStore()
+        stored_stems = jobs.transcript_stems()
+        if not args.dry_run:
+            recovered = recover_finished_transcripts(folder, ledger, jobs)
+            if recovered:
+                print(f"중단 뒤 저장돼 있던 전사본 {recovered}건을 복구했다.")
+        taken = {p.stem for p in folder.glob("*.txt")} | set(stored_stems.values())
+    except RecordingJobError as e:
+        print(f"처리 장부 확인 필요:\n{e}")
+        return 1
+    try:
+        todo = plan_sources(folder, ledger, taken, stored_stems)
     except SourceLayoutError as e:
         print(f"접수함 확인 필요:\n{e}")
         return 1
@@ -349,23 +449,30 @@ def main() -> int:
     for plan in todo:
         p, stem, company = plan.source.path, plan.stem, plan.company
         print(f"\n{plan.source.relative_path}", flush=True)
+        job_ready = False
         try:
+            ensure_job(jobs, plan)
+            job_ready = True
+            jobs.mark_transcribing(plan.digest)
             text = transcribe(client, model, p, company)
             if not text:
-                print("    ! 전사 결과가 비었다. 건너뛴다.")
-                fails += 1
-                continue
-            (folder / f"{stem}.txt").write_text(text, encoding="utf-8")
+                raise ValueError("전사 결과가 비었다")
+            write_text_atomic(folder / f"{stem}.txt", text)
             # 경로와 내용 해시를 함께 남긴다. 같은 파일을 다른 이름으로 다시
             # 접수해도 한 번만 처리하고, 같은 이름의 다른 파일은 따로 처리한다.
             ledger[f"path:{plan.source.relative_path}"] = plan.digest
             ledger[f"sha256:{plan.digest}"] = stem
             ledger[f"sha256-company:{plan.digest}"] = company or ""
             ledger[f"sha256-client-slug:{plan.digest}"] = plan.client_slug
-            LEDGER.write_text(json.dumps(ledger, ensure_ascii=False, indent=2),
-                              encoding="utf-8")
+            save_json_atomic(LEDGER, ledger)
+            jobs.mark_transcribed(plan.digest)
             print(f"    → {stem}.txt ({len(text):,}자)")
         except Exception as e:
+            if job_ready:
+                try:
+                    jobs.mark_failed(plan.digest, e)
+                except RecordingJobError as job_error:
+                    print(f"    ! 처리 장부 기록 실패: {job_error}")
             print(f"    ! 실패: {type(e).__name__}: {str(e)[:200]}")
             fails += 1
 

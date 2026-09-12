@@ -39,6 +39,7 @@ npx wrangler secret put NOTION_TOKEN            # 노션 통합 토큰
 npx wrangler secret put EDITOR_PASSWORD         # 담당자 공용 비밀번호
 npx wrangler secret put GITHUB_DISPATCH_TOKEN   # 재빌드 신호용 (티켓 #14)
 npx wrangler secret put BUILD_TOKEN             # 빌드가 공지를 가져갈 때 (티켓 #35)
+npx wrangler secret put AUTOMATION_TOKEN        # 통화 자동화의 승인 후 재빌드 요청
 ```
 
 `EDITOR_PASSWORD` 는 **클라이언트 페이지 비밀번호와 다른 값**이어야 한다.
@@ -47,6 +48,9 @@ npx wrangler secret put BUILD_TOKEN             # 빌드가 공지를 가져갈 
 `BUILD_TOKEN` 도 **그 둘과 다른 값**이다. 읽기만 하는 자리에 쓰기 권한을 두지
 않는다 — 빌드 서버는 담당자의 로컬 PC 이고, 그 `.env` 가 새면 공지를 고칠
 권한까지 함께 샌다. 아무렇게나 길게 지으면 된다.
+
+`AUTOMATION_TOKEN`도 나머지 값과 다르게 만든다. 통화 자동화는 이 값으로
+`POST /ops/rebuild`만 부를 수 있고, 공지나 주요 소통을 고칠 수 없다.
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
@@ -457,6 +461,21 @@ Authorization: Bearer <BUILD_TOKEN>
 **빌드 토큰은 base64 를 거치지 않는다.** 그 껍데기는 한글 비밀번호가 HTTP
 헤더에 실리지 않아서 씌운 것이고, 빌드 토큰은 우리가 만드는 ASCII 라 그냥
 실린다. 껍데기가 다르니 한쪽 값을 다른 쪽 창구에 대도 열리지 않는다.
+
+### 통화 자동화가 재빌드를 요청한다 — `POST /ops/rebuild`
+
+```
+POST /ops/rebuild
+Authorization: Bearer <AUTOMATION_TOKEN>
+
+{ slug: "whiffkorea" }
+  →  200  { slug: "whiffkorea", rebuild: "sent"|"failed"|"skipped" }
+```
+
+PM이 Notion 초안의 `고객 공개`를 체크한 것을 자동화가 다시 확인한 뒤에만
+부른다. Worker는 슬러그가 실제 공유페이지 기업인지 재검증하고 GitHub
+`repository_dispatch`를 보낸다. 이 토큰으로 공지나 소통의 내용을 바꾸지는
+못한다.
 
 ### 비밀번호를 싣는 법
 

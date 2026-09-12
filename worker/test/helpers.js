@@ -24,6 +24,7 @@ export const ENV = {
   EDITOR_PASSWORD: "editor-pw-1234",
   NOTION_VERSION: "2022-06-28",
   GITHUB_DISPATCH_TOKEN: "secret-dispatch-token",
+  AUTOMATION_TOKEN: "secret-automation-token",
   GITHUB_REPO: "bluep2000-hub/growthhigh-clientpage",
 };
 

@@ -22,6 +22,7 @@
  *   POST   /notice/doc/revision-to-draft  지난 게시본을 초안으로 불러온다
  *   GET    /notice/export  빌드가 그 기업의 최신 공지 문서를 가져간다
  *   PUT    /talk/major     소통 내역의 주요 여부를 지정·해제한다
+ *   POST   /ops/rebuild    승인된 자동화 기록의 기업 페이지를 다시 만든다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
  *   POST   /notice/item    고른 섹션 안에 한 줄 보탠다             (옛 방식)
@@ -163,6 +164,14 @@ function requireText(value, name) {
     throw unprocessable(`${name} 가 필요합니다`);
   }
   return value.trim();
+}
+
+/** 자동화 처리기는 담당자 비밀번호나 읽기 전용 빌드 토큰을 재사용하지 않는다. */
+function requireAutomation(request, env) {
+  const given = bearer(request);
+  if (!given || !passwordMatches(given, env.AUTOMATION_TOKEN || "")) {
+    throw unauthorized();
+  }
 }
 
 function requireTalkKey(value) {
@@ -917,6 +926,17 @@ async function route(request, env) {
   if (pathname === "/auth" && method === "POST") {
     requireEditor(request, env);
     return json({ ok: true }, 200);
+  }
+
+  if (pathname === "/ops/rebuild" && method === "POST") {
+    requireAutomation(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+
+    // 아는 기업인지 다시 확인한다. 자동화 토큰 하나로 임의의 워크플로 입력을
+    // 만들 수 있게 두지 않는다.
+    await findClient(createNotion(env), slug);
+    return json({ slug, rebuild: await requestRebuild(env, slug) }, 200);
   }
 
   if (pathname === "/talk/major" && method === "PUT") {
