@@ -20,6 +20,7 @@ STEPS = (
     ("회의록", "summarize_recordings.py"),
     ("Notion 비공개 초안", "write_notion_drafts.py"),
     ("고객 공개 승인", "check_recording_approvals.py"),
+    ("담당자 현황 화면", "render_recording_status.py"),
 )
 
 
