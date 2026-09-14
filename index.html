@@ -758,6 +758,44 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rhy{font-size:12px;color:var(--tx-3);margin:-6px 0 18px;letter-spacing:-.01em}
 .rhy b{font-weight:600;color:var(--tx-2);font-variant-numeric:tabular-nums}
 
+/* 두 가지 공지 운영 방식. ?review-notice=A|B 로만 켜지는 검토용이다.
+   A는 전체 수동 작성, B는 진행사항 자동 반영과 주요 공지·이슈 직접 작성을 비교한다. */
+.rnt-note{margin:0 0 28px;padding:13px 15px;border:1px dashed var(--tx-3);
+  border-radius:10px;background:var(--panel-2)}
+.rnt-note strong{display:block;font-size:12.5px;color:var(--tx);margin-bottom:3px}
+.rnt-note p{font-size:11.5px;color:var(--tx-2);line-height:1.6}
+.rnt-note b{color:var(--accent)}
+.rnt-rule{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;padding-top:8px;
+  border-top:1px solid var(--line)}
+.rnt-rule span{font-size:11px;color:var(--tx-3)}
+.rnt-rule span b{font-weight:600;margin-right:4px}
+.rnt-empty{min-height:230px;padding-top:20px}
+.rnt-empty-line{display:block;min-height:1.65em;width:100%}
+.rnt-empty-line:empty::before,.rnt-prompt:empty::before{content:attr(data-placeholder);
+  color:var(--tx-3);pointer-events:none}
+.rnt-prompt{display:block;min-height:1.65em;width:100%;padding:3px 5px;margin:-3px -5px;
+  border-radius:4px}
+.rnt-prompt:focus{outline:none;background:var(--accent-bg);box-shadow:0 0 0 1px var(--accent)}
+.rnt-example{font-size:11px;color:var(--tx-3);margin:0 0 13px}
+.rnt-proto .ed-state::before{background:var(--run)}
+.rnt-proto .ed-bar button[disabled]{opacity:.42}
+.rn-switch{position:fixed;left:50%;bottom:18px;z-index:90;transform:translateX(-50%);
+  display:flex;align-items:center;gap:4px;padding:6px;background:#16181D;color:#fff;
+  border-radius:11px;box-shadow:0 10px 28px rgba(0,0,0,.28)}
+.rn-switch>a,.rn-switch button{height:32px;display:grid;place-items:center;border-radius:7px;
+  color:#D5D7DE;font-size:12px}
+.rn-switch>a{padding:0 12px;min-width:34px}
+.rn-switch>a.on{background:#fff;color:#16181D;font-weight:700}
+.rn-switch button{width:32px}
+.rn-switch button:hover,.rn-switch>a:hover{background:#30333B;color:#fff}
+.rn-switch>a.on:hover{background:#fff;color:#16181D}
+.rn-switch-label{font-size:11px;color:#AEB2BC;padding:0 8px 0 5px;white-space:nowrap}
+@media(max-width:760px){
+  .rnt-note{margin-bottom:20px}
+  .rn-switch-label{display:none}.rn-switch{bottom:10px}
+}
+@media print{.rnt-note,.rn-switch{display:none!important}}
+
 /* 할 일 — 일정 목록 안에서 일정 아래에 이어 선다. 카드를 따로 세우지 않는다:
    미팅과 마감과 할 일은 담당자에게 다 「언제 무엇을」이라, 갈라 두면 같은
    물음의 답을 화면 두 곳에서 찾아야 한다 */
@@ -1338,6 +1376,10 @@ const EKEY = CLIENT ? `gh:editor:${CLIENT}` : null;
    비밀번호로 막혀 있어도, 버튼이 보이면 눌러 보게 되고 물어보게 된다.
    담당자는 이 주소를 즐겨찾기에 둔다: /{슬러그}/?edit */
 const EDITQ = Q.has('edit');
+
+/* 공지 운영 검토안. 실제 페이지 안에서 A/B를 비교할 때만 켠다. */
+const REVIEW_NOTICE = ['A','B'].includes(String(Q.get('review-notice')||'').toUpperCase())
+  ? String(Q.get('review-notice')).toUpperCase() : null;
 
 /* ── 표현 계층 상수 (JSON 의 stage 인덱스로 참조) ── */
 const LABELS = {
@@ -5940,6 +5982,116 @@ function init(D){
     CO.address || '', foundedTag(CO.founded),
   ].map(t => String(t ?? '').trim()).filter(Boolean))];
 
+  const RN_DECISIONS = {
+    A:{name:'모든 내용을 직접 작성',
+       content:'9월 공지사항, 이달 진행사항, 주요 공지사항, 요청사항의 기본 틀에서 내용을 컨설턴트가 모두 직접 작성',
+       operation:'기본 틀에서 전체 직접 작성',
+       source:'없음'},
+    B:{name:'소통 기록 자동 업데이트 + 메모',
+       content:'통화·미팅·메일에서 확인된 진행 내용을 이달 진행사항에 자동 반영하고, 주요 공지사항과 요청사항은 컨설턴트가 직접 작성',
+       operation:'이달 진행사항 자동 갱신',
+       source:'주요 공지사항 · 요청사항'},
+  };
+
+  function reviewNoticeHref(variant){
+    const p = new URLSearchParams(location.search);
+    p.delete('review-progress');
+    p.set('review-notice', variant);
+    return `${location.pathname}?${p.toString()}#notice`;
+  }
+
+  function reviewNoticeNote(){
+    const d = RN_DECISIONS[REVIEW_NOTICE];
+    return `<section class="rnt-note" aria-label="PM 검토 안내">
+      <strong><b>${REVIEW_NOTICE}안</b> · ${esc(d.name)}</strong>
+      <p>${esc(d.content)}합니다. 아래 내용은 운영 방식 비교를 위한 예시이며 저장되지 않습니다.</p>
+      <div class="rnt-rule"><span><b>운영</b> ${esc(d.operation)}</span>
+        <span><b>${REVIEW_NOTICE === 'A' ? '자동 반영' : '직접 작성'}</b> ${esc(d.source)}</span></div>
+    </section>`;
+  }
+
+  function reviewEditSection(title, prompts){
+    return `<div class="notice open" data-nsec="review"><h3>
+      <span class="nsx" contenteditable="true" spellcheck="false">${esc(title)}</span></h3>
+      <div class="bd"><ul class="ck">${prompts.map(p=>`<li class="para">
+        <span class="rnt-prompt" contenteditable="true" spellcheck="false"
+          data-placeholder="${esc(p)}"></span></li>`).join('')}</ul></div></div>`;
+  }
+
+  function reviewManualBody(){
+    const empty = text => `<div class="bd"><ul class="ck"><li class="para">
+      <span class="rnt-empty-line" contenteditable="true" spellcheck="false"
+        data-placeholder="${esc(text)}"></span></li></ul></div>`;
+    return `<div class="notice open"><h3><i class="tw">▸</i><span>📌이달 진행사항</span></h3>
+        ${empty('진행 중인 업무와 현재 상태를 직접 작성하세요.')}</div>
+      <div class="notice"><h3><i class="tw">▸</i><span>📌주요 공지사항</span></h3>
+        ${empty('고객사가 반드시 알아야 할 내용을 직접 작성하세요.')}</div>
+      <div class="notice"><h3><i class="tw">▸</i><span>📌요청사항</span></h3>
+        ${empty('고객사에 요청할 내용과 기한을 직접 작성하세요.')}</div>`;
+  }
+
+  function reviewAutoBody(){
+    return `<div class="notice open"><h3><i class="tw">▸</i><span>📌이달 진행사항</span></h3>
+      <div class="bd"><ul class="ck">
+        <li class="chk on"><b>킥오프</b><ul>
+          <li class="chk on">담당팀 구성, 소통방 개설</li>
+          <li class="chk on">기본서류 수합</li></ul></li>
+        <li class="plain"><b>사업구조 셋업(9월~10월)</b><ul>
+          <li class="plain">기업인증과 자금조달을 위한 인원 배치 검토</li>
+          <li class="plain">기존 사업 매출 구조와 신규 사업 적용 범위 확인</li></ul></li>
+        <li class="plain"><b>사업계획 수립(9월~10월 중순)</b><ul>
+          <li class="plain">정부출연금·정책자금용 원소스 사업계획서 기획</li>
+          <li class="plain">사업계획 초안 검토를 위한 비대면 미팅 예정</li></ul></li>
+        <li class="plain"><b>기업인증(9월~12월)</b><ul>
+          <li class="plain">기업부설연구소: 신청 전 필요 인원과 서류 확인</li>
+          <li class="plain">벤처기업인증: 기술성과 사업성 자료 준비</li></ul></li>
+        <li class="plain"><b>정부지원사업(상시)</b></li>
+        <li class="plain"><b>정책자금(상시)</b></li>
+      </ul></div></div>
+      <div class="notice"><h3><i class="tw">▸</i><span>📌주요 공지사항</span></h3>
+        <div class="bd"><ul class="ck">
+          <li class="plain"><b>자료 전달 요청(~9월 18일)</b><ul>
+            <li class="plain">매출 증빙 자료를 기업자료 드라이브에 올려 주세요.</li>
+            <li class="plain">업로드 후 담당 컨설턴트에게 알려 주세요.</li></ul></li>
+          <li class="plain"><b>다음 정기 미팅(9월 20일 오후 2시)</b><ul>
+            <li class="plain">사업계획서 초안과 기업인증 준비 현황을 함께 확인할 예정입니다.</li></ul></li>
+        </ul></div></div>
+      <div class="notice"><h3><i class="tw">▸</i><span>📌요청사항</span></h3>
+        <div class="bd"><ul class="ck">
+          <li class="plain"><b>기업부설연구소 신청 준비</b><ul>
+            <li class="plain">인원 배치 일정을 확정해 주세요.</li>
+            <li class="plain">확정 후 담당 컨설턴트에게 알려 주세요.</li></ul></li>
+        </ul></div></div>`;
+  }
+
+  function reviewManualBar(){
+    const state = REVIEW_NOTICE === 'B' ? '자동 업데이트 + 메모' : '전체 직접 작성';
+    return `<div class="ed-bar" id="edbar">
+      <span class="ed-bar-start"><span class="ed-path"><b>공지사항</b><i>/</i><span>문서 편집</span></span></span>
+      <span class="ed-state" data-state="dirty"><span class="cnt">${state}</span>
+        <span class="msg">검토용 화면 · 입력 내용은 저장되지 않음</span></span>
+      <span class="ed-actions"><button disabled>미리보기</button>
+        <button class="publish" disabled>게시</button></span></div>`;
+  }
+
+  function reviewNoticePage(){
+    return `${reviewNoticeNote()}
+      <div class="vh"><h1>9월 공지사항</h1><span class="n">2026-09-15</span></div>
+      ${REVIEW_NOTICE === 'B' ? reviewAutoBody() : reviewManualBody()}`;
+  }
+
+  function reviewNoticeSwitcher(){
+    if(!REVIEW_NOTICE) return '';
+    const order=['A','B'], at=order.indexOf(REVIEW_NOTICE);
+    const prev=order[(at+order.length-1)%order.length], next=order[(at+1)%order.length];
+    return `<div class="rn-switch" aria-label="공지 운영 검토안 전환">
+      <button type="button" data-rncycle="${prev}" aria-label="이전 안">←</button>
+      ${order.map(v=>`<a class="${v===REVIEW_NOTICE?'on':''}" href="${esc(reviewNoticeHref(v))}">${v}안</a>`).join('')}
+      <span class="rn-switch-label">공지 운영 방식 검토</span>
+      <button type="button" data-rncycle="${next}" aria-label="다음 안">→</button>
+    </div>`;
+  }
+
   /* forPrint 면 공지는 요약 대신 전문, 일정은 5건 제한 없이 전부 */
   V.info=(forPrint)=>`
    <div class="hero"><span class="${markCls}">${logoMark(52)}</span><div>
@@ -6136,6 +6288,7 @@ function init(D){
           ${edDoc ? `<div class="ed-meta"><span>공지일 ${esc(edDoc.date || '')}</span><i>·</i>
             <span data-edpublished>${edPublishedLabel()}</span></div>` : ''}</header>
         <div class="ed-body">${noticeFeed(true)}</div></article></section>`
+    : REVIEW_NOTICE ? reviewNoticePage()
     : `<div class="vh">${noticeTitleBox()}
         ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
         ${editSwitch()}</div>${noticeFeed(false)}`;
@@ -6525,7 +6678,8 @@ function init(D){
        하나라도 남기면 그 장부가 사라진 DOM 을 가리킨 채로 「손대 둔 것이
        있다」고 우기고, 그 위에서 저장하면 지금 화면에 없는 것이 나간다 */
     edForgetAll();
-    document.querySelector('main').classList.toggle('notice-edit', id === 'notice' && ED.on());
+    document.querySelector('main').classList.toggle('notice-edit',
+      id === 'notice' && ED.on());
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        빌드 시각도 화면 어디에도 두지 않는다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
@@ -6537,6 +6691,7 @@ function init(D){
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});
     bindTalks();
     bindNotice();
+    bindReviewNotice();
     /* 조달현황은 그려진 뒤에 값을 채우고 높이를 잰다. 숨은 상태에서 재면
        폭·높이가 0 이라 차트 크기 계산이 틀어진다 */
     if(id==='perf' && window.perfFit) window.perfFit();
@@ -6655,6 +6810,23 @@ function init(D){
     const cur = document.querySelector('.nv.on');
     if(!cur || cur.dataset.id !== 'talk') go('talk');
     talkOpen(i);
+  }
+  function bindReviewNotice(){
+    /* 검토 화면의 내용은 직접 입력해 볼 수 있지만 저장하지 않는다. */
+  }
+  if(REVIEW_NOTICE){
+    document.body.insertAdjacentHTML('beforeend', reviewNoticeSwitcher());
+    document.querySelectorAll('[data-rncycle]').forEach(b=>b.onclick=()=>{
+      location.href = reviewNoticeHref(b.dataset.rncycle);
+    });
+    window.addEventListener('keydown', e=>{
+      const t=e.target;
+      if(t && (t.matches('input,textarea,select') || t.isContentEditable)) return;
+      if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const order=['A','B'], at=order.indexOf(REVIEW_NOTICE);
+      const next=e.key==='ArrowLeft' ? order[(at+1)%2] : order[(at+1)%2];
+      location.href = reviewNoticeHref(next);
+    });
   }
   document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});
   /* 주소에 해시가 있으면 그 화면에서 시작한다. 잠금이 풀린 뒤에만 온다 */
