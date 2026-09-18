@@ -758,6 +758,76 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rhy{font-size:12px;color:var(--tx-3);margin:-6px 0 18px;letter-spacing:-.01em}
 .rhy b{font-weight:600;color:var(--tx-2);font-variant-numeric:tabular-nums}
 
+/* 두 가지 공지 운영 방식. ?review-notice=A|B 로만 켜지는 검토용이다.
+   A는 전체 수동 작성, B는 진행사항 자동 반영과 주요 공지·이슈 직접 작성을 비교한다. */
+.rnt-note{margin:0 0 28px;padding:13px 15px;border:1px dashed var(--tx-3);
+  border-radius:10px;background:var(--panel-2)}
+.rnt-note strong{display:block;font-size:12.5px;color:var(--tx);margin-bottom:3px}
+.rnt-note p{font-size:11.5px;color:var(--tx-2);line-height:1.6}
+.rnt-note b{color:var(--accent)}
+.rnt-rule{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;padding-top:8px;
+  border-top:1px solid var(--line)}
+.rnt-rule span{font-size:11px;color:var(--tx-3)}
+.rnt-rule span b{font-weight:600;margin-right:4px}
+.rnt-empty{min-height:230px;padding-top:20px}
+.rnt-empty-line{display:block;min-height:1.65em;width:100%}
+.rnt-empty-line:empty::before,.rnt-prompt:empty::before{content:attr(data-placeholder);
+  color:var(--tx-3);pointer-events:none}
+.rnt-prompt{display:block;min-height:1.65em;width:100%;padding:3px 5px;margin:-3px -5px;
+  border-radius:4px}
+.rnt-prompt:focus{outline:none;background:var(--accent-bg);box-shadow:0 0 0 1px var(--accent)}
+.rnt-example{font-size:11px;color:var(--tx-3);margin:0 0 13px}
+.rnt-proto .ed-state::before{background:var(--run)}
+.rnt-proto .ed-bar button[disabled]{opacity:.42}
+.rn-switch{position:fixed;left:50%;bottom:18px;z-index:90;transform:translateX(-50%);
+  display:flex;align-items:center;gap:4px;padding:6px;background:#16181D;color:#fff;
+  border-radius:11px;box-shadow:0 10px 28px rgba(0,0,0,.28)}
+.rn-switch>a,.rn-switch button{height:32px;display:grid;place-items:center;border-radius:7px;
+  color:#D5D7DE;font-size:12px}
+.rn-switch>a{padding:0 12px;min-width:34px}
+.rn-switch>a.on{background:#fff;color:#16181D;font-weight:700}
+.rn-switch button{width:32px}
+.rn-switch button:hover,.rn-switch>a:hover{background:#30333B;color:#fff}
+.rn-switch>a.on:hover{background:#fff;color:#16181D}
+.rn-switch-label{font-size:11px;color:#AEB2BC;padding:0 8px 0 5px;white-space:nowrap}
+@media(max-width:760px){
+  .rnt-note{margin-bottom:20px}
+  .rn-switch-label{display:none}.rn-switch{bottom:10px}
+}
+@media print{.rnt-note,.rn-switch{display:none!important}}
+
+/* 데이터룸은 B 카드형으로 운영한다. ?review-room=A|B 로 두 안을 비교할 수 있다. */
+/* 노션 사이드바처럼 — 아이콘이 붙은 줄이 쌓이고, 올려 두면 아이콘 자리에 ▸ 가 뜬다.
+   누르면 그 아래로 한 칸 들여 펴진다. 세로줄·건수는 두지 않는다 */
+.rv-room .nv .g{opacity:1;width:16px;font-size:13px}   /* 이모지는 흐리게 두면 탁해진다 */
+.dr-tg .dr-tw{display:none;font-style:normal;color:var(--tx-3);transition:transform .15s}
+.dr-tg:hover .dr-e{display:none}
+.dr-tg:hover .dr-tw,.dr-tg:focus-visible .dr-tw{display:inline-block}
+.dr-g.open>.dr-tg .dr-tw{transform:rotate(90deg)}
+.dr-gi{display:none;padding-left:14px}
+.dr-g.open>.dr-gi{display:block}
+.dr-it{position:relative}
+.dr-it .nv{padding-right:32px}
+.dr-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-it .dr-pin{position:absolute;right:3px;top:50%;transform:translateY(-50%);
+  width:24px;height:24px;font-size:12px;opacity:0}
+.dr-it:hover .dr-pin,.dr-it .dr-pin.on,.dr-it .dr-pin:focus-visible{opacity:1}
+.dr-src{font-size:10.5px;font-weight:400;color:var(--tx-3)}
+.dr-pin{width:26px;height:26px;border-radius:5px;font-size:12px;flex:none;filter:grayscale(1);opacity:.45}
+.dr-pin:hover{background:var(--hover);opacity:.8}
+.dr-pin.on{filter:none;opacity:1}
+.dr-sec{margin-bottom:24px}
+.dr-sec>h2{font-size:12.5px;font-weight:600;margin-bottom:9px;color:var(--tx-2)}
+.dr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.dr-card{position:relative;display:flex;flex-direction:column;gap:10px;padding:14px;
+  border:1px solid var(--line);border-radius:10px;background:var(--panel);min-height:96px}
+.dr-card:hover{border-color:var(--line-2);background:var(--hover)}
+.dr-card b{font-size:13px;font-weight:600;padding-right:24px;line-height:1.45}
+.dr-card b a::after{content:'';position:absolute;inset:0}   /* 카드 전체가 링크 */
+.dr-card .dr-src{margin-top:auto}
+.dr-card .dr-pin{position:absolute;top:8px;right:8px;z-index:1}
+
+
 /* 할 일 — 일정 목록 안에서 일정 아래에 이어 선다. 카드를 따로 세우지 않는다:
    미팅과 마감과 할 일은 담당자에게 다 「언제 무엇을」이라, 갈라 두면 같은
    물음의 답을 화면 두 곳에서 찾아야 한다 */
@@ -1340,6 +1410,16 @@ const EKEY = CLIENT ? `gh:editor:${CLIENT}` : null;
    담당자는 이 주소를 즐겨찾기에 둔다: /{슬러그}/?edit */
 const EDITQ = Q.has('edit');
 
+/* 공지 운영 검토안. 실제 페이지 안에서 A/B를 비교할 때만 켠다. */
+const REVIEW_NOTICE = ['A','B'].includes(String(Q.get('review-notice')||'').toUpperCase())
+  ? String(Q.get('review-notice')).toUpperCase() : null;
+
+/* 기본은 B안. 비교 주소는 남겨 두되 운영 화면에는 검토 안내를 내보내지 않는다. */
+const ROOM_REVIEW = ['A','B'].includes(String(Q.get('review-room')||'').toUpperCase())
+  ? String(Q.get('review-room')).toUpperCase() : null;
+const REVIEW_ROOM = ROOM_REVIEW || 'B';
+if (REVIEW_ROOM) document.documentElement.classList.add('rv-room');
+
 /* ── 표현 계층 상수 (JSON 의 stage 인덱스로 참조) ── */
 const LABELS = {
   fund:['검토','서류','작성','평가','결과'],
@@ -1349,7 +1429,7 @@ const LABELS = {
 /* fund 에는 (런웨이)정책자금도 들어온다. 사이드바·본문 제목·breadcrumb 이 모두 이 값을 쓴다 */
 const CATNM = { fund:'정부지원사업·정책자금', cert:'기업인증·지식재산권', proj:'경영자문 프로젝트' };
 const BADGE = { run:'진행', ok:'종료', no:'보류', wait:'예정' };
-const GL = { info:'▣', perf:'▦', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
+const GL = { info:'▣', perf:'▦', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎', room:'▥' };
 
 /* 사이드바·헤더 마크는 복호화한 뒤에야 기업 로고로 채운다 (init 참고).
    잠금 화면(루트·404 안내 포함)은 그로스하이 로고만 쓴다. */
@@ -1576,22 +1656,72 @@ function init(D){
      비어 있으면 항목을 빼는 대신 건수 배지를 감추고 라벨만 흐리게 둔다.
      눌러 들어가면 각 화면이 「등록된 내용이 없습니다」를 보여준다. */
   const hasNotice = !!(notice && (notice.sections || []).some(s => (s.items || []).length));
+
+  /* 데이터룸 — 자료 링크(기본 셋 + 노션 「추가 링크」)를 한 화면에 모은다.
+     아무것도 없으면 검토용 예시를 채운다. 저장되지 않는다 */
+  const ROOM_BASE = [['기업자료 드라이브',CO.drive_url],['사업계획서',CO.bizplan_url],
+    /* B 는 가이드북을 데이터룸이 아니라 사이드바에 따로 둔다 — 기업 자료가 아니라 공통 안내서다 */
+    ['그로스하이 가이드북',REVIEW_ROOM === 'B' ? null : CO.guidebook_url]].filter(x=>x[1]).map(([label,url])=>({label,url}));
+  const ROOM_LINKS = (CO.extra_links || []).map(x=>({g:x.group || '자료',
+    items:(x.items || []).filter(i=>i && i.label && i.url)})).filter(x=>x.items.length);
+  const N = 'https://www.notion.so/';
+  const ROOM_DEMO = SAMPLE && !ROOM_LINKS.length;
+  /* 묶음은 노션 그룹 이름이 아니라 자료의 종류로 가른다 — 그룹 이름과 자료 이름에
+     든 낱말을 본다. 위에서부터 먼저 걸린 것이 이긴다. 아무 데도 안 걸리면 「기타」 */
+  const ROOM_KINDS = [
+    ['연구노트', /연구\s*노트/],
+    ['R&D 기획', /R\s*&\s*D|RND|연구개발|과제|선행기술/i],
+    ['가결산·재무', /가결산|결산|재무|자금|손익|세무/],
+    ['사업계획서', /사업\s*계획/],
+    ['인증·실사', /인증|특허|병역특례|실사|심사/],
+    ['미팅 자료', /미팅|회의|워크숍|안건/],
+    ['기업 서류', /드라이브|서류|증빙/],
+    ['가이드', /가이드/],
+  ];
+  const ROOM_IC = {'연구노트':'📓','R&D 기획':'🧪','가결산·재무':'💰','사업계획서':'📑','인증·실사':'🧾',
+    '미팅 자료':'🗓️','기업 서류':'🗂️','가이드':'📘','기타':'📁'};
+  /* 검토안에서는 사이드바 글리프를 노션처럼 이모지로 바꿔 본다 */
+  const NGL = !REVIEW_ROOM ? GL : { info:'🏢', perf:'📊', notice:'📢', fund:'💸', cert:'🏅',
+    proj:'🧭', talk:'💬', open:'🎯', room:'🗃️', guide:'📘' };
+  const ROOM = !REVIEW_ROOM ? [] : (() => {
+    const all = [
+      ...(ROOM_DEMO ? [
+        {g:'', items:[{label:'2026년 3분기 연구노트',url:N},{label:'R&D 과제 기획서 (초안)',url:N},
+          {label:'선행기술 조사 메모',url:N},{label:'2026 상반기 가결산',url:N},
+          {label:'자금 조달 계획표',url:N},{label:'9월 정기 미팅 안건',url:N}]},
+      ] : ROOM_LINKS),
+      {g:'', items:ROOM_BASE},
+    ].flatMap(x => x.items.map(it => ({...it, kind:(ROOM_KINDS.find(([, re]) =>
+      re.test(`${x.g} ${it.label}`)) || ['기타'])[0]})));
+    return [...ROOM_KINDS.map(k => k[0]), '기타']
+      .map(g => ({g, items:all.filter(it => it.kind === g)})).filter(x => x.items.length);
+  })();
+  /* 즐겨찾기 — 담당자가 고정하고 클라이언트 모두가 본다. 원본은 노션 「고정 자료」(주소 목록).
+     샘플은 고정할 수 없으므로 첫 자료 하나를 고정된 모습으로 보여 준다 */
+  let drPins = [...(CO.pinned_links || (SAMPLE && ROOM[0] ? [ROOM[0].items[0].url] : []))];
+
   const NAV = [
-    { g:'기업', items:[
+    { g:REVIEW_ROOM ? '기업 현황' : '기업', items:[
       {id:'info',ic:'info',nm:'기업 정보'},
       /* 조달현황은 값이 있을 때만 낸다. 흐리게 두는 다른 항목과 달리
          빈 화면이 아니라 없는 화면이다 */
       ...(hasPerf ? [{id:'perf',ic:'perf',nm:'조달현황'}] : []),
       {id:'notice',ic:'notice',nm:noticeLabel,dim:!hasNotice}]},
-    { g:'진행 현황', items:[
+    { g:REVIEW_ROOM ? '프로젝트' : '진행 현황', items:[
       {id:'fund',ic:'fund',nm:CATNM.fund,ct:cnt('fund')},
       {id:'cert',ic:'cert',nm:CATNM.cert,ct:cnt('cert')},
       {id:'proj',ic:'proj',nm:CATNM.proj,ct:cnt('proj')},
       {id:'talk',ic:'talk',nm:'소통 내역',ct:talks.length}]},
-    { g:'제안', items:[
+    { g:REVIEW_ROOM ? '추천' : '제안', items:[
       {id:'open',ic:'open',nm:'추천 지원사업',ct:recommend.length}]},
     /* 주소가 없는 자료는 항목을 없애지 않고 흐리게만 둔다 —
        어제 있던 항목이 오늘 사라지면 클라이언트는 오류로 읽는다 */
+    /* 검토안은 「자료」 묶음 자리가 통째로 데이터룸이 된다. A 는 아래에서 나무를 채우고,
+       B 는 「데이터룸」 한 줄만 두고, 누르면 본문에 카드가 깔린다 */
+    REVIEW_ROOM === 'A' ? { g:'데이터룸', items:[] } :
+    REVIEW_ROOM === 'B' ? { g:'', items:[{id:'room',ic:'room',nm:'데이터룸',
+        ct:ROOM.reduce((s,x)=>s+x.items.length,0)},
+      {id:'x3',ic:'guide',nm:'그로스하이 가이드북',ext:1,url:CO.guidebook_url}] } :
     { g:'자료', items:[
       {id:'x1',nm:'기업자료 드라이브',ext:1,url:CO.drive_url},
       {id:'x2',nm:'사업계획서',ext:1,url:CO.bizplan_url},
@@ -1600,7 +1730,7 @@ function init(D){
   /* 클라이언트별 추가 링크 — 노션 「추가 링크」에서 온다. 빌드가 이미
      라벨·http(s) 를 걸러 두므로 여기서는 그대로 붙인다.
      없으면 그룹이 하나도 안 생긴다. 사이드바 고정 원칙은 위 10개에만 적용된다 */
-  (CO.extra_links || []).forEach((g, gi) => {
+  if (!REVIEW_ROOM) (CO.extra_links || []).forEach((g, gi) => {
     const items = (g && g.items || []).filter(it => it && it.label && it.url);
     if (!items.length) return;
     NAV.push({ g: g.group || '자료',
@@ -1609,10 +1739,10 @@ function init(D){
   /* 외부 링크는 주소가 없을 때만 흐려진다. 건수가 있는 항목은 0 일 때가 곧 빈 항목이다 */
   const navDim = i => i.ext ? !i.url : (i.dim !== undefined ? i.dim : i.ct === 0);
   document.getElementById('nav').innerHTML = NAV.map(g=>`
-   <div class="grp"><h3>${esc(g.g)}</h3>
+   <div class="grp">${g.g?`<h3>${esc(g.g)}</h3>`:''}
    ${g.items.map(i=>{
      const dim = navDim(i);
-     const inner = `<span class="g">${i.ic?GL[i.ic]:'↗'}</span><span>${esc(i.nm)}</span>
+     const inner = `<span class="g">${i.ic?NGL[i.ic]:'↗'}</span><span>${esc(i.nm)}</span>
        ${i.ext?(dim?'':'<span class="ex">↗</span>'):(i.ct?`<span class="ct">${i.ct}</span>`:'')}`;
      /* 주소가 있는 자료는 진짜 링크로 낸다. 없으면 눌리지 않는 자리표시자다 */
      /* 비활성은 외부 링크뿐이다 — 주소가 없으면 갈 데가 없다.
@@ -5941,6 +6071,116 @@ function init(D){
     CO.address || '', foundedTag(CO.founded),
   ].map(t => String(t ?? '').trim()).filter(Boolean))];
 
+  const RN_DECISIONS = {
+    A:{name:'모든 내용을 직접 작성',
+       content:'9월 공지사항, 이달 진행사항, 주요 공지사항, 요청사항의 기본 틀에서 내용을 컨설턴트가 모두 직접 작성',
+       operation:'기본 틀에서 전체 직접 작성',
+       source:'없음'},
+    B:{name:'소통 기록 자동 업데이트 + 메모',
+       content:'통화·미팅·메일에서 확인된 진행 내용을 이달 진행사항에 자동 반영하고, 주요 공지사항과 요청사항은 컨설턴트가 직접 작성',
+       operation:'이달 진행사항 자동 갱신',
+       source:'주요 공지사항 · 요청사항'},
+  };
+
+  function reviewNoticeHref(variant){
+    const p = new URLSearchParams(location.search);
+    p.delete('review-progress');
+    p.set('review-notice', variant);
+    return `${location.pathname}?${p.toString()}#notice`;
+  }
+
+  function reviewNoticeNote(){
+    const d = RN_DECISIONS[REVIEW_NOTICE];
+    return `<section class="rnt-note" aria-label="PM 검토 안내">
+      <strong><b>${REVIEW_NOTICE}안</b> · ${esc(d.name)}</strong>
+      <p>${esc(d.content)}합니다. 아래 내용은 운영 방식 비교를 위한 예시이며 저장되지 않습니다.</p>
+      <div class="rnt-rule"><span><b>운영</b> ${esc(d.operation)}</span>
+        <span><b>${REVIEW_NOTICE === 'A' ? '자동 반영' : '직접 작성'}</b> ${esc(d.source)}</span></div>
+    </section>`;
+  }
+
+  function reviewEditSection(title, prompts){
+    return `<div class="notice open" data-nsec="review"><h3>
+      <span class="nsx" contenteditable="true" spellcheck="false">${esc(title)}</span></h3>
+      <div class="bd"><ul class="ck">${prompts.map(p=>`<li class="para">
+        <span class="rnt-prompt" contenteditable="true" spellcheck="false"
+          data-placeholder="${esc(p)}"></span></li>`).join('')}</ul></div></div>`;
+  }
+
+  function reviewManualBody(){
+    const empty = text => `<div class="bd"><ul class="ck"><li class="para">
+      <span class="rnt-empty-line" contenteditable="true" spellcheck="false"
+        data-placeholder="${esc(text)}"></span></li></ul></div>`;
+    return `<div class="notice open"><h3><i class="tw">▸</i><span>📌이달 진행사항</span></h3>
+        ${empty('진행 중인 업무와 현재 상태를 직접 작성하세요.')}</div>
+      <div class="notice"><h3><i class="tw">▸</i><span>📌주요 공지사항</span></h3>
+        ${empty('고객사가 반드시 알아야 할 내용을 직접 작성하세요.')}</div>
+      <div class="notice"><h3><i class="tw">▸</i><span>📌요청사항</span></h3>
+        ${empty('고객사에 요청할 내용과 기한을 직접 작성하세요.')}</div>`;
+  }
+
+  function reviewAutoBody(){
+    return `<div class="notice open"><h3><i class="tw">▸</i><span>📌이달 진행사항</span></h3>
+      <div class="bd"><ul class="ck">
+        <li class="chk on"><b>킥오프</b><ul>
+          <li class="chk on">담당팀 구성, 소통방 개설</li>
+          <li class="chk on">기본서류 수합</li></ul></li>
+        <li class="plain"><b>사업구조 셋업(9월~10월)</b><ul>
+          <li class="plain">기업인증과 자금조달을 위한 인원 배치 검토</li>
+          <li class="plain">기존 사업 매출 구조와 신규 사업 적용 범위 확인</li></ul></li>
+        <li class="plain"><b>사업계획 수립(9월~10월 중순)</b><ul>
+          <li class="plain">정부출연금·정책자금용 원소스 사업계획서 기획</li>
+          <li class="plain">사업계획 초안 검토를 위한 비대면 미팅 예정</li></ul></li>
+        <li class="plain"><b>기업인증(9월~12월)</b><ul>
+          <li class="plain">기업부설연구소: 신청 전 필요 인원과 서류 확인</li>
+          <li class="plain">벤처기업인증: 기술성과 사업성 자료 준비</li></ul></li>
+        <li class="plain"><b>정부지원사업(상시)</b></li>
+        <li class="plain"><b>정책자금(상시)</b></li>
+      </ul></div></div>
+      <div class="notice"><h3><i class="tw">▸</i><span>📌주요 공지사항</span></h3>
+        <div class="bd"><ul class="ck">
+          <li class="plain"><b>자료 전달 요청(~9월 18일)</b><ul>
+            <li class="plain">매출 증빙 자료를 기업자료 드라이브에 올려 주세요.</li>
+            <li class="plain">업로드 후 담당 컨설턴트에게 알려 주세요.</li></ul></li>
+          <li class="plain"><b>다음 정기 미팅(9월 20일 오후 2시)</b><ul>
+            <li class="plain">사업계획서 초안과 기업인증 준비 현황을 함께 확인할 예정입니다.</li></ul></li>
+        </ul></div></div>
+      <div class="notice"><h3><i class="tw">▸</i><span>📌요청사항</span></h3>
+        <div class="bd"><ul class="ck">
+          <li class="plain"><b>기업부설연구소 신청 준비</b><ul>
+            <li class="plain">인원 배치 일정을 확정해 주세요.</li>
+            <li class="plain">확정 후 담당 컨설턴트에게 알려 주세요.</li></ul></li>
+        </ul></div></div>`;
+  }
+
+  function reviewManualBar(){
+    const state = REVIEW_NOTICE === 'B' ? '자동 업데이트 + 메모' : '전체 직접 작성';
+    return `<div class="ed-bar" id="edbar">
+      <span class="ed-bar-start"><span class="ed-path"><b>공지사항</b><i>/</i><span>문서 편집</span></span></span>
+      <span class="ed-state" data-state="dirty"><span class="cnt">${state}</span>
+        <span class="msg">검토용 화면 · 입력 내용은 저장되지 않음</span></span>
+      <span class="ed-actions"><button disabled>미리보기</button>
+        <button class="publish" disabled>게시</button></span></div>`;
+  }
+
+  function reviewNoticePage(){
+    return `${reviewNoticeNote()}
+      <div class="vh"><h1>9월 공지사항</h1><span class="n">2026-09-15</span></div>
+      ${REVIEW_NOTICE === 'B' ? reviewAutoBody() : reviewManualBody()}`;
+  }
+
+  function reviewNoticeSwitcher(){
+    if(!REVIEW_NOTICE) return '';
+    const order=['A','B'], at=order.indexOf(REVIEW_NOTICE);
+    const prev=order[(at+order.length-1)%order.length], next=order[(at+1)%order.length];
+    return `<div class="rn-switch" aria-label="공지 운영 검토안 전환">
+      <button type="button" data-rncycle="${prev}" aria-label="이전 안">←</button>
+      ${order.map(v=>`<a class="${v===REVIEW_NOTICE?'on':''}" href="${esc(reviewNoticeHref(v))}">${v}안</a>`).join('')}
+      <span class="rn-switch-label">공지 운영 방식 검토</span>
+      <button type="button" data-rncycle="${next}" aria-label="다음 안">→</button>
+    </div>`;
+  }
+
   /* forPrint 면 공지는 요약 대신 전문, 일정은 5건 제한 없이 전부 */
   V.info=(forPrint)=>`
    <div class="hero"><span class="${markCls}">${logoMark(52)}</span><div>
@@ -6137,6 +6377,7 @@ function init(D){
           ${edDoc ? `<div class="ed-meta"><span>공지일 ${esc(edDoc.date || '')}</span><i>·</i>
             <span data-edpublished>${edPublishedLabel()}</span></div>` : ''}</header>
         <div class="ed-body">${noticeFeed(true)}</div></article></section>`
+    : REVIEW_NOTICE ? reviewNoticePage()
     : `<div class="vh">${noticeTitleBox()}
         ${notice&&notice.date?`<span class="n">${esc(notice.date)}</span>`:''}
         ${editSwitch()}</div>${noticeFeed(false)}`;
@@ -6144,6 +6385,80 @@ function init(D){
   V.fund=()=>`<div class="vh"><h1>${CATNM.fund}</h1><span class="n">${cnt('fund')}건</span></div>${table('fund')}`;
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
   V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
+
+  const drSrc = u => /notion\.(so|site)/.test(u) ? '노션' : /drive\.google/.test(u) ? '구글 드라이브'
+    : (()=>{ try { return new URL(u).hostname; } catch(e) { return ''; } })();
+  const drLink = it => `<a href="${esc(encodeURI(it.url))}" target="_blank" rel="noopener"
+    title="${esc(it.label)}">${esc(it.label)}</a>`;
+  /* 고정 단추는 담당자 편집 모드에서만 그린다. 클라이언트는 고정된 결과만 본다 */
+  const drPin = it => { if(!ED.on()) return ''; const on = drPins.includes(it.url);
+    return `<button type="button" class="dr-pin${on?' on':''}" data-drpin="${esc(it.url)}"
+      aria-label="즐겨찾기에 고정" aria-pressed="${on}" title="${on?'고정 해제':'즐겨찾기에 고정'}">📌</button>`; };
+
+  /* A — 본문 화면이 없다. 사이드바의 「데이터룸」이 그 자리에서 펴진다 */
+  if(REVIEW_ROOM === 'B') V.room=()=>{
+    const body = ROOM.map((x,i)=>`<section class="dr-sec" id="drsec-${i}"><h2>${ROOM_IC[x.g] || '📁'} ${esc(x.g)} <span class="dr-src">${x.items.length}</span></h2>
+          <div class="dr-cards">${x.items.map(it=>`<div class="dr-card"><b>${drLink(it)}</b>
+            <span class="dr-src">${esc(drSrc(it.url))} ↗</span>${drPin(it)}</div>`).join('')}</div></section>`).join('');
+    return `${ROOM_REVIEW ? `<section class="rnt-note" aria-label="PM 검토 안내">
+        <strong><b>B안</b> · 카드</strong>
+        <p>담당자가 📌 로 고정한 자료는 사이드바 맨 아래 「즐겨찾기」에 모두에게 보입니다(편집 모드에서만 고정).${ROOM_DEMO
+          ? ' 노션 「추가 링크」가 비어 있어 <b>예시 항목</b>을 보여 줍니다.' : ''}</p></section>` : ''}
+      <div class="vh"><h1>데이터룸</h1><span class="n">${ROOM.reduce((s,x)=>s+x.items.length,0)}건</span></div>
+      <div class="chips">${[{g:'전체', n:ROOM.reduce((s,x)=>s+x.items.length,0), k:'all'},
+        ...ROOM.map((x,i)=>({g:`${ROOM_IC[x.g] || '📁'} ${x.g}`, n:x.items.length, k:String(i)}))]
+        .map(x=>`<button type="button" class="chip${x.k==='all'?' on':''}" data-drtab="${x.k}">${esc(x.g)}<span>${x.n}</span></button>`).join('')}</div>
+      ${ROOM_DEMO ? '<p class="empty">샘플의 예시 자료입니다. 실제 기업 자료가 아닙니다.</p>' : ''}
+      ${body || emptyBox('등록된 자료가 없습니다.')}`;
+  };
+
+  /* 사이드바 맨 아래 「즐겨찾기」. 고정된 것이 없으면 칸째 없다 */
+  function roomFavs(){
+    const box = document.getElementById('drfav');
+    if(!box) return;
+    const kindOf = u => (ROOM.find(x => x.items.some(it => it.url === u)) || {}).g;
+    const items = ROOM.flatMap(x=>x.items).filter(it=>drPins.includes(it.url));
+    box.hidden = !items.length;
+    box.innerHTML = `<h3>즐겨찾기</h3>${items.map(it=>`<a class="nv" data-ext="1" href="${esc(encodeURI(it.url))}"
+      target="_blank" rel="noopener" title="${esc(it.label)}"><span class="g">${ROOM_IC[kindOf(it.url)] || '📄'}</span>
+      <span class="dr-nm">${esc(it.label)}</span></a>`).join('')}`;
+  }
+
+  function drShow(u){
+    const on = drPins.includes(u);
+    document.querySelectorAll('[data-drpin]').forEach(x=>{ if(x.dataset.drpin!==u) return;
+      x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+      x.title = on ? '고정 해제' : '즐겨찾기에 고정'; });
+    roomFavs();
+  }
+
+  function bindRoom(){
+    /* B — 소통 내역처럼 위 칩으로 종류를 거른다. 다시 그리지 않고 묶음을 숨긴다 */
+    document.querySelectorAll('[data-drtab]').forEach(b=>b.onclick=()=>{
+      const k = b.dataset.drtab;
+      document.querySelectorAll('[data-drtab]').forEach(x=>x.classList.toggle('on', x===b));
+      document.querySelectorAll('.dr-sec').forEach(s=>s.hidden = k!=='all' && s.id!==`drsec-${k}`);
+    });
+    document.querySelectorAll('[data-drpin]').forEach(b=>b.onclick=async e=>{
+      e.preventDefault(); e.stopPropagation();
+      const u = b.dataset.drpin, pinned = !drPins.includes(u), before = drPins;
+      if(b.disabled) return;
+      drPins = pinned ? [...drPins, u] : drPins.filter(x=>x!==u);
+      drShow(u);                                      /* 먼저 보여 주고, 실패하면 되돌린다 */
+      document.querySelectorAll('[data-drpin]').forEach(x=>x.disabled = true);
+      try {
+        const out = await ED.call('PUT', '/room/pin', {slug: CLIENT, url: u, pinned});
+        CO.pinned_links = [...drPins];
+        try { sessionStorage.setItem(SKEY, JSON.stringify(D)); } catch(_){}
+        if(out.rebuild === 'failed')
+          alert('고정은 저장됐지만 고객 화면 반영을 시작하지 못했습니다. 담당자에게 재빌드를 요청해 주세요.');
+      } catch(err){
+        drPins = before; drShow(u);
+        alert(err.status === 401 ? '편집 모드가 풀렸습니다. 다시 인증한 뒤 고정해 주세요.'
+          : '고정을 저장하지 못했습니다. 잠시 뒤 다시 눌러 주세요.');
+      } finally { document.querySelectorAll('[data-drpin]').forEach(x=>x.disabled = false); }
+    });
+  }
 
   /* 소통 내역 — 커뮤니케이션보드에서 「고객 공개」인 것만 온다.
      목록에는 일자·채널·제목만 두고, 본문은 행을 눌렀을 때 펼친다.
@@ -6507,7 +6822,7 @@ function init(D){
   });
 
   const CR={info:'기업 정보',perf:'조달현황',fund:CATNM.fund,cert:CATNM.cert,
-    proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
+    proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업',room:'데이터룸'};
   CR.notice = noticeLabel;                     /* 공지가 없어도 화면은 있다 */
   /* 화면 전환을 브라우저 히스토리에 남긴다. 안 남기면 뒤로 가기가
      이전 화면이 아니라 사이트 밖으로 나가 버린다.
@@ -6526,7 +6841,8 @@ function init(D){
        하나라도 남기면 그 장부가 사라진 DOM 을 가리킨 채로 「손대 둔 것이
        있다」고 우기고, 그 위에서 저장하면 지금 화면에 없는 것이 나간다 */
     edForgetAll();
-    document.querySelector('main').classList.toggle('notice-edit', id === 'notice' && ED.on());
+    document.querySelector('main').classList.toggle('notice-edit',
+      id === 'notice' && ED.on());
     /* 푸터 없음 — 클라이언트가 보는 화면에 내부 구현 설명을 남기지 않는다.
        빌드 시각도 화면 어디에도 두지 않는다. */
     document.getElementById('scroll').innerHTML=`<div class="view">${V[id]()}</div>`;
@@ -6538,6 +6854,8 @@ function init(D){
     document.querySelectorAll('[data-go]').forEach(b=>b.onclick=e=>{e.preventDefault();go(b.dataset.go)});
     bindTalks();
     bindNotice();
+    bindReviewNotice();
+    bindRoom();
     /* 조달현황은 그려진 뒤에 값을 채우고 높이를 잰다. 숨은 상태에서 재면
        폭·높이가 0 이라 차트 크기 계산이 틀어진다 */
     if(id==='perf' && window.perfFit) window.perfFit();
@@ -6657,7 +6975,49 @@ function init(D){
     if(!cur || cur.dataset.id !== 'talk') go('talk');
     talkOpen(i);
   }
+  function bindReviewNotice(){
+    /* 검토 화면의 내용은 직접 입력해 볼 수 있지만 저장하지 않는다. */
+  }
+  if(REVIEW_NOTICE){
+    document.body.insertAdjacentHTML('beforeend', reviewNoticeSwitcher());
+    document.querySelectorAll('[data-rncycle]').forEach(b=>b.onclick=()=>{
+      location.href = reviewNoticeHref(b.dataset.rncycle);
+    });
+    window.addEventListener('keydown', e=>{
+      const t=e.target;
+      if(t && (t.matches('input,textarea,select') || t.isContentEditable)) return;
+      if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const order=['A','B'], at=order.indexOf(REVIEW_NOTICE);
+      const next=e.key==='ArrowLeft' ? order[(at+1)%2] : order[(at+1)%2];
+      location.href = reviewNoticeHref(next);
+    });
+  }
+  if(ROOM_REVIEW){
+    const p = new URLSearchParams(location.search);
+    const href = v => { p.set('review-room', v); return `${location.pathname}?${p}#room`; };
+    document.body.insertAdjacentHTML('beforeend', `<div class="rn-switch" aria-label="데이터룸 검토안 전환">
+      ${['A','B'].map(v=>`<a class="${v===REVIEW_ROOM?'on':''}" href="${esc(href(v))}">${v}안</a>`).join('')}
+      <span class="rn-switch-label">데이터룸 보기 방식 검토</span></div>`);
+  }
+  document.getElementById('nav').insertAdjacentHTML('beforeend', '<div class="grp" id="drfav" hidden></div>');
+  roomFavs();
   document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});
+  const drGrp = REVIEW_ROOM === 'A' &&
+    [...document.querySelectorAll('#nav .grp')].find(g => g.querySelector('h3').textContent === '데이터룸');
+  if(REVIEW_ROOM === 'A'){
+    const grp = drGrp;
+    grp.insertAdjacentHTML('beforeend', ROOM.map(x=>`<div class="dr-g">
+      <button type="button" class="nv dr-tg" data-ext="1" aria-expanded="false">
+        <span class="g"><span class="dr-e">${ROOM_IC[x.g] || '📁'}</span><span class="dr-tw">▸</span></span>
+        <span class="dr-nm">${esc(x.g)}</span></button>
+      <div class="dr-gi">${x.items.map(it=>`<div class="dr-it">
+        <a class="nv" data-ext="1" href="${esc(encodeURI(it.url))}" target="_blank" rel="noopener" title="${esc(it.label)}">
+          <span class="g">📄</span><span class="dr-nm">${esc(it.label)}</span></a>${drPin(it)}</div>`).join('')}</div>
+      </div>`).join(''));
+    grp.querySelectorAll('.dr-tg').forEach(t => t.onclick = () =>
+      t.setAttribute('aria-expanded', t.parentElement.classList.toggle('open')));
+    bindRoom();
+  }
   /* 주소에 해시가 있으면 그 화면에서 시작한다. 잠금이 풀린 뒤에만 온다 */
   const startId = (location.hash || '').slice(1);
   go(V[startId] ? startId : 'info', {replace:true});

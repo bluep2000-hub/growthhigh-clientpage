@@ -1,9 +1,18 @@
+param([string]$PythonPath = "")
+
 $ErrorActionPreference = "Stop"
 
 $taskName = "GrowthHigh Recording Automation"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $runnerPath = Join-Path $PSScriptRoot "run_recording_scheduler.py"
-$pythonPath = (Get-Command python -ErrorAction Stop).Source
+$projectPython = Join-Path $repositoryRoot ".venv\Scripts\python.exe"
+if ($PythonPath) {
+    $pythonPath = (Resolve-Path -LiteralPath $PythonPath -ErrorAction Stop).Path
+} elseif (Test-Path -LiteralPath $projectPython -PathType Leaf) {
+    $pythonPath = $projectPython
+} else {
+    $pythonPath = (Get-Command python -ErrorAction Stop).Source
+}
 $pythonwPath = Join-Path (Split-Path -Parent $pythonPath) "pythonw.exe"
 
 if (-not (Test-Path -LiteralPath $pythonwPath -PathType Leaf)) {
