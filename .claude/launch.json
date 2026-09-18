@@ -3,8 +3,10 @@
   "configurations": [
     {
       "name": "clientpage",
-      "runtimeExecutable": "python",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": [
+        "-X",
+        "utf8",
         "-m",
         "http.server",
         "8000",
