@@ -561,3 +561,23 @@ btoa(String.fromCharCode(...new TextEncoder().encode(password)))
 `GET` 이 주는 글은 **노션에 있는 그대로**다. 화면에 보이는 글과 다를 수 있다
 (빌드가 후행 콜론을 뗀다). 보이는 대로 저장하면 그만큼 사라지므로, 입력칸은
 반드시 `GET` 이 준 글로 채운다.
+
+## 위프코리아 비공개 고객 서버 (구축 중)
+
+기존 중계 서버와 분리된 설정은 `wrangler.private.toml`, 고객 DB 바인딩은
+`PRIVATE_DB`다. 기존 공지 DB와 다른 고객 DB를 사용한다.
+현재는 정상 결과 저장소만 구현했고 고객 인증·데이터 제공·운영 주소 전환은 미완료다.
+공개 Worker 주소·미리보기·운영 route는 설정하지 않았다.
+
+```powershell
+npx wrangler d1 migrations apply growthhigh-clientpage-private --config wrangler.private.toml --local
+npx wrangler d1 migrations apply growthhigh-clientpage-private --config wrangler.private.toml --remote
+npx wrangler dev --config wrangler.private.toml
+npm test -- test/private-store.test.js
+```
+
+저장소 검사는 현재 PC의 Node 24 내장 SQLite를 사용한다. 새 의존성은 추가하지 않았다.
+
+별도 서버는 `/health`에서 `{status:"setup", customerReady:false}`만 반환한다.
+기업 데이터 경로는 아직 없으며 실제 고객 데이터는 아직 이관하지 않았다.
+계획·배포 기준은 [`../docs/위프코리아-기업배포-계획.md`](../docs/위프코리아-기업배포-계획.md)를 따른다.

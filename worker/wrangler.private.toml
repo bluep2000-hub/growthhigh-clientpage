@@ -1,0 +1,14 @@
+name = "growthhigh-clientpage-private"
+main = "src/private-index.js"
+compatibility_date = "2026-09-01"
+
+# 인증·데이터 갱신 검수 전에는 공개 주소와 미리보기 주소를 만들지 않는다.
+# 실제 기업 데이터·비밀번호·토큰은 설정이나 GitHub에 넣지 않는다.
+workers_dev = false
+preview_urls = false
+
+[[d1_databases]]
+binding = "PRIVATE_DB"
+database_name = "growthhigh-clientpage-private"
+database_id = "a8fbbb00-fb49-4eb0-85c2-96d5b03a3bd4"
+migrations_dir = "private-migrations"
