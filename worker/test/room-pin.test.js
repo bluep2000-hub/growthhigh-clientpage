@@ -30,6 +30,16 @@ const share = (pins = "") => ({
 });
 
 describe("PUT /room/pin", () => {
+  it("소통 이력 이전을 검증하지 않은 기업은 저장·재빌드를 막는다", async () => {
+    const { calls } = installNotion({ share: share() });
+    const res = await call({ slug: "studiolb", url: NOTE, pinned: true });
+
+    expect(res.status).toBe(422);
+    expect(writes(calls)).toHaveLength(0);
+    expect(dispatches(calls)).toHaveLength(0);
+    expect(calls).toHaveLength(0);
+  });
+
   it("담당자 인증이 없으면 거절한다", async () => {
     const { calls } = installNotion({ share: share() });
     const res = await call({ slug: "whiffkorea", url: NOTE, pinned: true }, null);

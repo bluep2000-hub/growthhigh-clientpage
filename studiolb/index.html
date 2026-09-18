@@ -6391,7 +6391,7 @@ function init(D){
   const drLink = it => `<a href="${esc(encodeURI(it.url))}" target="_blank" rel="noopener"
     title="${esc(it.label)}">${esc(it.label)}</a>`;
   /* 고정 단추는 담당자 편집 모드에서만 그린다. 클라이언트는 고정된 결과만 본다 */
-  const drPin = it => { if(!ED.on()) return ''; const on = drPins.includes(it.url);
+  const drPin = it => { if(!ED.on() || CLIENT !== 'whiffkorea') return ''; const on = drPins.includes(it.url);
     return `<button type="button" class="dr-pin${on?' on':''}" data-drpin="${esc(it.url)}"
       aria-label="즐겨찾기에 고정" aria-pressed="${on}" title="${on?'고정 해제':'즐겨찾기에 고정'}">📌</button>`; };
 

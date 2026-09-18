@@ -979,6 +979,10 @@ async function route(request, env) {
     requireEditor(request, env);
     const body = await readJson(request);
     const slug = requireText(body.slug, "slug");
+    // ponytail: 기존 소통 이전을 검증한 위프코리아만 재빌드한다. 다른 기업 이전 완료 후 확대한다.
+    if (slug !== "whiffkorea") {
+      throw unprocessable("기존 소통 이력 이전 확인 전에는 자료 고정을 사용할 수 없습니다");
+    }
     const link = requireText(body.url, "url");
     const pinned = requireBoolean(body.pinned, "pinned");
 
