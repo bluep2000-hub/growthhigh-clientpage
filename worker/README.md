@@ -566,7 +566,8 @@ btoa(String.fromCharCode(...new TextEncoder().encode(password)))
 
 기존 중계 서버와 분리된 설정은 `wrangler.private.toml`, 고객 DB 바인딩은
 `PRIVATE_DB`다. 기존 공지 DB와 다른 고객 DB를 사용한다.
-현재는 정상 결과 저장소만 구현했고 고객 인증·데이터 제공·운영 주소 전환은 미완료다.
+정상 결과 저장소와 고객·PM 인증 API를 구현했다. 기존 고객 비밀번호 확인값 이관과
+Notion 내부 권한 표·대표 등록도 완료했다. Google 앱 설정·실제 로그인 UI·데이터 제공·운영 주소 전환은 미완료다.
 공개 Worker 주소·미리보기·운영 route는 설정하지 않았다.
 
 ```powershell
@@ -579,5 +580,7 @@ npm test -- test/private-store.test.js
 저장소 검사는 현재 PC의 Node 24 내장 SQLite를 사용한다. 새 의존성은 추가하지 않았다.
 
 별도 서버는 `/health`에서 `{status:"setup", customerReady:false}`만 반환한다.
-기업 데이터 경로는 아직 없으며 실제 고객 데이터는 아직 이관하지 않았다.
+기업 데이터 경로는 아직 없으며 페이지 데이터는 아직 이관하지 않았다.
+고객 비밀번호 확인값은 DB에 등록했으나 원문은 저장하지 않았다.
+인증 API는 [`../docs/위프코리아-인증-명세.md`](../docs/위프코리아-인증-명세.md)를 따른다.
 계획·배포 기준은 [`../docs/위프코리아-기업배포-계획.md`](../docs/위프코리아-기업배포-계획.md)를 따른다.
