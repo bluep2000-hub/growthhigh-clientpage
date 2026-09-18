@@ -8,6 +8,8 @@ workers_dev = false
 preview_urls = false
 
 [vars]
+GOOGLE_CLIENT_ID = "832213026018-053lt0linfjtqjge6b11nnj3ajdkhr4e.apps.googleusercontent.com"
+APP_ORIGIN = "https://client.growthhigh.co.kr"
 INTERNAL_USERS_DB_ID = "3df815d7-12b9-8174-812e-f72174dacc99"
 NOTION_VERSION = "2022-06-28"
 

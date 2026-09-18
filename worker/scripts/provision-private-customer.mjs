@@ -14,7 +14,9 @@ import { passwordMatches, passwordRecord } from "../src/private-auth.js";
 const run = promisify(execFile);
 const cwd = fileURLToPath(new URL("../", import.meta.url));
 const wrangler = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
-const args = [wrangler, "d1", "execute", "growthhigh-clientpage-private", "--config", "wrangler.private.toml", "--remote", "--json"];
+// 로컬 로그인 검수는 별도 로컬 DB만 사용한다. 기본 원격 이관 방식은 유지한다.
+const target = process.argv.includes("--local") ? "--local" : "--remote";
+const args = [wrangler, "d1", "execute", "growthhigh-clientpage-private", "--config", "wrangler.private.toml", target, "--json"];
 
 async function readCredential() {
   const { stdout } = await run(process.execPath, [...args, "--command",
@@ -53,7 +55,7 @@ async function provision() {
 }
 
 try {
-  console.log(JSON.stringify(await provision()));
+    console.log(JSON.stringify(await provision()));
 } catch {
   console.error("고객 비밀번호 이관을 완료하지 못했습니다. 기존 설정은 덮어쓰지 않습니다.");
   process.exitCode = 1;

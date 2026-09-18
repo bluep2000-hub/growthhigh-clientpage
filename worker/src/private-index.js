@@ -4,6 +4,7 @@ import {
   limitAuthRequests, logout, nonceCookie, sessionCookie, setCustomerPassword, setupError,
 } from "./private-auth.js";
 import { requireStaff, resolveStaff, verifyGoogleToken } from "./private-staff.js";
+import { loginPage } from "./private-ui.js";
 
 // 인증 API만 연결됐다. 고객 데이터·기존 관리 API 연결은 다음 개발 작업이다.
 function json(body, status = 200, cookie) {
@@ -45,6 +46,8 @@ async function body(request) {
 }
 export default {
   async fetch(request, env = {}) {
+    if (request.method === "GET" && new URL(request.url).pathname === "/whiffkorea/")
+      return loginPage(request);
     if (request.method === "GET" && new URL(request.url).pathname === "/health") {
       return json({ status: "setup", customerReady: false });
     }
