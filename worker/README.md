@@ -100,6 +100,7 @@ npm run deploy     # Cloudflare 에 올린다
 |---|---|---|
 | `GET` | `/health` | 살아 있는지 |
 | `POST` | `/auth` | 담당자 공용 비밀번호가 맞는지 |
+| `POST` | `/room/rebuild` | 위프코리아 담당자가 자료의 전체 페이지 반영을 요청한다 |
 | `GET` | `/notice/tree?slug=&more=` | 공지 전체를 편집용 글로 받아 간다 |
 | `POST` | `/notice/save` | 고치고 보태고 지운 것을 한 번에 적용한다 |
 | `POST` | `/notice/new` | 오늘 날짜로 빈 공지 한 건을 만든다 |
@@ -461,6 +462,30 @@ Authorization: Bearer <BUILD_TOKEN>
 **빌드 토큰은 base64 를 거치지 않는다.** 그 껍데기는 한글 비밀번호가 HTTP
 헤더에 실리지 않아서 씌운 것이고, 빌드 토큰은 우리가 만드는 ASCII 라 그냥
 실린다. 껍데기가 다르니 한쪽 값을 다른 쪽 창구에 대도 열리지 않는다.
+
+### 담당자가 자료 반영을 요청한다 — `POST /room/rebuild`
+
+```http
+POST /room/rebuild
+Authorization: Bearer <담당자 비밀번호의 UTF-8 base64>
+Content-Type: application/json
+
+{"slug":"whiffkorea"}
+```
+
+Notion 공유페이지 등록을 확인한 뒤 기존 `requestRebuild`를 한 번 호출한다.
+자료·고정 속성은 수정하지 않는다. 자료 외에도 기존 빌더가 읽는 기업 페이지 전체를
+재생성한다. 다른 기업은 기존 공개 이력 이전 확인 전까지 422로 거절한다.
+자동화·빌드 토큰은 담당자 인증을 대신하지 않는다.
+
+200 응답은 `{"slug":"whiffkorea","rebuild":"sent"}`다. `failed`·`skipped`도
+200으로 반환하며 요청 성공이 아니다. 인증 실패 401, 입력·기업 제한 422,
+등록 부재 404, Notion 조회 실패 502에서는 재빌드를 보내지 않는다.
+
+브라우저는 30초 통신 제한을 사용한다. 응답 유실·시간 초과는 결과 미확인이며
+자동 재전송하지 않는다. 요청 중 중복 클릭을 막고 실패 뒤 직접 재시도할 수 있다.
+`sent`는 배포 완료를 뜻하지 않는다. 기업별 Actions 동시 실행 정책과 수동 경로를
+그대로 사용한다. 운영·복구·실전 측정은 `../docs/실사용-운영.md`를 읽는다.
 
 ### 통화 자동화가 재빌드를 요청한다 — `POST /ops/rebuild`
 

@@ -2241,11 +2241,11 @@ function init(D){
   };
 
   /* 공지와 데이터룸에서 같은 담당자 인증을 사용한다 */
-  function editSwitch(){
+  function editSwitch(force=false){
     if(!ED.can()) return '';
     /* 켜 둔 세션이면 ?edit 가 없어도 계속 보인다 — 화면을 옮길 때마다
        주소를 다시 붙이게 만들지 않는다 */
-    if(!EDITQ && !ED.token()) return '';
+    if(!EDITQ && !ED.token() && !force) return '';
     if(ED.on()) return `<span class="edt"><span class="edt-on">편집 모드</span>
       <button class="edt-b" data-edoff>끄기</button></span>`;
     return `<span class="edt"><button class="edt-b" data-edon>담당자 편집</button></span>`;
@@ -6400,10 +6400,10 @@ function init(D){
     return `<button type="button" class="dr-pin${on?' on':''}" data-drpin="${esc(it.url)}"
       aria-label="즐겨찾기에 고정" aria-pressed="${on}" title="${on?'고정 해제':'즐겨찾기에 고정'}">📌</button>`; };
 
-  let roomRebuildBusy = false, roomRebuildMessage = '', roomRebuildCheck = false;
+  let roomRebuildBusy = false, roomRebuildMessage = '', roomRebuildCheck = false, roomRebuildNeedsAuth = false;
   function roomRebuildUi(){
-    if(CLIENT !== 'whiffkorea' || SAMPLE || !ED.can() || (!EDITQ && !ED.on())) return '';
-    return `<div class="dr-manage"><div class="dr-manage-top">${editSwitch()}
+    if(CLIENT !== 'whiffkorea' || SAMPLE || !ED.can() || (!EDITQ && !ED.on() && !roomRebuildNeedsAuth)) return '';
+    return `<div class="dr-manage"><div class="dr-manage-top">${editSwitch(roomRebuildNeedsAuth)}
       ${ED.on() ? `<button type="button" class="edt-b" data-room-rebuild${roomRebuildBusy ? ' disabled' : ''}>
         ${roomRebuildBusy ? '요청 중…' : '자료 반영 요청'}</button>` : ''}</div>
       <p>노션에서 자료 링크를 등록한 뒤 담당자 인증을 하고 반영을 요청하세요.</p>
@@ -6464,7 +6464,8 @@ function init(D){
     const rebuild = document.querySelector('[data-room-rebuild]');
     if(rebuild) rebuild.onclick = async () => {
       if(roomRebuildBusy || !ED.on()) return;
-      roomRebuildBusy = true; roomRebuildCheck = false; roomRebuildMessage = '반영 요청을 보내고 있습니다.';
+      roomRebuildBusy = true; roomRebuildCheck = false; roomRebuildNeedsAuth = false;
+      roomRebuildMessage = '반영 요청을 보내고 있습니다.';
       roomRebuildStatus();
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
@@ -6482,6 +6483,7 @@ function init(D){
       } catch(err){
         if(err.status === 401){
           sessionStorage.removeItem(EKEY);
+          roomRebuildNeedsAuth = true;
           roomRebuildMessage = '담당자 인증이 만료됐습니다. 다시 인증한 뒤 요청해 주세요.';
           go('room');
         } else if(err.status){

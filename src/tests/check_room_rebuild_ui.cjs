@@ -16,7 +16,7 @@ function page(call) {
   const state = {
     CLIENT: 'whiffkorea', SAMPLE: false, EDITQ: true,
     ED: {can: () => true, on: () => token, call},
-    editSwitch: () => '<span>담당자 편집</span>', esc: s => s,
+    editSwitch: force => {state.forceAuth = force; return '<span>담당자 편집</span>';}, esc: s => s,
     AbortController,
     setTimeout: (fn, ms) => { assert.equal(ms, 30000); timeout = fn; return 1; },
     clearTimeout: () => { cleared = true; },
@@ -68,6 +68,10 @@ function page(call) {
   const expired = page(async () => { throw {status: 401}; }); await expired.button.onclick();
   assert(expired.state.reauthenticated && expired.result.textContent.includes('다시 인증'));
   assert(!expired.state.roomRebuildUi().includes('data-room-rebuild'));
+  const expiredWithoutQuery = page(async () => { throw {status: 401}; });
+  expiredWithoutQuery.state.EDITQ = false; await expiredWithoutQuery.button.onclick();
+  assert(expiredWithoutQuery.state.roomRebuildUi().includes('다시 인증'));
+  assert(expiredWithoutQuery.state.forceAuth, 'cached editor must be able to reauthenticate without ?edit');
 
   const hidden = page(async () => ({rebuild: 'sent'}));
   hidden.state.EDITQ = false; hidden.logout(); assert.equal(hidden.state.roomRebuildUi(), '');
