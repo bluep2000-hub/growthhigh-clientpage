@@ -15,7 +15,8 @@ function page(call) {
   }));
   const company = {};
   const state = {
-    document: {querySelectorAll: selector => selector === '[data-drpin]' ? buttons : []},
+    document: {querySelector: () => null,
+      querySelectorAll: selector => selector === '[data-drpin]' ? buttons : []},
     ED: {call}, CLIENT: 'test-client', drPins: [], CO: company, D: {company},
     SKEY: 'test-cache', sessionStorage: {setItem: (_, value) => state.cache = JSON.parse(value)},
     drShow: () => {}, alert: message => state.alerts.push(message), alerts: [],

@@ -817,6 +817,11 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .dr-pin:hover{background:var(--hover);opacity:.8}
 .dr-pin.on{filter:none;opacity:1}
 .dr-sec{margin-bottom:24px}
+.dr-manage{margin-bottom:16px;font-size:12px;color:var(--tx-2)}
+.dr-manage-top{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.dr-manage p{margin:8px 0;line-height:1.6}
+.dr-manage a{margin-right:12px;text-decoration:underline}
+.dr-manage button:disabled{opacity:.5;cursor:wait}
 .dr-sec>h2{font-size:12.5px;font-weight:600;margin-bottom:9px;color:var(--tx-2)}
 .dr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
 .dr-card{position:relative;display:flex;flex-direction:column;gap:10px;padding:14px;
@@ -2204,12 +2209,13 @@ function init(D){
     /* 비밀번호는 base64(UTF-8) 로 싣는다. HTTP 헤더는 바이트 하나가 한 글자라
        한글이 든 비밀번호를 그대로 넣으면 브라우저가 요청을 못 만든다 */
     pack(pw){ return btoa(String.fromCharCode(...new TextEncoder().encode(pw))); },
-    async call(method, path, body){
+    async call(method, path, body, signal){
       const res = await fetch(RELAY + path, {
         method,
         headers: Object.assign({'Authorization': 'Bearer ' + this.token()},
                                body ? {'Content-Type':'application/json'} : {}),
         body: body ? JSON.stringify(body) : undefined,
+        signal,
       });
       let data = null;
       try { data = await res.json(); } catch(_){}
@@ -2235,7 +2241,7 @@ function init(D){
     },
   };
 
-  /* 편집 모드 스위치. 공지 화면 제목 옆에만 둔다 */
+  /* 공지와 데이터룸에서 같은 담당자 인증을 사용한다 */
   function editSwitch(){
     if(!ED.can()) return '';
     /* 켜 둔 세션이면 ?edit 가 없어도 계속 보인다 — 화면을 옮길 때마다
@@ -6395,6 +6401,28 @@ function init(D){
     return `<button type="button" class="dr-pin${on?' on':''}" data-drpin="${esc(it.url)}"
       aria-label="즐겨찾기에 고정" aria-pressed="${on}" title="${on?'고정 해제':'즐겨찾기에 고정'}">📌</button>`; };
 
+  let roomRebuildBusy = false, roomRebuildMessage = '', roomRebuildCheck = false;
+  function roomRebuildUi(){
+    if(CLIENT !== 'whiffkorea' || SAMPLE || !ED.can() || (!EDITQ && !ED.on())) return '';
+    return `<div class="dr-manage"><div class="dr-manage-top">${editSwitch()}
+      ${ED.on() ? `<button type="button" class="edt-b" data-room-rebuild${roomRebuildBusy ? ' disabled' : ''}>
+        ${roomRebuildBusy ? '요청 중…' : '자료 반영 요청'}</button>` : ''}</div>
+      <p>노션에서 자료 링크를 등록한 뒤 담당자 인증을 하고 반영을 요청하세요.</p>
+      <p data-room-result role="status" aria-live="polite">${esc(roomRebuildMessage)}</p>
+      <div data-room-check${roomRebuildCheck ? '' : ' hidden'}>
+        <a href="/${encodeURIComponent(CLIENT)}/#room" target="_blank" rel="noopener">새 고객 탭에서 확인</a>
+        <a href="https://github.com/bluep2000-hub/growthhigh-clientpage/actions/workflows/rebuild.yml"
+          target="_blank" rel="noopener">반영 진행 확인</a></div></div>`;
+  }
+  function roomRebuildStatus(){
+    const b = document.querySelector('[data-room-rebuild]');
+    if(b){ b.disabled = roomRebuildBusy; b.textContent = roomRebuildBusy ? '요청 중…' : '자료 반영 요청'; }
+    const result = document.querySelector('[data-room-result]');
+    if(result) result.textContent = roomRebuildMessage;
+    const check = document.querySelector('[data-room-check]');
+    if(check) check.hidden = !roomRebuildCheck;
+  }
+
   /* A — 본문 화면이 없다. 사이드바의 「데이터룸」이 그 자리에서 펴진다 */
   if(REVIEW_ROOM === 'B') V.room=()=>{
     const body = ROOM.map((x,i)=>`<section class="dr-sec" id="drsec-${i}"><h2>${ROOM_IC[x.g] || '📁'} ${esc(x.g)} <span class="dr-src">${x.items.length}</span></h2>
@@ -6405,6 +6433,7 @@ function init(D){
         <p>담당자가 📌 로 고정한 자료는 사이드바 맨 아래 「즐겨찾기」에 모두에게 보입니다(편집 모드에서만 고정).${ROOM_DEMO
           ? ' 노션 「추가 링크」가 비어 있어 <b>예시 항목</b>을 보여 줍니다.' : ''}</p></section>` : ''}
       <div class="vh"><h1>데이터룸</h1><span class="n">${ROOM.reduce((s,x)=>s+x.items.length,0)}건</span></div>
+      ${roomRebuildUi()}
       <div class="chips">${[{g:'전체', n:ROOM.reduce((s,x)=>s+x.items.length,0), k:'all'},
         ...ROOM.map((x,i)=>({g:`${ROOM_IC[x.g] || '📁'} ${x.g}`, n:x.items.length, k:String(i)}))]
         .map(x=>`<button type="button" class="chip${x.k==='all'?' on':''}" data-drtab="${x.k}">${esc(x.g)}<span>${x.n}</span></button>`).join('')}</div>
@@ -6433,6 +6462,39 @@ function init(D){
   }
 
   function bindRoom(){
+    const rebuild = document.querySelector('[data-room-rebuild]');
+    if(rebuild) rebuild.onclick = async () => {
+      if(roomRebuildBusy || !ED.on()) return;
+      roomRebuildBusy = true; roomRebuildCheck = false; roomRebuildMessage = '반영 요청을 보내고 있습니다.';
+      roomRebuildStatus();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      try {
+        const out = await ED.call('POST', '/room/rebuild', {slug: CLIENT}, controller.signal);
+        if(out?.rebuild === 'sent'){
+          roomRebuildMessage = '반영 요청을 보냈습니다. 배포 후 새 고객 탭에서 확인해 주세요.';
+          roomRebuildCheck = true;
+        } else if(out?.rebuild === 'failed' || out?.rebuild === 'skipped'){
+          roomRebuildMessage = '반영 요청을 시작하지 못했습니다. 잠시 뒤 다시 요청해 주세요.';
+        } else {
+          roomRebuildMessage = '반영 요청 결과를 확인하지 못했습니다. 고객 화면과 반영 진행 상태를 확인한 뒤 다시 요청해 주세요.';
+          roomRebuildCheck = true;
+        }
+      } catch(err){
+        if(err.status === 401){
+          sessionStorage.removeItem(EKEY);
+          roomRebuildMessage = '담당자 인증이 만료됐습니다. 다시 인증한 뒤 요청해 주세요.';
+          go('room');
+        } else if(err.status){
+          roomRebuildMessage = '반영 요청을 시작하지 못했습니다. 잠시 뒤 다시 요청해 주세요.';
+        } else {
+          roomRebuildMessage = '반영 요청 결과를 확인하지 못했습니다. 고객 화면과 반영 진행 상태를 확인한 뒤 다시 요청해 주세요.';
+          roomRebuildCheck = true;
+        }
+      } finally {
+        clearTimeout(timer); roomRebuildBusy = false; roomRebuildStatus();
+      }
+    };
     /* B — 소통 내역처럼 위 칩으로 종류를 거른다. 다시 그리지 않고 묶음을 숨긴다 */
     document.querySelectorAll('[data-drtab]').forEach(b=>b.onclick=()=>{
       const k = b.dataset.drtab;

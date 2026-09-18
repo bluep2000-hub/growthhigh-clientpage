@@ -23,6 +23,7 @@
  *   GET    /notice/export  빌드가 그 기업의 최신 공지 문서를 가져간다
  *   PUT    /talk/major     소통 내역의 주요 여부를 지정·해제한다
  *   PUT    /room/pin       데이터룸 자료를 즐겨찾기에 고정·해제한다
+ *   POST   /room/rebuild   담당자가 등록한 자료의 고객 페이지 반영을 요청한다
  *   POST   /ops/rebuild    승인된 자동화 기록의 기업 페이지를 다시 만든다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
@@ -975,6 +976,17 @@ async function route(request, env) {
    * 그 기업에 이미 걸린 자료뿐이다 — 아무 주소나 받으면 담당자 비밀번호 하나로
    * 클라이언트 화면에 모르는 링크를 띄울 수 있다.
    */
+  if (pathname === "/room/rebuild" && method === "POST") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    if (slug !== "whiffkorea") {
+      throw unprocessable("기존 소통 이력 이전 확인 전에는 자료 반영을 요청할 수 없습니다");
+    }
+    await findClient(createNotion(env), slug);
+    return json({ slug, rebuild: await requestRebuild(env, slug) }, 200);
+  }
+
   if (pathname === "/room/pin" && method === "PUT") {
     requireEditor(request, env);
     const body = await readJson(request);
