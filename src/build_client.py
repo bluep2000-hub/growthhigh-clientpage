@@ -414,6 +414,8 @@ def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
             "bizplan_url": p_url(props, "사업계획서 URL"),
             "password": p_text(props, "접속 비밀번호"),   # 이름과 달리 평문이다
             "extra_links": parse_extra_links(p_text(props, "추가 링크")),
+            # 담당자가 고정한 데이터룸 자료. 한 줄에 주소 하나 — worker 의 PUT /room/pin 이 쓴다
+            "pinned_links": [l.strip() for l in p_text(props, "고정 자료").splitlines() if l.strip()],
             "tags": p_multi(props, "업종"),
             "icon": row.get("icon"),
         })
@@ -3076,6 +3078,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
             "guidebook_url": GUIDEBOOK_URL,
             # 클라이언트별 추가 링크. 없으면 빈 목록이고 화면에 아무것도 안 나온다.
             "extra_links": client.get("extra_links") or [],
+            "pinned_links": client.get("pinned_links") or [],
         },
         "notice": notice,
         # 값이 없으면 null 이다. 화면이 조달현황 메뉴·카드를 통째로 뺀다

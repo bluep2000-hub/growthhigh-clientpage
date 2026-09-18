@@ -22,6 +22,7 @@
  *   POST   /notice/doc/revision-to-draft  지난 게시본을 초안으로 불러온다
  *   GET    /notice/export  빌드가 그 기업의 최신 공지 문서를 가져간다
  *   PUT    /talk/major     소통 내역의 주요 여부를 지정·해제한다
+ *   PUT    /room/pin       데이터룸 자료를 즐겨찾기에 고정·해제한다
  *   POST   /ops/rebuild    승인된 자동화 기록의 기업 페이지를 다시 만든다
  *   GET    /notice/item    그 항목을 고칠 때 입력칸에 넣을 글      (옛 방식)
  *   PUT    /notice/item    그 항목을 고친다                        (옛 방식)
@@ -52,6 +53,13 @@ import {
 import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
 import { createStore } from "./store.js";
+
+/** 데이터룸이 읽는 공유페이지 속성. 이름은 src/build_client.py 와 같아야 한다 */
+const ROOM_PINS = "고정 자료";
+const ROOM_LINKS = "추가 링크";
+const ROOM_DRIVE = "드라이브 URL";
+const ROOM_BIZPLAN = "사업계획서 URL";
+const GUIDEBOOK_URL = "https://yuncommon.notion.site/f12815d712b982d3af19812af6f50cbe";
 
 /** 클라이언트 페이지가 사는 곳. 여기서 오는 요청만 받는다.
     레포의 CNAME 이 client.growthhigh.co.kr 이라 실제 담당자는 그쪽으로 들어온다.
@@ -958,6 +966,43 @@ async function route(request, env) {
       properties: { [TALK_MAJOR]: { checkbox: major } },
     });
     return json({ talkKey: key, major, rebuild: await requestRebuild(env, slug) }, 200);
+  }
+
+  /**
+   * 데이터룸 자료를 즐겨찾기에 고정·해제한다. 담당자가 고정하고 클라이언트 모두가 본다.
+   *
+   * 원본은 공유페이지 행의 「고정 자료」(한 줄에 주소 하나)다. 고정할 수 있는 것은
+   * 그 기업에 이미 걸린 자료뿐이다 — 아무 주소나 받으면 담당자 비밀번호 하나로
+   * 클라이언트 화면에 모르는 링크를 띄울 수 있다.
+   */
+  if (pathname === "/room/pin" && method === "PUT") {
+    requireEditor(request, env);
+    const body = await readJson(request);
+    const slug = requireText(body.slug, "slug");
+    const link = requireText(body.url, "url");
+    const pinned = requireBoolean(body.pinned, "pinned");
+
+    const nt = createNotion(env);
+    const client = await findClient(nt, slug);
+    const props = client.properties || {};
+    const text = (name) => (props[name]?.rich_text || []).map((r) => r.plain_text || "").join("");
+    const known = [props[ROOM_DRIVE]?.url, props[ROOM_BIZPLAN]?.url, GUIDEBOOK_URL,
+      ...text(ROOM_LINKS).split("\n").map((l) => l.split("|").slice(1).join("|").trim())];
+    if (!known.includes(link)) throw notFound("그 기업의 자료가 아닙니다");
+
+    const before = text(ROOM_PINS).split("\n").map((l) => l.trim()).filter(Boolean);
+    if (before.includes(link) === pinned) {
+      return json({ url: link, pinned, rebuild: "skipped" }, 200);
+    }
+    const after = pinned ? [...before, link] : before.filter((l) => l !== link);
+    const content = after.join("\n");
+    // ponytail: 텍스트 조각 하나(노션 2000자)에 담는다. 주소 스무 개 남짓이 한도다
+    if (content.length > 2000) throw unprocessable("고정 자료가 너무 많습니다");
+
+    await nt.patch(`/pages/${client.id}`, {
+      properties: { [ROOM_PINS]: { rich_text: content ? [{ text: { content } }] : [] } },
+    });
+    return json({ url: link, pinned, rebuild: await requestRebuild(env, slug) }, 200);
   }
 
   if (pathname === "/notice/tree" && method === "GET") {

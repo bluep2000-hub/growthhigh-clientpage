@@ -796,6 +796,39 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 }
 @media print{.rnt-note,.rn-switch{display:none!important}}
 
+/* 데이터룸 검토안. ?review-room=A|B 로만 켜진다.
+   A 사이드바 안에서 노션처럼 토글로 편다 · B 본문에 카드로 깐다 */
+/* 노션 사이드바처럼 — 아이콘이 붙은 줄이 쌓이고, 올려 두면 아이콘 자리에 ▸ 가 뜬다.
+   누르면 그 아래로 한 칸 들여 펴진다. 세로줄·건수는 두지 않는다 */
+.rv-room .nv .g{opacity:1;width:16px;font-size:13px}   /* 이모지는 흐리게 두면 탁해진다 */
+.dr-tg .dr-tw{display:none;font-style:normal;color:var(--tx-3);transition:transform .15s}
+.dr-tg:hover .dr-e{display:none}
+.dr-tg:hover .dr-tw,.dr-tg:focus-visible .dr-tw{display:inline-block}
+.dr-g.open>.dr-tg .dr-tw{transform:rotate(90deg)}
+.dr-gi{display:none;padding-left:14px}
+.dr-g.open>.dr-gi{display:block}
+.dr-it{position:relative}
+.dr-it .nv{padding-right:32px}
+.dr-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-it .dr-pin{position:absolute;right:3px;top:50%;transform:translateY(-50%);
+  width:24px;height:24px;font-size:12px;opacity:0}
+.dr-it:hover .dr-pin,.dr-it .dr-pin.on,.dr-it .dr-pin:focus-visible{opacity:1}
+.dr-src{font-size:10.5px;font-weight:400;color:var(--tx-3)}
+.dr-pin{width:26px;height:26px;border-radius:5px;font-size:12px;flex:none;filter:grayscale(1);opacity:.45}
+.dr-pin:hover{background:var(--hover);opacity:.8}
+.dr-pin.on{filter:none;opacity:1}
+.dr-sec{margin-bottom:24px}
+.dr-sec>h2{font-size:12.5px;font-weight:600;margin-bottom:9px;color:var(--tx-2)}
+.dr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.dr-card{position:relative;display:flex;flex-direction:column;gap:10px;padding:14px;
+  border:1px solid var(--line);border-radius:10px;background:var(--panel);min-height:96px}
+.dr-card:hover{border-color:var(--line-2);background:var(--hover)}
+.dr-card b{font-size:13px;font-weight:600;padding-right:24px;line-height:1.45}
+.dr-card b a::after{content:'';position:absolute;inset:0}   /* 카드 전체가 링크 */
+.dr-card .dr-src{margin-top:auto}
+.dr-card .dr-pin{position:absolute;top:8px;right:8px;z-index:1}
+
+
 /* 할 일 — 일정 목록 안에서 일정 아래에 이어 선다. 카드를 따로 세우지 않는다:
    미팅과 마감과 할 일은 담당자에게 다 「언제 무엇을」이라, 갈라 두면 같은
    물음의 답을 화면 두 곳에서 찾아야 한다 */
@@ -1381,6 +1414,11 @@ const EDITQ = Q.has('edit');
 const REVIEW_NOTICE = ['A','B'].includes(String(Q.get('review-notice')||'').toUpperCase())
   ? String(Q.get('review-notice')).toUpperCase() : null;
 
+/* 데이터룸 검토안. 켜야만 사이드바에 「데이터룸」이 선다. 결정되면 이 스위치를 걷는다 */
+const REVIEW_ROOM = ['A','B'].includes(String(Q.get('review-room')||'').toUpperCase())
+  ? String(Q.get('review-room')).toUpperCase() : null;
+if (REVIEW_ROOM) document.documentElement.classList.add('rv-room');
+
 /* ── 표현 계층 상수 (JSON 의 stage 인덱스로 참조) ── */
 const LABELS = {
   fund:['검토','서류','작성','평가','결과'],
@@ -1390,7 +1428,7 @@ const LABELS = {
 /* fund 에는 (런웨이)정책자금도 들어온다. 사이드바·본문 제목·breadcrumb 이 모두 이 값을 쓴다 */
 const CATNM = { fund:'정부지원사업·정책자금', cert:'기업인증·지식재산권', proj:'경영자문 프로젝트' };
 const BADGE = { run:'진행', ok:'종료', no:'보류', wait:'예정' };
-const GL = { info:'▣', perf:'▦', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎' };
+const GL = { info:'▣', perf:'▦', notice:'▤', fund:'◈', cert:'✦', proj:'◇', talk:'✉', open:'◎', room:'▥' };
 
 /* 사이드바·헤더 마크는 복호화한 뒤에야 기업 로고로 채운다 (init 참고).
    잠금 화면(루트·404 안내 포함)은 그로스하이 로고만 쓴다. */
@@ -1617,22 +1655,72 @@ function init(D){
      비어 있으면 항목을 빼는 대신 건수 배지를 감추고 라벨만 흐리게 둔다.
      눌러 들어가면 각 화면이 「등록된 내용이 없습니다」를 보여준다. */
   const hasNotice = !!(notice && (notice.sections || []).some(s => (s.items || []).length));
+
+  /* 데이터룸 — 자료 링크(기본 셋 + 노션 「추가 링크」)를 한 화면에 모은다.
+     아무것도 없으면 검토용 예시를 채운다. 저장되지 않는다 */
+  const ROOM_BASE = [['기업자료 드라이브',CO.drive_url],['사업계획서',CO.bizplan_url],
+    /* B 는 가이드북을 데이터룸이 아니라 사이드바에 따로 둔다 — 기업 자료가 아니라 공통 안내서다 */
+    ['그로스하이 가이드북',REVIEW_ROOM === 'B' ? null : CO.guidebook_url]].filter(x=>x[1]).map(([label,url])=>({label,url}));
+  const ROOM_LINKS = (CO.extra_links || []).map(x=>({g:x.group || '자료',
+    items:(x.items || []).filter(i=>i && i.label && i.url)})).filter(x=>x.items.length);
+  const N = 'https://www.notion.so/';
+  const ROOM_DEMO = !ROOM_LINKS.length;
+  /* 묶음은 노션 그룹 이름이 아니라 자료의 종류로 가른다 — 그룹 이름과 자료 이름에
+     든 낱말을 본다. 위에서부터 먼저 걸린 것이 이긴다. 아무 데도 안 걸리면 「기타」 */
+  const ROOM_KINDS = [
+    ['연구노트', /연구\s*노트/],
+    ['R&D 기획', /R\s*&\s*D|RND|연구개발|과제|선행기술/i],
+    ['가결산·재무', /가결산|결산|재무|자금|손익|세무/],
+    ['사업계획서', /사업\s*계획/],
+    ['인증·실사', /인증|특허|병역특례|실사|심사/],
+    ['미팅 자료', /미팅|회의|워크숍|안건/],
+    ['기업 서류', /드라이브|서류|증빙/],
+    ['가이드', /가이드/],
+  ];
+  const ROOM_IC = {'연구노트':'📓','R&D 기획':'🧪','가결산·재무':'💰','사업계획서':'📑','인증·실사':'🧾',
+    '미팅 자료':'🗓️','기업 서류':'🗂️','가이드':'📘','기타':'📁'};
+  /* 검토안에서는 사이드바 글리프를 노션처럼 이모지로 바꿔 본다 */
+  const NGL = !REVIEW_ROOM ? GL : { info:'🏢', perf:'📊', notice:'📢', fund:'💸', cert:'🏅',
+    proj:'🧭', talk:'💬', open:'🎯', room:'🗃️', guide:'📘' };
+  const ROOM = !REVIEW_ROOM ? [] : (() => {
+    const all = [
+      ...(ROOM_DEMO ? [
+        {g:'', items:[{label:'2026년 3분기 연구노트',url:N},{label:'R&D 과제 기획서 (초안)',url:N},
+          {label:'선행기술 조사 메모',url:N},{label:'2026 상반기 가결산',url:N},
+          {label:'자금 조달 계획표',url:N},{label:'9월 정기 미팅 안건',url:N}]},
+      ] : ROOM_LINKS),
+      {g:'', items:ROOM_BASE},
+    ].flatMap(x => x.items.map(it => ({...it, kind:(ROOM_KINDS.find(([, re]) =>
+      re.test(`${x.g} ${it.label}`)) || ['기타'])[0]})));
+    return [...ROOM_KINDS.map(k => k[0]), '기타']
+      .map(g => ({g, items:all.filter(it => it.kind === g)})).filter(x => x.items.length);
+  })();
+  /* 즐겨찾기 — 담당자가 고정하고 클라이언트 모두가 본다. 원본은 노션 「고정 자료」(주소 목록).
+     샘플은 고정할 수 없으므로 첫 자료 하나를 고정된 모습으로 보여 준다 */
+  let drPins = [...(CO.pinned_links || (SAMPLE && ROOM[0] ? [ROOM[0].items[0].url] : []))];
+
   const NAV = [
-    { g:'기업', items:[
+    { g:REVIEW_ROOM ? '기업 현황' : '기업', items:[
       {id:'info',ic:'info',nm:'기업 정보'},
       /* 조달현황은 값이 있을 때만 낸다. 흐리게 두는 다른 항목과 달리
          빈 화면이 아니라 없는 화면이다 */
       ...(hasPerf ? [{id:'perf',ic:'perf',nm:'조달현황'}] : []),
       {id:'notice',ic:'notice',nm:noticeLabel,dim:!hasNotice}]},
-    { g:'진행 현황', items:[
+    { g:REVIEW_ROOM ? '프로젝트' : '진행 현황', items:[
       {id:'fund',ic:'fund',nm:CATNM.fund,ct:cnt('fund')},
       {id:'cert',ic:'cert',nm:CATNM.cert,ct:cnt('cert')},
       {id:'proj',ic:'proj',nm:CATNM.proj,ct:cnt('proj')},
       {id:'talk',ic:'talk',nm:'소통 내역',ct:talks.length}]},
-    { g:'제안', items:[
+    { g:REVIEW_ROOM ? '추천' : '제안', items:[
       {id:'open',ic:'open',nm:'추천 지원사업',ct:recommend.length}]},
     /* 주소가 없는 자료는 항목을 없애지 않고 흐리게만 둔다 —
        어제 있던 항목이 오늘 사라지면 클라이언트는 오류로 읽는다 */
+    /* 검토안은 「자료」 묶음 자리가 통째로 데이터룸이 된다. A 는 아래에서 나무를 채우고,
+       B 는 「데이터룸」 한 줄만 두고, 누르면 본문에 카드가 깔린다 */
+    REVIEW_ROOM === 'A' ? { g:'데이터룸', items:[] } :
+    REVIEW_ROOM === 'B' ? { g:'', items:[{id:'room',ic:'room',nm:'데이터룸',
+        ct:ROOM.reduce((s,x)=>s+x.items.length,0)},
+      {id:'x3',ic:'guide',nm:'그로스하이 가이드북',ext:1,url:CO.guidebook_url}] } :
     { g:'자료', items:[
       {id:'x1',nm:'기업자료 드라이브',ext:1,url:CO.drive_url},
       {id:'x2',nm:'사업계획서',ext:1,url:CO.bizplan_url},
@@ -1641,7 +1729,7 @@ function init(D){
   /* 클라이언트별 추가 링크 — 노션 「추가 링크」에서 온다. 빌드가 이미
      라벨·http(s) 를 걸러 두므로 여기서는 그대로 붙인다.
      없으면 그룹이 하나도 안 생긴다. 사이드바 고정 원칙은 위 10개에만 적용된다 */
-  (CO.extra_links || []).forEach((g, gi) => {
+  if (!REVIEW_ROOM) (CO.extra_links || []).forEach((g, gi) => {
     const items = (g && g.items || []).filter(it => it && it.label && it.url);
     if (!items.length) return;
     NAV.push({ g: g.group || '자료',
@@ -1650,10 +1738,10 @@ function init(D){
   /* 외부 링크는 주소가 없을 때만 흐려진다. 건수가 있는 항목은 0 일 때가 곧 빈 항목이다 */
   const navDim = i => i.ext ? !i.url : (i.dim !== undefined ? i.dim : i.ct === 0);
   document.getElementById('nav').innerHTML = NAV.map(g=>`
-   <div class="grp"><h3>${esc(g.g)}</h3>
+   <div class="grp">${g.g?`<h3>${esc(g.g)}</h3>`:''}
    ${g.items.map(i=>{
      const dim = navDim(i);
-     const inner = `<span class="g">${i.ic?GL[i.ic]:'↗'}</span><span>${esc(i.nm)}</span>
+     const inner = `<span class="g">${i.ic?NGL[i.ic]:'↗'}</span><span>${esc(i.nm)}</span>
        ${i.ext?(dim?'':'<span class="ex">↗</span>'):(i.ct?`<span class="ct">${i.ct}</span>`:'')}`;
      /* 주소가 있는 자료는 진짜 링크로 낸다. 없으면 눌리지 않는 자리표시자다 */
      /* 비활성은 외부 링크뿐이다 — 주소가 없으면 갈 데가 없다.
@@ -6297,6 +6385,75 @@ function init(D){
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
   V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
 
+  const drSrc = u => /notion\.(so|site)/.test(u) ? '노션' : /drive\.google/.test(u) ? '구글 드라이브'
+    : (()=>{ try { return new URL(u).hostname; } catch(e) { return ''; } })();
+  const drLink = it => `<a href="${encodeURI(it.url)}" target="_blank" rel="noopener"
+    title="${esc(it.label)}">${esc(it.label)}</a>`;
+  /* 고정 단추는 담당자 편집 모드에서만 그린다. 클라이언트는 고정된 결과만 본다 */
+  const drPin = it => { if(!ED.on()) return ''; const on = drPins.includes(it.url);
+    return `<button type="button" class="dr-pin${on?' on':''}" data-drpin="${esc(it.url)}"
+      aria-label="즐겨찾기에 고정" aria-pressed="${on}" title="${on?'고정 해제':'즐겨찾기에 고정'}">📌</button>`; };
+
+  /* A — 본문 화면이 없다. 사이드바의 「데이터룸」이 그 자리에서 펴진다 */
+  if(REVIEW_ROOM === 'B') V.room=()=>{
+    const body = ROOM.map((x,i)=>`<section class="dr-sec" id="drsec-${i}"><h2>${ROOM_IC[x.g] || '📁'} ${esc(x.g)} <span class="dr-src">${x.items.length}</span></h2>
+          <div class="dr-cards">${x.items.map(it=>`<div class="dr-card"><b>${drLink(it)}</b>
+            <span class="dr-src">${esc(drSrc(it.url))} ↗</span>${drPin(it)}</div>`).join('')}</div></section>`).join('');
+    return `<section class="rnt-note" aria-label="PM 검토 안내">
+        <strong><b>B안</b> · 카드</strong>
+        <p>담당자가 📌 로 고정한 자료는 사이드바 맨 아래 「즐겨찾기」에 모두에게 보입니다(편집 모드에서만 고정).${ROOM_DEMO
+          ? ' 노션 「추가 링크」가 비어 있어 <b>예시 항목</b>을 보여 줍니다.' : ''}</p></section>
+      <div class="vh"><h1>데이터룸</h1><span class="n">${ROOM.reduce((s,x)=>s+x.items.length,0)}건</span></div>
+      <div class="chips">${[{g:'전체', n:ROOM.reduce((s,x)=>s+x.items.length,0), k:'all'},
+        ...ROOM.map((x,i)=>({g:`${ROOM_IC[x.g] || '📁'} ${x.g}`, n:x.items.length, k:String(i)}))]
+        .map(x=>`<button type="button" class="chip${x.k==='all'?' on':''}" data-drtab="${x.k}">${esc(x.g)}<span>${x.n}</span></button>`).join('')}</div>
+      ${body}`;
+  };
+
+  /* 사이드바 맨 아래 「즐겨찾기」. 고정된 것이 없으면 칸째 없다 */
+  function roomFavs(){
+    const box = document.getElementById('drfav');
+    if(!box) return;
+    const kindOf = u => (ROOM.find(x => x.items.some(it => it.url === u)) || {}).g;
+    const items = ROOM.flatMap(x=>x.items).filter(it=>drPins.includes(it.url));
+    box.hidden = !items.length;
+    box.innerHTML = `<h3>즐겨찾기</h3>${items.map(it=>`<a class="nv" data-ext="1" href="${encodeURI(it.url)}"
+      target="_blank" rel="noopener" title="${esc(it.label)}"><span class="g">${ROOM_IC[kindOf(it.url)] || '📄'}</span>
+      <span class="dr-nm">${esc(it.label)}</span></a>`).join('')}`;
+  }
+
+  function drShow(u){
+    const on = drPins.includes(u);
+    document.querySelectorAll('[data-drpin]').forEach(x=>{ if(x.dataset.drpin!==u) return;
+      x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+      x.title = on ? '고정 해제' : '즐겨찾기에 고정'; });
+    roomFavs();
+  }
+
+  function bindRoom(){
+    /* B — 소통 내역처럼 위 칩으로 종류를 거른다. 다시 그리지 않고 묶음을 숨긴다 */
+    document.querySelectorAll('[data-drtab]').forEach(b=>b.onclick=()=>{
+      const k = b.dataset.drtab;
+      document.querySelectorAll('[data-drtab]').forEach(x=>x.classList.toggle('on', x===b));
+      document.querySelectorAll('.dr-sec').forEach(s=>s.hidden = k!=='all' && s.id!==`drsec-${k}`);
+    });
+    document.querySelectorAll('[data-drpin]').forEach(b=>b.onclick=async e=>{
+      e.preventDefault(); e.stopPropagation();
+      const u = b.dataset.drpin, pinned = !drPins.includes(u), before = drPins;
+      if(b.disabled) return;
+      drPins = pinned ? [...drPins, u] : drPins.filter(x=>x!==u);
+      drShow(u);                                      /* 먼저 보여 주고, 실패하면 되돌린다 */
+      b.disabled = true;
+      try {
+        await ED.call('PUT', '/room/pin', {slug: CLIENT, url: u, pinned});
+      } catch(err){
+        drPins = before; drShow(u);
+        alert(err.status === 401 ? '편집 모드가 풀렸습니다. 다시 인증한 뒤 고정해 주세요.'
+          : '고정을 저장하지 못했습니다. 잠시 뒤 다시 눌러 주세요.');
+      } finally { b.disabled = false; }
+    });
+  }
+
   /* 소통 내역 — 커뮤니케이션보드에서 「고객 공개」인 것만 온다.
      목록에는 일자·채널·제목만 두고, 본문은 행을 눌렀을 때 펼친다.
      body 가 null 이면 펼칠 것이 없으므로 표시도 하지 않는다. */
@@ -6659,7 +6816,7 @@ function init(D){
   });
 
   const CR={info:'기업 정보',perf:'조달현황',fund:CATNM.fund,cert:CATNM.cert,
-    proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업'};
+    proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업',room:'데이터룸'};
   CR.notice = noticeLabel;                     /* 공지가 없어도 화면은 있다 */
   /* 화면 전환을 브라우저 히스토리에 남긴다. 안 남기면 뒤로 가기가
      이전 화면이 아니라 사이트 밖으로 나가 버린다.
@@ -6692,6 +6849,7 @@ function init(D){
     bindTalks();
     bindNotice();
     bindReviewNotice();
+    bindRoom();
     /* 조달현황은 그려진 뒤에 값을 채우고 높이를 잰다. 숨은 상태에서 재면
        폭·높이가 0 이라 차트 크기 계산이 틀어진다 */
     if(id==='perf' && window.perfFit) window.perfFit();
@@ -6828,7 +6986,32 @@ function init(D){
       location.href = reviewNoticeHref(next);
     });
   }
+  if(REVIEW_ROOM){
+    const p = new URLSearchParams(location.search);
+    const href = v => { p.set('review-room', v); return `${location.pathname}?${p}#room`; };
+    document.body.insertAdjacentHTML('beforeend', `<div class="rn-switch" aria-label="데이터룸 검토안 전환">
+      ${['A','B'].map(v=>`<a class="${v===REVIEW_ROOM?'on':''}" href="${esc(href(v))}">${v}안</a>`).join('')}
+      <span class="rn-switch-label">데이터룸 보기 방식 검토</span></div>`);
+    document.getElementById('nav').insertAdjacentHTML('beforeend', '<div class="grp" id="drfav" hidden></div>');
+    roomFavs();
+  }
   document.querySelectorAll('.nv').forEach(b=>{if(!b.dataset.ext)b.onclick=()=>go(b.dataset.id)});
+  const drGrp = REVIEW_ROOM === 'A' &&
+    [...document.querySelectorAll('#nav .grp')].find(g => g.querySelector('h3').textContent === '데이터룸');
+  if(REVIEW_ROOM === 'A'){
+    const grp = drGrp;
+    grp.insertAdjacentHTML('beforeend', ROOM.map(x=>`<div class="dr-g">
+      <button type="button" class="nv dr-tg" data-ext="1" aria-expanded="false">
+        <span class="g"><span class="dr-e">${ROOM_IC[x.g] || '📁'}</span><span class="dr-tw">▸</span></span>
+        <span class="dr-nm">${esc(x.g)}</span></button>
+      <div class="dr-gi">${x.items.map(it=>`<div class="dr-it">
+        <a class="nv" data-ext="1" href="${encodeURI(it.url)}" target="_blank" rel="noopener" title="${esc(it.label)}">
+          <span class="g">📄</span><span class="dr-nm">${esc(it.label)}</span></a>${drPin(it)}</div>`).join('')}</div>
+      </div>`).join(''));
+    grp.querySelectorAll('.dr-tg').forEach(t => t.onclick = () =>
+      t.setAttribute('aria-expanded', t.parentElement.classList.toggle('open')));
+    bindRoom();
+  }
   /* 주소에 해시가 있으면 그 화면에서 시작한다. 잠금이 풀린 뒤에만 온다 */
   const startId = (location.hash || '').slice(1);
   go(V[startId] ? startId : 'info', {replace:true});
