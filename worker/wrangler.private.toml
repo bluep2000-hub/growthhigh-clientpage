@@ -2,19 +2,15 @@ name = "growthhigh-clientpage-private"
 main = "src/private-index.js"
 compatibility_date = "2026-09-01"
 
-# 자체 도메인 전환 후에는 위프코리아 경로만 이 Worker가 처리한다.
-# workers.dev 주소는 전환 직전까지 유지하고, 전환 검증 후 별도로 끈다.
+# Cloudflare Pages가 위프코리아 경로만 이 Worker에 내부 전달한다.
+# 회사 전체 DNS나 Worker route는 바꾸지 않는다.
 # 실제 기업 데이터·비밀번호·토큰은 설정이나 GitHub에 넣지 않는다.
 workers_dev = true
 preview_urls = false
 
-routes = [
-  { pattern = "client.growthhigh.co.kr/whiffkorea*", zone_name = "growthhigh.co.kr" }
-]
-
 [vars]
 GOOGLE_CLIENT_ID = "832213026018-053lt0linfjtqjge6b11nnj3ajdkhr4e.apps.googleusercontent.com"
-APP_ORIGIN = "https://client.growthhigh.co.kr"
+APP_ORIGIN = "https://growthhigh-clientpage-private.growthhigh-clientpage-worker.workers.dev"
 INTERNAL_USERS_DB_ID = "3df815d7-12b9-8174-812e-f72174dacc99"
 NOTION_VERSION = "2022-06-28"
 

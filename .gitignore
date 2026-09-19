@@ -1,4 +1,5 @@
 .env
+pages-dist/
 *.tmp
 
 # 서비스 계정 키. 원래는 레포 밖에 두고 GOOGLE_APPLICATION_CREDENTIALS 로
@@ -30,6 +31,7 @@ _verify/
 # 개발용 비밀값이고, .wrangler/ 는 wrangler 가 만드는 로컬 상태다.
 worker/node_modules/
 worker/.wrangler/
+.wrangler/
 .dev.vars
 
 # 브라우저 도구가 남기는 페이지 스냅샷·콘솔 로그. 작업 부산물이고, 레포

@@ -1,0 +1,7 @@
+name = "growthhigh-clientpage-gateway"
+pages_build_output_dir = "./pages-dist"
+compatibility_date = "2026-09-19"
+
+[[services]]
+binding = "PRIVATE_WORKER"
+service = "growthhigh-clientpage-private"

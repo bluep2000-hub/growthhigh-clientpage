@@ -1,0 +1,33 @@
+name: 고객페이지 게이트웨이 배포
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages-gateway-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 공개 파일만 준비하고 검사
+        run: |
+          node scripts/build_pages.mjs
+          node scripts/test_pages_gateway.mjs
+      - name: Cloudflare Pages 배포
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: e2dbfbd300cd4d5b27941d208c7980a6
+        run: |
+          npm ci --prefix worker
+          ./worker/node_modules/.bin/wrangler pages deploy pages-dist --project-name=growthhigh-clientpage-gateway --branch=main
