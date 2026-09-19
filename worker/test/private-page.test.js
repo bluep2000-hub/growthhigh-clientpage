@@ -23,6 +23,8 @@ describe("비공개 고객 데이터와 기존 화면 연결",()=>{
     expect(html).not.toContain("res = await fetch(SRC");
     expect(html).not.toContain("const cached = sessionStorage.getItem(SKEY)");
     expect(html).toContain("ENV = {enc:false}");
+    expect(html).toContain('id="menubtn"');
+    expect(html).toContain("classList.toggle('nav-open', open)");
     expect(page.headers.get("content-security-policy")).toContain("script-src 'nonce-");
     expect(page.headers.get("cache-control")).toBe("no-store");
     expect(await customerPage(false).text()).toContain("can(){ return false; }");
