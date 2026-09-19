@@ -40,6 +40,8 @@ describe("위프코리아 로그인 화면", () => {
     expect(html).toContain('aria-live="polite"');
     expect(html).not.toContain("GOCSPX-");
     expect(html).not.toContain("c/whiffkorea.enc");
+    expect(html).toContain("보안이 적용된 위프코리아 고객페이지입니다.");
+    expect(html).not.toContain("운영 주소는 아직 전환하지 않았습니다");
     expect(response.headers.get("cache-control")).toBe("no-store");
     const nonce = html.match(/<script nonce="([^"]+)"/)[1];
     expect(response.headers.get("content-security-policy")).toContain(`'nonce-${nonce}'`);
