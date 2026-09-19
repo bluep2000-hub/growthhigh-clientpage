@@ -14,6 +14,17 @@ const target = process.argv.includes("--local") ? "--local" : "--remote";
 const args = [wrangler,"d1","execute","growthhigh-clientpage-private","--config","wrangler.private.toml",target,"--json"];
 const literal = value => typeof value === "number" ? String(value) : "'"+String(value).replaceAll("'","''")+"'";
 let stage='collect';
+const buildStarted = Date.now();
+
+async function finishRequestedBuild(state, reason = null) {
+  const completed = state === "completed" ? Date.now() : "NULL";
+  const attempts = state === "failed" ? "attempts + 1" : "attempts";
+  const sql = `UPDATE private_rebuild_job SET state=${literal(state)}, completed_at=${completed},
+    attempts=${attempts}, last_error=${reason ? literal(reason) : "NULL"}, lease_owner=NULL, lease_until=NULL
+    WHERE slug='whiffkorea' AND requested_at <= ${buildStarted}`;
+  try { await run(process.execPath,[...args,"--command",sql],{cwd,timeout:120000,windowsHide:true}); }
+  catch { /* 정상 결과 저장 여부가 갱신 로그 기록보다 우선이다. */ }
+}
 
 async function build() {
   const {stdout} = await run(process.env.PRIVATE_BUILD_PYTHON || "python",
@@ -32,6 +43,7 @@ async function build() {
     const {stdout:check} = await run(process.execPath,[...args,"--command",
       `SELECT count(*) AS n FROM customer_snapshots WHERE slug='whiffkorea' AND ready=1 AND build_key=${literal(result.buildKey)}`],{cwd});
     if (JSON.parse(check)[0]?.results?.[0]?.n !== 1) throw new Error("private_build_verification_failed");
+    await finishRequestedBuild("completed");
     console.log(JSON.stringify({saved:true,target,slug:"whiffkorea",assets:Object.keys(result.assets).length}));
   } finally {
     await rm(file,{force:true}); await rmdir(directory);
@@ -51,6 +63,7 @@ catch(error) {
   ];
   const reason = /^(?:invalid_|missing_|customer_assets_|payload_)[a-z_]+$/.test(error?.message)
     ? error.message : known.find(([pattern]) => pattern.test(signal))?.[1] || "private_build_failed";
+  await finishRequestedBuild("failed", reason);
   console.error(JSON.stringify({saved:false,stage,reason,exitCode:Number.isInteger(error?.code)?error.code:null,
     stdoutBytes:Buffer.byteLength(error?.stdout || ""),stderrBytes:Buffer.byteLength(error?.stderr || "")}));
   process.exitCode=1;

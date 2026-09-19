@@ -2409,9 +2409,12 @@ function init(D){
     };
   }
 
+  /* 서버가 돌려준 항목과 화면이 만든 항목은 같은 내용이어도 필드를 넣은
+     순서가 다를 수 있다. 비교용 문자열은 필드 순서를 고정해야 저장 직후를
+     다시 변경으로 오인해 자동저장을 반복하지 않는다. */
   const edDocFingerprint = doc => JSON.stringify({
     title: (doc && doc.title) || '', sections: (doc && doc.sections) || [],
-  });
+  }, ['title', 'sections', 'id', 'items', 'type', 'html', 'checked', 'cols']);
 
   function edFingerprint(){
     return (!edReady || !edDoc || !document.getElementById('edbar'))

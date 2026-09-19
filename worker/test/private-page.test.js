@@ -18,6 +18,14 @@ describe("비공개 고객 데이터와 기존 화면 연결",()=>{
     expect(html).toContain("ENV = {enc:false}");
     expect(page.headers.get("content-security-policy")).toContain("script-src 'nonce-");
     expect(page.headers.get("cache-control")).toBe("no-store");
+    expect(await customerPage(false).text()).toContain("can(){ return false; }");
+    const staff = await customerPage(true).text();
+    expect(staff).toContain("can(){ return true; }");
+    expect(staff).toContain("credentials:'same-origin'");
+    expect(staff).not.toContain("sessionStorage.setItem(SKEY, JSON.stringify(D))");
+    expect(staff).not.toContain("github.com/bluep2000-hub/growthhigh-clientpage/actions");
+    expect(staff).toContain("다음 자동 갱신 때 반영됩니다");
+    expect(staff).toContain("다음 자동 갱신 후 새 고객 탭에서 확인해 주세요");
   });
   it("미인증 고객은 화면·본문·이미지 모두 받을 수 없다",async()=>{
     const {sqlite,db} = privateDb();

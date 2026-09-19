@@ -184,8 +184,9 @@ describe("고객·PM 서버 인증 경계", () => {
 
   it("공개 봉투·관리 경로를 거절하고 정상 데이터가 없으면 준비 상태만 알린다", async () => {
     const cookie = cookieFrom(await login());
-    for (const path of ["/c/whiffkorea.enc", "/room/pin", "/notice/doc"])
-      expect((await call(path, undefined, cookie)).status).toBe(404);
+    expect((await call("/c/whiffkorea.enc", undefined, cookie)).status).toBe(404);
+    for (const path of ["/room/pin", "/notice/doc"])
+      expect((await call(path, undefined, cookie)).status).toBe(401);
     expect((await call('/api/customer',undefined,cookie)).status).toBe(503);
     expect((await call("/auth/customer/login")).status).toBe(405);
     const bad = new Request(`${ORIGIN}/auth/customer/login`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json" }, body: "x".repeat(17000) });

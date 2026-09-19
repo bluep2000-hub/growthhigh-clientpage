@@ -23,3 +23,9 @@ binding = "PRIVATE_DB"
 database_name = "growthhigh-clientpage-private"
 database_id = "a8fbbb00-fb49-4eb0-85c2-96d5b03a3bd4"
 migrations_dir = "private-migrations"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "growthhigh-clientpage-notices"
+database_id = "4ebde80e-7c34-4f36-9a18-8789fbbaf16e"
+migrations_dir = "migrations"

@@ -7,6 +7,7 @@ import { requireStaff, resolveStaff, verifyGoogleToken } from "./private-staff.j
 import { loginPage } from "./private-ui.js";
 import { customerPage } from "./private-page.js";
 import { createPrivateStore } from "./private-store.js";
+import { EDITOR_ROUTES, editorRequest } from "./private-editor.js";
 
 // 인증 API만 연결됐다. 고객 데이터·기존 관리 API 연결은 다음 개발 작업이다.
 function json(body, status = 200, cookie) {
@@ -22,7 +23,7 @@ function sameOrigin(request, env) {
   if (request.headers.get("origin") !== origin || request.headers.get("sec-fetch-site") === "cross-site")
     throw new ApiError(403, "invalid_origin");
 }
-async function body(request) {
+async function body(request, limit = 16384) {
   if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json")
     throw unprocessable("JSON 요청이 필요합니다");
   // 스트림 단계에서 크기를 제한해 Content-Length가 없는 요청도 보호한다.
@@ -34,7 +35,7 @@ async function body(request) {
     const { value, done } = await reader.read();
     if (done) break;
     size += value.length;
-    if (size > 16384) { await reader.cancel(); throw new ApiError(413, "request_too_large"); }
+    if (size > limit) { await reader.cancel(); throw new ApiError(413, "request_too_large"); }
     chunks.push(value);
   }
   const bytes = new Uint8Array(size);
@@ -54,13 +55,26 @@ export default {
       return json({ status: "setup", customerReady: false });
     }
     const path = new URL(request.url).pathname;
+    if (EDITOR_ROUTES.has(path)) {
+      try {
+        await requireStaff(request, env);
+        if (request.method !== "GET") sameOrigin(request, env);
+        return await editorRequest(request, env,
+          request.method === "GET" ? undefined : await body(request, 1048576));
+      } catch (error) {
+        return json({ ...(error instanceof ApiError && error.status === 409 ? error.extra : {}),
+          error: error instanceof ApiError ? error.code : "internal_error" },
+        error instanceof ApiError ? error.status : 500);
+      }
+    }
     const assetPath = path.replace(/^\/whiffkorea\/page\/(?=(?:logo|assets\/notice)\/)/, "/");
     if (request.method === "GET" && (path === "/api/customer" || path === "/whiffkorea/page/"
         || /^(?:\/logo\/whiffkorea|\/assets\/notice\/whiffkorea-[a-f0-9]{12})\.(?:png|jpg|jpeg|gif|webp)$/.test(assetPath))) {
       try {
         if (new URL(request.url).searchParams.has("edit")) await requireStaff(request,env);
         else if (!await customerSession(request,env)) await requireStaff(request,env);
-        if (path === "/whiffkorea/page/") return customerPage();
+        if (path === "/whiffkorea/page/")
+          return customerPage(new URL(request.url).searchParams.has("edit"));
         const store = createPrivateStore(env);
         if (path === "/api/customer") {
           const latest = await store.latest("whiffkorea");

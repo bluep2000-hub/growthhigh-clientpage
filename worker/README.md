@@ -562,25 +562,30 @@ btoa(String.fromCharCode(...new TextEncoder().encode(password)))
 (빌드가 후행 콜론을 뗀다). 보이는 대로 저장하면 그만큼 사라지므로, 입력칸은
 반드시 `GET` 이 준 글로 채운다.
 
-## 위프코리아 비공개 고객 서버 (구축 중)
+## 위프코리아 비공개 고객 서버
 
 기존 중계 서버와 분리된 설정은 `wrangler.private.toml`, 고객 DB 바인딩은
 `PRIVATE_DB`다. 기존 공지 DB와 다른 고객 DB를 사용한다.
-정상 결과 저장소와 고객·PM 인증 API를 구현했다. 기존 고객 비밀번호 확인값 이관과
-Notion 내부 권한 표·대표 등록도 완료했다. Google 앱 설정·실제 로그인 UI·데이터 제공·운영 주소 전환은 미완료다.
-공개 Worker 주소·미리보기·운영 route는 설정하지 않았다.
+정상 결과 저장소, 고객 비밀번호 로그인, 담당자 Google 로그인, 기존 화면 데이터 제공과
+공지 편집·게시, 자료 반영 요청·즐겨찾기, 주요 소통 변경을 연결했다. 담당자 변경은 매 요청마다
+Google 세션과 Notion 담당 권한을 다시 확인한다. 변경 뒤에는 `private_rebuild_job`에 갱신 요청을
+남기며, 예약 갱신이 완료·실패 상태를 기록한다. 공개 Worker 주소·미리보기·운영 route는 아직
+설정하지 않았으므로 기존 운영 주소는 바뀌지 않았다.
 
 ```powershell
 npx wrangler d1 migrations apply growthhigh-clientpage-private --config wrangler.private.toml --local
 npx wrangler d1 migrations apply growthhigh-clientpage-private --config wrangler.private.toml --remote
 npx wrangler dev --config wrangler.private.toml
-npm test -- test/private-store.test.js
+node scripts/build-private.mjs --local
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-private-refresh.ps1
+npm test
 ```
 
 저장소 검사는 현재 PC의 Node 24 내장 SQLite를 사용한다. 새 의존성은 추가하지 않았다.
 
-별도 서버는 `/health`에서 `{status:"setup", customerReady:false}`만 반환한다.
-기업 데이터 경로는 아직 없으며 페이지 데이터는 아직 이관하지 않았다.
-고객 비밀번호 확인값은 DB에 등록했으나 원문은 저장하지 않았다.
+예약 작업 `GrowthHigh Clientpage Private Refresh`는 로그인된 Windows 사용자로 매일
+09:00·13:00·18:00 실행하며, 중복 실행은 시작하지 않는다. 원격 빌드는 고객 공개가 승인된
+위프코리아 데이터만 비공개 D1에 저장하고 실패 시 이전 정상 결과를 유지한다.
+고객 비밀번호 확인값만 저장하며 원문은 저장하지 않는다.
 인증 API는 [`../docs/위프코리아-인증-명세.md`](../docs/위프코리아-인증-명세.md)를 따른다.
 계획·배포 기준은 [`../docs/위프코리아-기업배포-계획.md`](../docs/위프코리아-기업배포-계획.md)를 따른다.
