@@ -4,6 +4,7 @@ export const LOGIN_SCRIPT = String.raw`
   const el = id => document.getElementById(id);
   const staff = new URLSearchParams(location.search).has('edit');
   const kind = staff ? 'staff' : 'customer';
+  el('openpage').href = '/whiffkorea/page/' + (staff ? '?edit' : '');
   let googleReady, googleBusy = false, checkBusy = false, authenticated = false;
   const messages = {
     unauthorized: staff ? 'Google 로그인을 다시 확인해 주세요.' : '비밀번호가 올바르지 않습니다.',
@@ -156,7 +157,7 @@ export function loginPage(request) {
     <h1 id="gtitle">클라이언트 페이지</h1><p class="sub" id="gsub">담당 컨설턴트에게 받은 비밀번호를 입력해 주세요.</p>
     <div id="entry"><form id="gform"><input id="pw" type="password" autocomplete="current-password" placeholder="비밀번호" aria-label="비밀번호" required><button id="gbtn" type="submit">확인</button></form>
     <div id="staff-entry" hidden><div id="google"></div><button id="retry" type="button">Google 로그인 다시 준비</button></div></div>
-    <section id="result" hidden aria-label="로그인 확인 결과"><p id="scope"></p><p class="sub">로그인 연결 검수 화면입니다.<br>고객페이지 데이터 연결과 운영 주소 전환은 아직 하지 않았습니다.</p><button id="logout" type="button">로그아웃</button></section>
+    <section id="result" hidden aria-label="로그인 확인 결과"><p id="scope"></p><p class="sub">비공개 고객페이지 연결을 검수 중입니다.<br>운영 주소는 아직 전환하지 않았습니다.</p><a id="openpage" href="/whiffkorea/page/" style="display:block;margin:0 0 18px;color:var(--accent)">고객페이지 열기</a><button id="logout" type="button">로그아웃</button></section>
     <p class="msg" id="gmsg" role="status" aria-live="polite"></p></main>
     <script nonce="${nonce}">${LOGIN_SCRIPT}</script></body></html>`;
   return new Response(html, {headers:{

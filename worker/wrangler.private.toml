@@ -13,6 +13,11 @@ APP_ORIGIN = "https://client.growthhigh.co.kr"
 INTERNAL_USERS_DB_ID = "3df815d7-12b9-8174-812e-f72174dacc99"
 NOTION_VERSION = "2022-06-28"
 
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
 [[d1_databases]]
 binding = "PRIVATE_DB"
 database_name = "growthhigh-clientpage-private"

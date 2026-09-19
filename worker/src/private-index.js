@@ -5,6 +5,8 @@ import {
 } from "./private-auth.js";
 import { requireStaff, resolveStaff, verifyGoogleToken } from "./private-staff.js";
 import { loginPage } from "./private-ui.js";
+import { customerPage } from "./private-page.js";
+import { createPrivateStore } from "./private-store.js";
 
 // 인증 API만 연결됐다. 고객 데이터·기존 관리 API 연결은 다음 개발 작업이다.
 function json(body, status = 200, cookie) {
@@ -52,6 +54,27 @@ export default {
       return json({ status: "setup", customerReady: false });
     }
     const path = new URL(request.url).pathname;
+    const assetPath = path.replace(/^\/whiffkorea\/page\/(?=(?:logo|assets\/notice)\/)/, "/");
+    if (request.method === "GET" && (path === "/api/customer" || path === "/whiffkorea/page/"
+        || /^(?:\/logo\/whiffkorea|\/assets\/notice\/whiffkorea-[a-f0-9]{12})\.(?:png|jpg|jpeg|gif|webp)$/.test(assetPath))) {
+      try {
+        if (new URL(request.url).searchParams.has("edit")) await requireStaff(request,env);
+        else if (!await customerSession(request,env)) await requireStaff(request,env);
+        if (path === "/whiffkorea/page/") return customerPage();
+        const store = createPrivateStore(env);
+        if (path === "/api/customer") {
+          const latest = await store.latest("whiffkorea");
+          return latest ? json(latest.payload) : json({error:"data_not_ready"},503);
+        }
+        const asset = await store.asset("whiffkorea",assetPath.slice(1));
+        if (!asset) return json({error:"not_found"},404);
+        return new Response(Uint8Array.from(atob(asset.content_base64),c=>c.charCodeAt(0)),{headers:{
+          'content-type':asset.content_type,'cache-control':'no-store','x-content-type-options':'nosniff',
+          'content-security-policy':"default-src 'none'; sandbox",'x-frame-options':'DENY'}});
+      } catch (error) {
+        return json({error:error instanceof ApiError ? error.code : "internal_error"},error instanceof ApiError ? error.status : 500);
+      }
+    }
     const routes = ["/auth/customer/login", "/auth/customer/session", "/auth/customer/logout",
       "/auth/staff/challenge", "/auth/staff/login", "/auth/staff/session", "/auth/staff/logout",
       "/auth/customer/password"];

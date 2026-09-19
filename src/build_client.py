@@ -818,7 +818,9 @@ def save_remote_asset(url: str) -> str | None:
             ext = ".png"
         digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
         rel = f"{NOTICE_ASSET_DIR}/{slug}-{digest}{ext}"
-        if not _ASSET_CTX.get("dry_run"):
+        if _ASSET_CTX.get("asset_sink") is not None:
+            _ASSET_CTX["asset_sink"][rel] = {"type": ct, "data": r.content}
+        elif not _ASSET_CTX.get("dry_run"):
             atomic_write_bytes(ROOT / rel, r.content)
         _asset_cache[key] = rel
         return rel
@@ -1353,7 +1355,9 @@ def fetch_logo(icon: dict | None, slug: str, dry_run: bool) -> tuple[str | None,
             if ext not in CT_EXT.values():
                 ext = ".png"
         rel = f"logo/{slug}{ext}"
-        if not dry_run:
+        if _ASSET_CTX.get("asset_sink") is not None:
+            _ASSET_CTX["asset_sink"][rel] = {"type": ct, "data": r.content}
+        elif not dry_run:
             atomic_write_bytes(ROOT / rel, r.content)
         return rel, None
     except Exception as e:                      # noqa: BLE001 — 로고 실패로 빌드를 죽이지 않는다
@@ -2961,12 +2965,15 @@ def write_client_page(slug: str, dry_run: bool) -> None:
 def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
               skip_imap: bool, known_names: set[str],
               allow_plaintext: bool = False,
-              talks_days: int = TALKS_DAYS) -> dict:
+              talks_days: int = TALKS_DAYS, *, private_assets: dict | None = None) -> dict:
     slug = client["slug"]
+    if private_assets is not None and (slug != "whiffkorea" or not dry_run):
+        raise ValueError("private_projection_requires_whiffkorea_dry_run")
     log(f"\n▶ {slug}")
     # 공지·회의록 안의 노션 이미지를 어디에 저장할지 알려 준다. 만료되는 S3 주소를
     # JSON 에 넣지 않기 위해서다. 클라이언트마다 갈아끼운다.
     _ASSET_CTX["slug"], _ASSET_CTX["dry_run"] = slug, dry_run
+    _ASSET_CTX["asset_sink"] = private_assets
     warn_base = len(WARNINGS)             # 이 클라이언트 몫의 경고만 세려고 기준을 잡는다
     _asset_cache.clear()
     _SKIPPED.clear()
@@ -3095,6 +3102,9 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
         "events": events,
         "kpi": kpi,
     }
+
+    if private_assets is not None:
+        return {"slug": slug, "payload": payload, "warns": len(WARNINGS) - warn_base}
 
     password = client.get("password") or ""
     if not password:

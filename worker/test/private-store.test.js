@@ -52,6 +52,7 @@ describe("분리된 고객 정상 결과 저장소", () => {
   beforeEach(() => {
     sqlite = new DatabaseSync(":memory:");
     sqlite.exec(readFileSync(new URL("../private-migrations/0001_customer_snapshots.sql", import.meta.url), "utf8"));
+    sqlite.exec(readFileSync(new URL("../private-migrations/0003_private_assets.sql", import.meta.url), "utf8"));
     store = createPrivateStore({ PRIVATE_DB: d1(sqlite) });
   });
   afterEach(() => sqlite.close());
@@ -92,6 +93,7 @@ describe("분리된 고객 정상 결과 저장소", () => {
     for (const data of [null, {}, { ...payload(), password: "가상값" },
       { ...payload(), company: { name: "가상", password: "가상값" } },
       { ...payload(), generated_at: "wrong" }, { ...payload(), talks: {} },
+      { ...payload(), talks: [{pid:"internal-page"}] },
       payload("가".repeat(400000))]) {
       await expect(save("bad", 2, data)).rejects.toThrow();
     }
@@ -115,7 +117,7 @@ describe("고객 데이터 연결 전 서버는 로그인 화면 외에 닫혀 �
     const health = await worker.fetch(new Request("https://private.test/health"));
     expect(await health.json()).toEqual({ status: "setup", customerReady: false });
     expect(health.headers.get("cache-control")).toBe("no-store");
-    for (const path of ["/", "/api/customer", "/c/whiffkorea.enc"]) {
+    for (const path of ["/", "/c/whiffkorea.enc"]) {
       const result = await worker.fetch(new Request(`https://private.test${path}`));
       expect(result.status).toBe(404);
       expect(await result.json()).toEqual({ error: "not_found" });
