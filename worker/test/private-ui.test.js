@@ -28,7 +28,8 @@ function browserHarness(search = "", replies = []) {
   context.window = context;
   vm.runInNewContext(LOGIN_SCRIPT, context);
   const settle = async () => { for (let n = 0; n < 10; n++) await new Promise(resolve => setImmediate(resolve)); };
-  return {element, requests, timers, events, settle, prompts:() => prompts, googleLoads:() => googleLoads};
+  return {context, element, requests, timers, events, settle,
+    prompts:() => prompts, googleLoads:() => googleLoads};
 }
 
 describe("위프코리아 로그인 화면", () => {
@@ -77,6 +78,15 @@ describe("위프코리아 로그인 화면", () => {
     expect(h.requests[1].url).toBe("/whiffkorea/auth/customer/logout");
     expect(h.element("result").hidden).toBe(true);
     expect(LOGIN_SCRIPT).not.toMatch(/(?:localStorage|sessionStorage)/);
+  });
+  it("Google 자동 선택 해제 기능이 없어도 담당자 로그아웃을 완료한다", async () => {
+    const h = browserHarness("?edit", [{body:{authenticated:true,role:"대표",slug:"whiffkorea"}},
+      {body:{authenticated:false}}, {body:{nonce:"synthetic-nonce",clientId:"synthetic-client"}}]);
+    await h.settle(); h.context.google.accounts.id.disableAutoSelect = undefined;
+    await h.element("logout").handlers.click();
+    expect(h.element("result").hidden).toBe(true);
+    expect(h.element("entry").hidden).toBe(false);
+    expect(h.element("gmsg").textContent).toBe("");
   });
   it("담당자는 별도 로그인 경로를 쓰고 처음부터 자동 로그인 팝업을 반복하지 않는다", async () => {
     const h = browserHarness("?edit", [{status:401,body:{error:"unauthorized"}},

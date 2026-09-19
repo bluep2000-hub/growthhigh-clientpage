@@ -119,7 +119,8 @@ export const LOGIN_SCRIPT = String.raw`
     el('logout').disabled = true;
     try {
       await call('logout', {});
-      if (staff && window.google) google.accounts.id.disableAutoSelect();
+      if (staff && window.google?.accounts?.id?.disableAutoSelect)
+        google.accounts.id.disableAutoSelect();
       showSession({authenticated:false});
       if (staff) await prepareGoogle(false); else el('pw').focus();
     } catch (err) { message(err.message); }
