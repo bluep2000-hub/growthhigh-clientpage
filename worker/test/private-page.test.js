@@ -1,4 +1,5 @@
 import {describe,expect,it} from "vitest";
+import {readFileSync} from "node:fs";
 import worker from "../src/private-index.js";
 import {customerPage} from "../src/private-page.js";
 import {privateDb} from "./private-db.js";
@@ -9,6 +10,12 @@ const data = () => ({generated_at:"2026-09-19T12:00:00+09:00",company:{name:"가
   perf:null,progress:[],recommend:[],talks:[],actions:[],actions_done:0,events:[],kpi:{}});
 
 describe("비공개 고객 데이터와 기존 화면 연결",()=>{
+  it("기존 위프코리아 주소는 검색값과 화면 위치를 보안 주소로 넘긴다",()=>{
+    const html=readFileSync(new URL("../../whiffkorea/index.html",import.meta.url),"utf8");
+    expect(html).toContain("location.search + location.hash");
+    expect(html).toContain("growthhigh-clientpage-private.growthhigh-clientpage-worker.workers.dev/whiffkorea/");
+    expect(html).not.toContain("데이터룸");
+  });
   it("고객 UI는 기존 구조를 유지하고 공개 봉투·캐시로 잠금 해제를 하지 않는다",async()=>{
     const page = customerPage(); const html = await page.text();
     expect(html).toContain("데이터룸");

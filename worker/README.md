@@ -571,8 +571,9 @@ btoa(String.fromCharCode(...new TextEncoder().encode(password)))
 Google 세션과 Notion 담당 권한을 다시 확인한다. 변경 뒤에는 `private_rebuild_job`에 갱신 요청을
 남기며, 예약 갱신이 완료·실패 상태를 기록한다. 로그인·데이터·편집 API는 모두
 `/whiffkorea/` 아래에만 열리며 사이트 공용 경로와 다른 기업 경로는 거절한다.
-공개 Worker 주소·미리보기·운영 route는 아직
-설정하지 않았으므로 기존 운영 주소는 바뀌지 않았다.
+운영 주소는 `https://growthhigh-clientpage-private.growthhigh-clientpage-worker.workers.dev/whiffkorea/`다.
+기존 `client.growthhigh.co.kr/whiffkorea/`는 검색값과 화면 위치를 보존해 이 주소로 이동한다.
+미리보기 주소와 Cloudflare route는 사용하지 않는다.
 
 ```powershell
 npx wrangler d1 migrations apply growthhigh-clientpage-private --config wrangler.private.toml --local

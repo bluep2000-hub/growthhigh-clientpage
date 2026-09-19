@@ -58,6 +58,10 @@ jobs:
             echo "슬러그가 비어 있습니다. 신호에 client_payload.slug 가 없습니다."
             exit 1
           fi
+          if [ "$SLUG" = "whiffkorea" ]; then
+            echo "위프코리아는 비공개 서버에서 갱신합니다. GitHub 공개 파일은 다시 만들지 않습니다."
+            exit 0
+          fi
           git config user.name  "growthhigh-bot"
           git config user.email "growthhigh.yun@gmail.com"
           python src/publish.py --client "$SLUG" --skip-imap
