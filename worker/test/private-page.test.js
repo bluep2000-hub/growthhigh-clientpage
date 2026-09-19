@@ -10,6 +10,12 @@ const data = () => ({generated_at:"2026-09-19T12:00:00+09:00",company:{name:"가
   perf:null,progress:[],recommend:[],talks:[],actions:[],actions_done:0,events:[],kpi:{}});
 
 describe("비공개 고객 데이터와 기존 화면 연결",()=>{
+  it("운영 설정은 자체 도메인의 위프코리아 경로만 Worker로 보낸다",()=>{
+    const config=readFileSync(new URL("../wrangler.private.toml",import.meta.url),"utf8");
+    expect(config).toContain('pattern = "client.growthhigh.co.kr/whiffkorea*"');
+    expect(config).toContain('zone_name = "growthhigh.co.kr"');
+    expect(config).toContain('APP_ORIGIN = "https://client.growthhigh.co.kr"');
+  });
   it("기존 위프코리아 주소는 검색값과 화면 위치를 보안 주소로 넘긴다",()=>{
     const html=readFileSync(new URL("../../whiffkorea/index.html",import.meta.url),"utf8");
     expect(html).toContain("location.search + location.hash");
