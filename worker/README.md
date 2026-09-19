@@ -569,7 +569,9 @@ btoa(String.fromCharCode(...new TextEncoder().encode(password)))
 정상 결과 저장소, 고객 비밀번호 로그인, 담당자 Google 로그인, 기존 화면 데이터 제공과
 공지 편집·게시, 자료 반영 요청·즐겨찾기, 주요 소통 변경을 연결했다. 담당자 변경은 매 요청마다
 Google 세션과 Notion 담당 권한을 다시 확인한다. 변경 뒤에는 `private_rebuild_job`에 갱신 요청을
-남기며, 예약 갱신이 완료·실패 상태를 기록한다. 공개 Worker 주소·미리보기·운영 route는 아직
+남기며, 예약 갱신이 완료·실패 상태를 기록한다. 로그인·데이터·편집 API는 모두
+`/whiffkorea/` 아래에만 열리며 사이트 공용 경로와 다른 기업 경로는 거절한다.
+공개 Worker 주소·미리보기·운영 route는 아직
 설정하지 않았으므로 기존 운영 주소는 바뀌지 않았다.
 
 ```powershell

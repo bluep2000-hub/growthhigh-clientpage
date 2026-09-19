@@ -16,7 +16,7 @@ describe("PM 로그인 새 연결", () => {
   let privateKey;
   let registered;
   const origin = "https://private.test";
-  const post = (path, body, cookie) => worker.fetch(new Request(origin + path, {
+  const post = (path, body, cookie) => worker.fetch(new Request(origin + "/whiffkorea" + path, {
     method: "POST", headers: { origin, "content-type": "application/json", ...(cookie ? { cookie } : {}) },
     body: JSON.stringify(body),
   }), env);

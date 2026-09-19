@@ -113,11 +113,11 @@ describe("분리된 고객 정상 결과 저장소", () => {
 });
 
 describe("고객 데이터 연결 전 서버는 로그인 화면 외에 닫혀 있다", () => {
-  it("건강 확인은 운영 준비 미완료를 알리고 기업 데이터 경로는 제공하지 않는다", async () => {
-    const health = await worker.fetch(new Request("https://private.test/health"));
+  it("위프코리아 건강 확인은 운영 준비 상태를 알리고 공용 경로는 만들지 않는다", async () => {
+    const health = await worker.fetch(new Request("https://private.test/whiffkorea/health"));
     expect(await health.json()).toEqual({ status: "setup", customerReady: false });
     expect(health.headers.get("cache-control")).toBe("no-store");
-    for (const path of ["/", "/c/whiffkorea.enc"]) {
+    for (const path of ["/", "/health", "/c/whiffkorea.enc"]) {
       const result = await worker.fetch(new Request(`https://private.test${path}`));
       expect(result.status).toBe(404);
       expect(await result.json()).toEqual({ error: "not_found" });

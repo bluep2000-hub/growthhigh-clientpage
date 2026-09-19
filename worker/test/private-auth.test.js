@@ -17,7 +17,7 @@ const CLIENT_PAGE = "22222222-2222-2222-2222-222222222222";
 describe("고객·PM 서버 인증 경계", () => {
   let sqlite;
   let env;
-  const request = (path, input, cookie, origin = ORIGIN) => new Request(`${ORIGIN}${path}`, {
+  const request = (path, input, cookie, origin = ORIGIN) => new Request(`${ORIGIN}/whiffkorea${path}`, {
     method: input === undefined ? "GET" : "POST",
     headers: { origin, "content-type": "application/json", "cf-connecting-ip": "192.0.2.1",
       ...(cookie ? { cookie } : {}) },
@@ -189,7 +189,7 @@ describe("고객·PM 서버 인증 경계", () => {
       expect((await call(path, undefined, cookie)).status).toBe(401);
     expect((await call('/api/customer',undefined,cookie)).status).toBe(503);
     expect((await call("/auth/customer/login")).status).toBe(405);
-    const bad = new Request(`${ORIGIN}/auth/customer/login`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json" }, body: "x".repeat(17000) });
+    const bad = new Request(`${ORIGIN}/whiffkorea/auth/customer/login`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json" }, body: "x".repeat(17000) });
     expect((await worker.fetch(bad, env)).status).toBe(413);
     const result = await call("/auth/customer/login", { slug: "whiffkorea", password: "wrong" });
     expect(await result.json()).toEqual({ error: "unauthorized" });

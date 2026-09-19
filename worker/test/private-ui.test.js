@@ -54,7 +54,7 @@ describe("위프코리아 로그인 화면", () => {
     expect(h.googleLoads()).toBe(0);
     h.element("pw").value = "synthetic-test-password";
     await h.element("gform").handlers.submit({preventDefault() {}});
-    expect(h.requests[1].url).toBe("/auth/customer/login");
+    expect(h.requests[1].url).toBe("/whiffkorea/auth/customer/login");
     expect(h.requests[1].options.credentials).toBe("same-origin");
     expect(h.requests[1].options.body).toContain("synthetic-test-password");
     expect(h.element("pw").value).toBe("");
@@ -72,7 +72,7 @@ describe("위프코리아 로그인 화면", () => {
   it("로그아웃 성공 후 인증 결과를 숨기며 세션 원문을 브라우저 저장소에 두지 않는다", async () => {
     const h = browserHarness("", [{body:{authenticated:true,slug:"whiffkorea"}}, {body:{authenticated:false}}]);
     await h.settle(); await h.element("logout").handlers.click();
-    expect(h.requests[1].url).toBe("/auth/customer/logout");
+    expect(h.requests[1].url).toBe("/whiffkorea/auth/customer/logout");
     expect(h.element("result").hidden).toBe(true);
     expect(LOGIN_SCRIPT).not.toMatch(/(?:localStorage|sessionStorage)/);
   });
@@ -81,7 +81,7 @@ describe("위프코리아 로그인 화면", () => {
       {body:{nonce:"synthetic-nonce",clientId:"synthetic-client"}}, {status:401,body:{error:"unauthorized"}}]);
     await h.settle(); await h.timers[0]();
     expect(h.element("gform").hidden).toBe(true);
-    expect(h.requests.map(r => r.url)).toEqual(["/auth/staff/session","/auth/staff/challenge"]);
+    expect(h.requests.map(r => r.url)).toEqual(["/whiffkorea/auth/staff/session","/whiffkorea/auth/staff/challenge"]);
     expect(h.element("gmsg").textContent).toBe("");
     expect(h.prompts()).toBe(0);
   });

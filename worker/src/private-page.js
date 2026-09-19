@@ -8,7 +8,7 @@ export function customerPage(staff = false) {
   if (start < 0 || end < start) throw new Error("private_template_boundary_missing");
   const boot = `(async function boot(){
     try {
-      const response = await fetch('/api/customer'+location.search, {cache:'no-store',credentials:'same-origin'});
+      const response = await fetch('/whiffkorea/api/customer'+location.search, {cache:'no-store',credentials:'same-origin'});
       if (response.status === 401 || response.status === 403) return location.replace('/whiffkorea/' + location.search);
       if (!response.ok) return fatal('정보를 준비하고 있습니다.<br>잠시 후 다시 접속해 주세요.');
       const data = await response.json();
@@ -29,7 +29,7 @@ export function customerPage(staff = false) {
     on(){ return this.can() && this.active; },
     async unlock(){ await this.call('GET','/auth/staff/session'); this.active=true; return true; },
     async call(method,path,body,signal){
-      const response=await fetch(path,{method,credentials:'same-origin',cache:'no-store',
+      const response=await fetch('/whiffkorea'+path,{method,credentials:'same-origin',cache:'no-store',
         headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,signal});
       const data=await response.json();
       if(!response.ok){const error=new Error(data.detail||data.error||'연결하지 못했습니다');error.status=response.status;error.code=data.error;error.data=data;

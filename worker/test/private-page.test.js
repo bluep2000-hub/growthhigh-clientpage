@@ -12,7 +12,7 @@ describe("비공개 고객 데이터와 기존 화면 연결",()=>{
   it("고객 UI는 기존 구조를 유지하고 공개 봉투·캐시로 잠금 해제를 하지 않는다",async()=>{
     const page = customerPage(); const html = await page.text();
     expect(html).toContain("데이터룸");
-    expect(html).toContain("fetch('/api/customer'+location.search");
+    expect(html).toContain("fetch('/whiffkorea/api/customer'+location.search");
     expect(html).not.toContain("res = await fetch(SRC");
     expect(html).not.toContain("const cached = sessionStorage.getItem(SKEY)");
     expect(html).toContain("ENV = {enc:false}");
@@ -22,6 +22,7 @@ describe("비공개 고객 데이터와 기존 화면 연결",()=>{
     const staff = await customerPage(true).text();
     expect(staff).toContain("can(){ return true; }");
     expect(staff).toContain("credentials:'same-origin'");
+    expect(staff).toContain("fetch('/whiffkorea'+path");
     expect(staff).not.toContain("sessionStorage.setItem(SKEY, JSON.stringify(D))");
     expect(staff).not.toContain("github.com/bluep2000-hub/growthhigh-clientpage/actions");
     expect(staff).toContain("다음 자동 갱신 때 반영됩니다");
@@ -29,10 +30,16 @@ describe("비공개 고객 데이터와 기존 화면 연결",()=>{
   });
   it("미인증 고객은 화면·본문·이미지 모두 받을 수 없다",async()=>{
     const {sqlite,db} = privateDb();
-    try { for(const path of ['/api/customer','/whiffkorea/page/','/logo/whiffkorea.png','/whiffkorea/page/logo/whiffkorea.png']) {
+    try { for(const path of ['/whiffkorea/api/customer','/whiffkorea/page/','/whiffkorea/page/logo/whiffkorea.png']) {
       const response = await worker.fetch(new Request('https://private.test'+path),{PRIVATE_DB:db});
       expect(response.status).toBe(401); expect(await response.text()).not.toContain('가상 고객');
     }} finally {sqlite.close();}
+  });
+  it("위프코리아 밖의 공용 경로에는 고객 API를 만들지 않는다",async()=>{
+    for(const path of ['/api/customer','/auth/customer/session','/notice/doc','/room/pin','/talk/major']) {
+      const response=await worker.fetch(new Request('https://private.test'+path));
+      expect(response.status).toBe(404);
+    }
   });
   it("미완성 결과와 이미지 누락을 거절하고 완성된 같은 판만 읽는다",async()=>{
     const {sqlite,db} = privateDb(); const store=createPrivateStore({PRIVATE_DB:db});

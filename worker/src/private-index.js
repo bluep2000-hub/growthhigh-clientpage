@@ -9,7 +9,8 @@ import { customerPage } from "./private-page.js";
 import { createPrivateStore } from "./private-store.js";
 import { EDITOR_ROUTES, editorRequest } from "./private-editor.js";
 
-// 인증 API만 연결됐다. 고객 데이터·기존 관리 API 연결은 다음 개발 작업이다.
+const SCOPE = "/whiffkorea";
+
 function json(body, status = 200, cookie) {
   return Response.json(body, { status, headers: {
     "cache-control": "no-store", "x-content-type-options": "nosniff",
@@ -47,19 +48,35 @@ async function body(request, limit = 16384) {
   } catch { /* 아래에서 거절 */ }
   throw unprocessable();
 }
+function scopedPath(url) {
+  if (url.pathname === SCOPE) return "/";
+  return url.pathname.startsWith(SCOPE + "/") ? url.pathname.slice(SCOPE.length) : null;
+}
+function routedRequest(request, path) {
+  const url = new URL(request.url);
+  url.pathname = path;
+  return new Request(url, { method: request.method, headers: request.headers });
+}
 export default {
   async fetch(request, env = {}) {
-    if (request.method === "GET" && new URL(request.url).pathname === "/whiffkorea/")
+    const url = new URL(request.url);
+    const path = scopedPath(url);
+    if (path === null) return json({ error: "not_found" }, 404);
+    if (request.method === "GET" && path === "/")
       return loginPage(request);
-    if (request.method === "GET" && new URL(request.url).pathname === "/health") {
-      return json({ status: "setup", customerReady: false });
+    if (request.method === "GET" && path === "/health") {
+      try {
+        const ready = !!await createPrivateStore(env).latest("whiffkorea");
+        return json({ status: ready ? "ready" : "setup", customerReady: ready });
+      } catch {
+        return json({ status: "setup", customerReady: false });
+      }
     }
-    const path = new URL(request.url).pathname;
     if (EDITOR_ROUTES.has(path)) {
       try {
         await requireStaff(request, env);
         if (request.method !== "GET") sameOrigin(request, env);
-        return await editorRequest(request, env,
+        return await editorRequest(routedRequest(request, path), env,
           request.method === "GET" ? undefined : await body(request, 1048576));
       } catch (error) {
         return json({ ...(error instanceof ApiError && error.status === 409 ? error.extra : {}),
@@ -67,13 +84,13 @@ export default {
         error instanceof ApiError ? error.status : 500);
       }
     }
-    const assetPath = path.replace(/^\/whiffkorea\/page\/(?=(?:logo|assets\/notice)\/)/, "/");
-    if (request.method === "GET" && (path === "/api/customer" || path === "/whiffkorea/page/"
+    const assetPath = path.replace(/^\/page\/(?=(?:logo|assets\/notice)\/)/, "/");
+    if (request.method === "GET" && (path === "/api/customer" || path === "/page/"
         || /^(?:\/logo\/whiffkorea|\/assets\/notice\/whiffkorea-[a-f0-9]{12})\.(?:png|jpg|jpeg|gif|webp)$/.test(assetPath))) {
       try {
         if (new URL(request.url).searchParams.has("edit")) await requireStaff(request,env);
         else if (!await customerSession(request,env)) await requireStaff(request,env);
-        if (path === "/whiffkorea/page/")
+        if (path === "/page/")
           return customerPage(new URL(request.url).searchParams.has("edit"));
         const store = createPrivateStore(env);
         if (path === "/api/customer") {

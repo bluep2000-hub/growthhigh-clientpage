@@ -22,7 +22,7 @@ export const LOGIN_SCRIPT = String.raw`
   async function call(path, input) {
     let res;
     try {
-      res = await fetch('/auth/' + kind + '/' + path, {
+      res = await fetch('/whiffkorea/auth/' + kind + '/' + path, {
         method: input === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store',
         headers: input === undefined ? {} : {'Content-Type':'application/json'},
         body: input === undefined ? undefined : JSON.stringify(input),
