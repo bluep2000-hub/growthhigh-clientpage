@@ -3058,8 +3058,8 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
               allow_plaintext: bool = False,
               talks_days: int = TALKS_DAYS, *, private_assets: dict | None = None) -> dict:
     slug = client["slug"]
-    if private_assets is not None and (slug != "whiffkorea" or not dry_run):
-        raise ValueError("private_projection_requires_whiffkorea_dry_run")
+    if private_assets is not None and not dry_run:
+        raise ValueError("private_projection_requires_dry_run")
     log(f"\n▶ {slug}")
     # 공지·회의록 안의 노션 이미지를 어디에 저장할지 알려 준다. 만료되는 S3 주소를
     # JSON 에 넣지 않기 위해서다. 클라이언트마다 갈아끼운다.
