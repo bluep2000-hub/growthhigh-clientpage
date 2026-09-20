@@ -22,7 +22,6 @@ class PrivateProjectionTests(unittest.TestCase):
             patch.object(builder, "fetch_company", return_value={"name": "보울게임즈"}),
             patch.object(builder, "fetch_projects", return_value=[]),
             patch.object(builder, "relay_notice", return_value=None),
-            patch.object(builder, "fetch_notice", return_value=None),
             patch.object(builder, "fetch_logo", return_value=(None, None)),
             patch.object(builder, "fetch_recommend", return_value=[]),
             patch.object(builder, "build_talks", return_value=[]),
@@ -45,6 +44,15 @@ class PrivateProjectionTests(unittest.TestCase):
 
         self.assertEqual(result["slug"], "bowlgames")
         self.assertEqual(result["payload"]["company"]["name"], "보울게임즈")
+
+    def test_missing_legacy_notice_source_is_an_empty_state_not_a_warning(self):
+        result = builder.build_one(
+            object(), self.client, False, True, True, {"보울게임즈"},
+            private_assets={},
+        )
+
+        self.assertIsNone(result["payload"]["notice"])
+        self.assertEqual(result["warns"], 0)
 
     def test_private_projection_still_requires_dry_run(self):
         with self.assertRaisesRegex(ValueError, "private_projection_requires_dry_run"):

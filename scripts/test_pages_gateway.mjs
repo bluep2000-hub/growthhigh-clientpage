@@ -45,4 +45,10 @@ env.PRIVATE_WORKER.fetch = () => Response.json({error:"not_found"},{status:404})
 assert.equal(await (await onRequest({request:new Request("https://client.growthhigh.co.kr/zeroback/"),env,
   next:() => new Response("static")})).text(), "static");
 
+const missingDraft = await onRequest({request:new Request(
+  "https://client.growthhigh.co.kr/bowlgames/notice/doc/draft?slug=bowlgames"),env,
+  next:() => new Response("static")});
+assert.equal(missingDraft.status, 404);
+assert.deepEqual(await missingDraft.json(), {error:"not_found"});
+
 console.log("Cloudflare Pages gateway checks passed");

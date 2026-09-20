@@ -17,6 +17,10 @@ export async function onRequest({ request, env, next }) {
     init.duplex = "half";
   }
   const response = await env.PRIVATE_WORKER.fetch(new Request(target, init));
-  return response.status === 404 && ["GET", "HEAD"].includes(request.method)
+  const staticPath = incoming.pathname === "/"
+    || /^\/[^/]+\/?$/.test(incoming.pathname)
+    || /^\/[^/]+\/index\.html$/.test(incoming.pathname)
+    || /^\/c\/[^/]+\.enc$/.test(incoming.pathname);
+  return response.status === 404 && staticPath && ["GET", "HEAD"].includes(request.method)
     ? next() : response;
 }

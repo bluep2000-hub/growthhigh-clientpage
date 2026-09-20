@@ -1198,7 +1198,6 @@ def notice_from_doc(doc: dict) -> dict | None:
 def fetch_notice(nt: Notion, url: str | None) -> dict | None:
     source_id = notice_source_id(url)
     if not source_id:
-        warn("공지 DB URL 이 없거나 ID 를 뽑지 못했습니다 — notice 생략")
         return None
 
     src = notice_source(nt, source_id)
