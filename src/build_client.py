@@ -1697,6 +1697,10 @@ TALK_CHANNELS_WITH_MINUTES = {"미팅", "통화"}
 
 # 사람이 손으로 분류해둔 고객사 폴더를 그대로 쓴다. 발신 도메인 추측보다 정확하다.
 TALKS_FOLDER_PREFIX = "Inbox.고객사."
+# 신규 고객은 전용 폴더가 만들어지기 전, 이 공용 폴더에서 제목 말머리로 관리되기도
+# 한다. 다우오피스에서 실제로 쓰는 이름이다. 제목의 [기업명]이 정확히 맞는 메일만
+# 읽으므로 다른 고객사 메일은 섞이지 않는다.
+TALKS_SHARED_FOLDER = "Inbox.그로스하이"
 TALKS_DAYS = 90                 # 기본 수집 기간. --talks-days 로 바꾼다 (0 = 제한 없음)
 TALKS_FETCH_MAX = 250           # 폴더에서 읽어올 최근 메일 수
 # JSON 에 담을 수. 노션 page_size 상한이 100 이고 페이지네이션을 하지 않으므로
@@ -2137,6 +2141,15 @@ def subject_companies(title: str, known: set[str]) -> set[str]:
     return out
 
 
+def shared_folder_mails(mails: list[dict], company_name: str,
+                        known_names: set[str]) -> list[dict]:
+    """공용 폴더에서 제목 말머리가 정확히 이 기업인 메일만 남긴다."""
+    company_key = name_key(company_name)
+    known = known_names | {company_key}
+    return [mail for mail in mails
+            if company_key in subject_companies(mail.get("title") or "", known)]
+
+
 def own_addresses() -> set[str]:
     """우리 쪽 주소. 담당자 개인 메일처럼 우리 도메인이 아닌 것도 있어
     .env 의 OWN_MAIL_EXTRA 로 받는다. 이 주소들은 「상대방」이 아니다."""
@@ -2190,6 +2203,13 @@ def find_sent_folder(list_data) -> str | None:
         if leaf in SENT_FOLDER_NAMES or name.strip().lower() in SENT_FOLDER_NAMES:
             return raw
     return None
+
+
+def find_folder(list_data, target: str) -> str | None:
+    """LIST 결과에서 표시 이름이 target과 정확히 같은 메일함 원본 이름을 찾는다."""
+    target = nfc(target)
+    return next((raw for raw in (list_raw_name(x) for x in list_data or [])
+                 if raw and nfc(imap_utf7_decode(raw)) == target), None)
 
 
 def sent_belongs(mail: dict, company_key: str, known: set[str],
@@ -2260,7 +2280,9 @@ def fetch_mails(company_name: str, known_names: set[str],
                 talks_days: int = TALKS_DAYS) -> list[dict]:
     """고객사 폴더 + 보낸메일함에서 talks_days 일치 메일을 읽는다 (0 = 전부).
 
-    폴더명이 정확히 일치하는 것만 쓴다. 없으면 빈 목록 + 경고 — 추측하지 않는다.
+    전용 폴더가 있으면 그대로 쓴다. 없으면 공용 그로스하이 폴더에서 제목의
+    [기업명] 말머리가 정확히 일치하는 것만 쓴다. 이름을 추측하거나 부분 일치시키지
+    않는다.
     보낸 것은 폴더로 갈릴 수 없어 받은 메일에서 뽑은 주소로 수신자를 맞춘다.
     """
     host = os.environ.get("IMAP_HOST", "").strip()
@@ -2283,14 +2305,21 @@ def fetch_mails(company_name: str, known_names: set[str],
         M.login(user, password)
 
         typ, list_data = M.list()
-        target = nfc(TALKS_FOLDER_PREFIX + company_name)
-        folder = next((raw for raw in (list_raw_name(x) for x in list_data or [])
-                       if raw and nfc(imap_utf7_decode(raw)) == target), None)
+        dedicated_name = TALKS_FOLDER_PREFIX + company_name
+        folder = find_folder(list_data, dedicated_name)
+        shared = folder is None
         if folder is None:
-            warn(f"메일 폴더 없음 — 메일 수집 생략: {TALKS_FOLDER_PREFIX}{company_name}")
-            return []
+            folder = find_folder(list_data, TALKS_SHARED_FOLDER)
+            if folder is None:
+                warn(f"메일 폴더 없음 — 메일 수집 생략: {dedicated_name} / "
+                     f"{TALKS_SHARED_FOLDER}")
+                return []
+            log(f"  전용 메일함 없음 — {TALKS_SHARED_FOLDER}에서 "
+                f"제목 [{company_name}] 메일을 찾습니다")
 
         received, exists = scan_folder(M, folder, talks_days)
+        if shared:
+            received = shared_folder_mails(received, company_name, known_names)
         if len(received) > TALKS_FETCH_MAX:
             warn(f"받은메일 {len(received)}건 중 최근 {TALKS_FETCH_MAX}건만 씁니다"
                  f" — 나머지 {len(received) - TALKS_FETCH_MAX}건은 버립니다")
@@ -2444,6 +2473,69 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
             warn(f"소통 DB 쓰기 실패 — 건너뜁니다: {e}")
 
     log(f"  소통 DB: {added}건 추가(공개) · {skipped}건 중복 건너뜀")
+
+
+def sync_mail_drafts_to_board(nt: Notion, company_name: str,
+                              mails: list[dict]) -> None:
+    """메일을 커뮤니케이션보드의 비공개 초안으로 옮긴다.
+
+    고객에게 보이는 것은 여전히 PM이 `고객 공개`를 체크한 기록뿐이다. 보드에
+    Message-ID 속성이 없으므로 같은 기업의 날짜+제목으로 재실행 중복을 막는다.
+    """
+    try:
+        rows = nt.query_all(TALKS_DB_ID, {
+            "filter": {"and": [
+                {"property": "기업명", "multi_select": {"contains": company_name}},
+                {"property": "소통형태", "multi_select": {"contains": "메일"}},
+            ]},
+        })
+    except ClientFailure as e:
+        warn(f"커뮤니케이션보드 기존 메일 조회 실패 — 초안 쓰기 생략: {e}")
+        return
+
+    seen = set()
+    for row in rows:
+        props = row.get("properties", {})
+        date_value = p_date(props, "일자").get("start") or ""
+        seen.add((date_value[:10], p_text(props, "상세내용")))
+
+    added = skipped = 0
+    for mail in mails:
+        key = ((mail.get("date") or "")[:10], mail.get("title") or "")
+        if key in seen:
+            skipped += 1
+            continue
+
+        props = {
+            "상세내용": {"title": [{"text": {"content": key[1][:2000]}}]},
+            "기업명": {"multi_select": [{"name": company_name}]},
+            "소통형태": {"multi_select": [{"name": "메일"}]},
+            "고객 공개": {"checkbox": False},
+            "주요사항 확인": {"checkbox": False},
+        }
+        if key[0]:
+            props["일자"] = {"date": {"start": key[0]}}
+
+        body = (mail.get("body") or "").strip()
+        children = [
+            {"object": "block", "type": "paragraph", "paragraph": {
+                "rich_text": [{"type": "text", "text": {"content": body[i:i + 1900]}}],
+            }}
+            for i in range(0, len(body), 1900)
+        ]
+        payload = {"parent": {"database_id": TALKS_DB_ID}, "properties": props}
+        if children:
+            payload["children"] = children
+
+        try:
+            nt.post("/pages", payload)
+            seen.add(key)
+            added += 1
+        except ClientFailure as e:
+            warn(f"커뮤니케이션보드 메일 초안 쓰기 실패 — 건너뜁니다: {e}")
+
+    log(f"  커뮤니케이션보드 메일 초안: {added}건 추가(비공개) · "
+        f"{skipped}건 중복 건너뜀")
 
 
 # ── 회의록 본문: 페이지 블록 → HTML ──────────────────────────────────────
@@ -2852,6 +2944,7 @@ def build_talks(nt: Notion, client: dict, company_name: str,
             log(f"  (dry-run) 노션 쓰기 건너뜀 — 대상 {len(mails)}건")
         elif mails:
             sync_mails_to_notion(nt, client["page_id"], mails)
+            sync_mail_drafts_to_board(nt, company_name, mails)
     # IMAP 이 실패해도 읽기는 그대로 진행한다.
     return read_talks(nt, company_name)
 
