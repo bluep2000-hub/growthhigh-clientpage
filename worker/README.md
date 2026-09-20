@@ -562,7 +562,7 @@ btoa(String.fromCharCode(...new TextEncoder().encode(password)))
 (빌드가 후행 콜론을 뗀다). 보이는 대로 저장하면 그만큼 사라지므로, 입력칸은
 반드시 `GET` 이 준 글로 채운다.
 
-## 위프코리아 비공개 고객 서버
+## 비공개 고객 서버
 
 기존 중계 서버와 분리된 설정은 `wrangler.private.toml`, 고객 DB 바인딩은
 `PRIVATE_DB`다. 기존 공지 DB와 다른 고객 DB를 사용한다.
@@ -570,10 +570,10 @@ btoa(String.fromCharCode(...new TextEncoder().encode(password)))
 공지 편집·게시, 자료 반영 요청·즐겨찾기, 주요 소통 변경을 연결했다. 담당자 변경은 매 요청마다
 Google 세션과 Notion 담당 권한을 다시 확인한다. 변경 뒤에는 `private_rebuild_job`에 갱신 요청을
 남기며, 예약 갱신이 완료·실패 상태를 기록한다. 로그인·데이터·편집 API는 모두
-`/whiffkorea/` 아래에만 열리며 사이트 공용 경로와 다른 기업 경로는 거절한다.
-운영 주소는 `https://growthhigh-clientpage-private.growthhigh-clientpage-worker.workers.dev/whiffkorea/`다.
-기존 `client.growthhigh.co.kr/whiffkorea/`는 검색값과 화면 위치를 보존해 이 주소로 이동한다.
-미리보기 주소와 Cloudflare route는 사용하지 않는다.
+`/<슬러그>/` 아래에서 해당 기업 데이터만 연다. 다른 기업의 로그인·데이터·파일은 서로
+사용할 수 없다. 고객용 운영 주소는 `https://client.growthhigh.co.kr/<슬러그>/`다.
+Cloudflare Pages가 이 경로를 비공개 Worker로 내부 전달하며, 미리보기 주소와 Cloudflare route는
+사용하지 않는다.
 
 ```powershell
 npx wrangler d1 migrations apply growthhigh-clientpage-private --config wrangler.private.toml --local
@@ -587,10 +587,13 @@ npm test
 저장소 검사는 현재 PC의 Node 24 내장 SQLite를 사용한다. 새 의존성은 추가하지 않았다.
 
 예약 작업 `GrowthHigh Clientpage Private Refresh`는 로그인된 Windows 사용자로 매일
-09:00·13:00·18:00 실행하며, 중복 실행은 시작하지 않는다. 원격 빌드는 고객 공개가 승인된
-위프코리아 데이터만 비공개 D1에 저장하고 실패 시 이전 정상 결과를 유지한다. 설치할 때
+09:00·13:00·18:00 실행하며, 중복 실행은 시작하지 않는다. 원격 빌드는 고객 비밀번호가 등록된
+기업을 자동으로 찾아 각 기업의 고객 공개 승인 데이터만 비공개 D1에 저장하고, 실패 시 해당
+기업의 이전 정상 결과를 유지한다. 설치할 때
 현재 PC의 Node와 Python 실행 파일 위치를 예약 작업에 고정하므로 백그라운드 실행이
 사용자 `PATH` 설정에 의존하지 않는다.
-고객 비밀번호 확인값만 저장하며 원문은 저장하지 않는다.
+고객 비밀번호는 담당자가 `/<슬러그>/?edit`에서 설정한다. 서버에는 확인값만 저장하며 원문은
+저장하지 않는다. 신규 제작 절차는
+[`../docs/신규-클라이언트페이지-제작-워크플로우.md`](../docs/신규-클라이언트페이지-제작-워크플로우.md)를 따른다.
 인증 API는 [`../docs/위프코리아-인증-명세.md`](../docs/위프코리아-인증-명세.md)를 따른다.
 계획·배포 기준은 [`../docs/위프코리아-기업배포-계획.md`](../docs/위프코리아-기업배포-계획.md)를 따른다.

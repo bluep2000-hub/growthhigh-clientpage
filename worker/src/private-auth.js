@@ -15,8 +15,9 @@ function dbOf(env) {
   if (!env.PRIVATE_DB) throw setupError();
   return env.PRIVATE_DB;
 }
-function requireSlug(slug) {
-  if (slug !== "whiffkorea") throw unprocessable("허용되지 않은 기업입니다");
+export function requireSlug(slug) {
+  if (typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug))
+    throw unprocessable("허용되지 않은 기업입니다");
 }
 function requirePassword(password) {
   if (typeof password !== "string" || !password.length || encode(password).length > 1024)
@@ -112,6 +113,11 @@ export async function customerSession(request, env) {
   return dbOf(env).prepare(`SELECT s.slug FROM customer_sessions s JOIN customer_credentials c
     ON c.slug = s.slug AND c.version = s.credential_version WHERE s.token_hash = ?`)
     .bind(await tokenHash(token)).first();
+}
+export async function hasCustomerCredential(env, slug) {
+  requireSlug(slug);
+  return !!await dbOf(env).prepare("SELECT slug FROM customer_credentials WHERE slug = ?")
+    .bind(slug).first();
 }
 export async function logout(request, env, kind) {
   const token = cookieToken(request, kind);

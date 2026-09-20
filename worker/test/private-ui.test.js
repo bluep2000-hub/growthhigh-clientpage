@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import vm from "node:vm";
 import worker from "../src/private-index.js";
-import { LOGIN_SCRIPT } from "../src/private-ui.js";
+import { LOGIN_SCRIPT, loginPage } from "../src/private-ui.js";
 
 function browserHarness(search = "", replies = []) {
   const elements = new Map();
@@ -16,7 +16,7 @@ function browserHarness(search = "", replies = []) {
   const document = { hidden:false, getElementById:element,
     addEventListener(name, fn) { events[name] = fn; }, createElement() { return {}; },
     head:{appendChild(script) { googleLoads += 1; script.onload(); }} };
-  const context = { document, location:{search}, URLSearchParams, AbortSignal,
+  const context = { document, location:{search,pathname:"/whiffkorea/"}, URLSearchParams, AbortSignal,
     setInterval(fn) { timers.push(fn); },
     fetch:async (url, options) => {
       requests.push({url, options});
@@ -34,21 +34,21 @@ function browserHarness(search = "", replies = []) {
 
 describe("위프코리아 로그인 화면", () => {
   it("비공개 서버에 고객 데이터 없는 로그인 화면만 제공한다", async () => {
-    const response = await worker.fetch(new Request("https://private.test/whiffkorea/"));
+    const response = loginPage(new Request("https://private.test/whiffkorea/"), "whiffkorea");
     const html = await response.text();
     expect(response.status).toBe(200);
     expect(html).toContain('autocomplete="current-password"');
     expect(html).toContain('aria-live="polite"');
     expect(html).not.toContain("GOCSPX-");
     expect(html).not.toContain("c/whiffkorea.enc");
-    expect(html).toContain("보안이 적용된 위프코리아 고객페이지입니다.");
+    expect(html).toContain("보안이 적용된 고객페이지입니다.");
+    expect(html).toContain("고객 비밀번호 설정");
     expect(html).not.toContain("운영 주소는 아직 전환하지 않았습니다");
     expect(response.headers.get("cache-control")).toBe("no-store");
     const nonce = html.match(/<script nonce="([^"]+)"/)[1];
     expect(response.headers.get("content-security-policy")).toContain(`'nonce-${nonce}'`);
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(response.headers.get("cross-origin-opener-policy")).toBe("same-origin-allow-popups");
-    expect((await worker.fetch(new Request("https://private.test/zeroback/"))).status).toBe(404);
   });
   it("고객은 Google 장치를 로드하지 않고 비밀번호를 같은 서버에만 전달한다", async () => {
     const h = browserHarness("", [{body:{authenticated:false}}, {body:{authenticated:true,slug:"whiffkorea"}}]);

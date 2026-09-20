@@ -41,6 +41,9 @@ describe("비공개 고객 데이터와 기존 화면 연결",()=>{
     expect(staff).not.toContain("github.com/bluep2000-hub/growthhigh-clientpage/actions");
     expect(staff).toContain("다음 자동 갱신 때 반영됩니다");
     expect(staff).toContain("다음 자동 갱신 후 새 고객 탭에서 확인해 주세요");
+    const bowlgames = await customerPage(false, "bowlgames").text();
+    expect(bowlgames).toContain("fetch('/bowlgames/api/customer'+location.search");
+    expect(bowlgames).toContain('const CLIENT = "bowlgames";');
   });
   it("미인증 고객은 화면·본문·이미지 모두 받을 수 없다",async()=>{
     const {sqlite,db} = privateDb();

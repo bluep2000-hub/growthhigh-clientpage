@@ -1,15 +1,14 @@
 import { ApiError, unprocessable } from "./error.js";
 import {
   consumeStaffNonce, createStaffSession, customerLogin, customerSession, issueStaffNonce,
-  limitAuthRequests, logout, nonceCookie, sessionCookie, setCustomerPassword, setupError,
+  hasCustomerCredential, limitAuthRequests, logout, nonceCookie, requireSlug, sessionCookie,
+  setCustomerPassword, setupError,
 } from "./private-auth.js";
 import { requireStaff, resolveStaff, verifyGoogleToken } from "./private-staff.js";
 import { loginPage } from "./private-ui.js";
 import { customerPage } from "./private-page.js";
 import { createPrivateStore } from "./private-store.js";
 import { EDITOR_ROUTES, editorRequest } from "./private-editor.js";
-
-const SCOPE = "/whiffkorea";
 
 function json(body, status = 200, cookie) {
   return Response.json(body, { status, headers: {
@@ -49,8 +48,12 @@ async function body(request, limit = 16384) {
   throw unprocessable();
 }
 function scopedPath(url) {
-  if (url.pathname === SCOPE) return "/";
-  return url.pathname.startsWith(SCOPE + "/") ? url.pathname.slice(SCOPE.length) : null;
+  const slug = url.pathname.split("/")[1];
+  try { requireSlug(slug); } catch { return null; }
+  const scope = `/${slug}`;
+  if (url.pathname === scope) return { slug, path: "/" };
+  return url.pathname.startsWith(scope + "/")
+    ? { slug, path: url.pathname.slice(scope.length) } : null;
 }
 function routedRequest(request, path) {
   const url = new URL(request.url);
@@ -60,13 +63,22 @@ function routedRequest(request, path) {
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
-    const path = scopedPath(url);
-    if (path === null) return json({ error: "not_found" }, 404);
-    if (request.method === "GET" && path === "/")
-      return loginPage(request);
+    const route = scopedPath(url);
+    if (route === null) return json({ error: "not_found" }, 404);
+    const { slug, path } = route;
+    if (request.method === "GET" && path === "/") {
+      try {
+        if (!url.searchParams.has("edit") && !await hasCustomerCredential(env, slug))
+          return json({ error: "not_found" }, 404);
+        return loginPage(request, slug);
+      } catch (error) {
+        return json({ error: error instanceof ApiError ? error.code : "internal_error" },
+          error instanceof ApiError ? error.status : 500);
+      }
+    }
     if (request.method === "GET" && path === "/health") {
       try {
-        const ready = !!await createPrivateStore(env).latest("whiffkorea");
+        const ready = !!await createPrivateStore(env).latest(slug);
         return json({ status: ready ? "ready" : "setup", customerReady: ready });
       } catch {
         return json({ status: "setup", customerReady: false });
@@ -74,10 +86,10 @@ export default {
     }
     if (EDITOR_ROUTES.has(path)) {
       try {
-        await requireStaff(request, env);
+        await requireStaff(request, env, slug);
         if (request.method !== "GET") sameOrigin(request, env);
         return await editorRequest(routedRequest(request, path), env,
-          request.method === "GET" ? undefined : await body(request, 1048576));
+          request.method === "GET" ? undefined : await body(request, 1048576), slug);
       } catch (error) {
         return json({ ...(error instanceof ApiError && error.status === 409 ? error.extra : {}),
           error: error instanceof ApiError ? error.code : "internal_error" },
@@ -85,19 +97,24 @@ export default {
       }
     }
     const assetPath = path.replace(/^\/page\/(?=(?:logo|assets\/notice)\/)/, "/");
+    const safe = slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const assetPattern = new RegExp(`^(?:/logo/${safe}|/assets/notice/${safe}-[a-f0-9]{12})\\.(?:png|jpg|jpeg|gif|webp)$`);
     if (request.method === "GET" && (path === "/api/customer" || path === "/page/"
-        || /^(?:\/logo\/whiffkorea|\/assets\/notice\/whiffkorea-[a-f0-9]{12})\.(?:png|jpg|jpeg|gif|webp)$/.test(assetPath))) {
+        || assetPattern.test(assetPath))) {
       try {
-        if (new URL(request.url).searchParams.has("edit")) await requireStaff(request,env);
-        else if (!await customerSession(request,env)) await requireStaff(request,env);
+        if (new URL(request.url).searchParams.has("edit")) await requireStaff(request,env,slug);
+        else {
+          const session = await customerSession(request,env);
+          if (session?.slug !== slug) await requireStaff(request,env,slug);
+        }
         if (path === "/page/")
-          return customerPage(new URL(request.url).searchParams.has("edit"));
+          return customerPage(new URL(request.url).searchParams.has("edit"), slug);
         const store = createPrivateStore(env);
         if (path === "/api/customer") {
-          const latest = await store.latest("whiffkorea");
+          const latest = await store.latest(slug);
           return latest ? json(latest.payload) : json({error:"data_not_ready"},503);
         }
-        const asset = await store.asset("whiffkorea",assetPath.slice(1));
+        const asset = await store.asset(slug,assetPath.slice(1));
         if (!asset) return json({error:"not_found"},404);
         return new Response(Uint8Array.from(atob(asset.content_base64),c=>c.charCodeAt(0)),{headers:{
           'content-type':asset.content_type,'cache-control':'no-store','x-content-type-options':'nosniff',
@@ -116,11 +133,14 @@ export default {
       if (!get) sameOrigin(request, env);
       if (path === "/auth/customer/session") {
         const session = await customerSession(request, env);
-        return json({ authenticated: !!session, ...(session ? { slug: session.slug } : {}) });
+        const current = session?.slug === slug ? session : null;
+        return json({ authenticated: !!current, ...(current ? { slug: current.slug } : {}) });
       }
       if (path === "/auth/customer/login") {
-        const token = await customerLogin(request, env, await body(request));
-        return json({ authenticated: true, slug: "whiffkorea" }, 200, sessionCookie("customer", token));
+        const input = await body(request);
+        if (input.slug !== slug) throw new ApiError(403, "not_assigned");
+        const token = await customerLogin(request, env, input);
+        return json({ authenticated: true, slug }, 200, sessionCookie("customer", token));
       }
       if (path.endsWith("/logout")) {
         const kind = path.includes("/customer/") ? "customer" : "staff";
@@ -137,7 +157,7 @@ export default {
         const input = await body(request);
         const nonce = await consumeStaffNonce(request, env);
         const identity = await verifyGoogleToken(input.credential, env.GOOGLE_CLIENT_ID, nonce);
-        const scope = await resolveStaff(env, identity.email);
+        const scope = await resolveStaff(env, identity.email, slug);
         const token = await createStaffSession(env, identity);
         // 기존 PM 세션도 지워 로그인 시 토큰을 교체한다.
         await logout(request, env, "staff");
@@ -145,10 +165,11 @@ export default {
         response.headers.append("set-cookie", nonceCookie());
         return response;
       }
-      const scope = await requireStaff(request, env);
+      const scope = await requireStaff(request, env, slug);
       if (path === "/auth/staff/session") return json({ authenticated: true, ...scope });
       const input = await body(request);
-      await setCustomerPassword(env, input.slug, input.password);
+      if (input.slug !== slug) throw new ApiError(403, "not_assigned");
+      await setCustomerPassword(env, slug, input.password);
       return json({ changed: true, slug: scope.slug });
     } catch (error) {
       // upstream 설명·SQL·비밀번호·토큰은 응답이나 로그에 남기지 않는다.

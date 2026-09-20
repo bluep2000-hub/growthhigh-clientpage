@@ -51,8 +51,9 @@ describe("분리된 고객 정상 결과 저장소", () => {
 
   beforeEach(() => {
     sqlite = new DatabaseSync(":memory:");
-    sqlite.exec(readFileSync(new URL("../private-migrations/0001_customer_snapshots.sql", import.meta.url), "utf8"));
-    sqlite.exec(readFileSync(new URL("../private-migrations/0003_private_assets.sql", import.meta.url), "utf8"));
+    for (const name of ["0001_customer_snapshots.sql", "0002_auth.sql", "0003_private_assets.sql",
+      "0004_private_rebuild_job.sql", "0005_multiple_clients.sql"])
+      sqlite.exec(readFileSync(new URL(`../private-migrations/${name}`, import.meta.url), "utf8"));
     store = createPrivateStore({ PRIVATE_DB: d1(sqlite) });
   });
   afterEach(() => sqlite.close());
@@ -61,16 +62,19 @@ describe("분리된 고객 정상 결과 저장소", () => {
     expect(() => createPrivateStore({ DB: d1(sqlite) })).toThrow("private_database_unavailable");
   });
 
-  it("최초 상태는 비어 있으며 위프코리아 결과만 저장·조회한다", async () => {
+  it("기업별 결과를 서로 섞지 않고 저장·조회한다", async () => {
     expect(await store.latest("whiffkorea")).toBeNull();
     const result = await save("job-1", 1);
     expect(result).toMatchObject({ buildKey: "job-1", startedAt: 1, payload: payload() });
-    await expect(store.latest("zeroback")).rejects.toThrow("unsupported_client");
-    await expect(store.save({ slug: "sample", buildKey: "job-2", startedAt: 2, payload: payload() }))
+    expect(await store.latest("bowlgames")).toBeNull();
+    await store.save({ slug: "bowlgames", buildKey: "job-2", startedAt: 2, payload: payload("보울게임즈") });
+    expect((await store.latest("bowlgames")).payload.company.name).toBe("보울게임즈");
+    expect((await store.latest("whiffkorea")).payload.company.name).toBe("가상 검수 기업");
+    await expect(store.save({ slug: "../sample", buildKey: "bad", startedAt: 3, payload: payload() }))
       .rejects.toThrow("unsupported_client");
     expect(() => sqlite.prepare(`INSERT INTO customer_snapshots
       (slug, build_key, source_started_at, payload, saved_at) VALUES (?, ?, ?, ?, ?)`)
-      .run("zeroback", "job-3", 3, "{}", "now")).toThrow();
+      .run("BAD SLUG", "job-3", 3, "{}", "now")).toThrow();
   });
 
   it("동일 실행의 재전송과 늦게 끝난 과거 실행은 최신 정상 결과를 덮어쓰지 않는다", async () => {
@@ -117,7 +121,7 @@ describe("고객 데이터 연결 전 서버는 로그인 화면 외에 닫혀 �
     const health = await worker.fetch(new Request("https://private.test/whiffkorea/health"));
     expect(await health.json()).toEqual({ status: "setup", customerReady: false });
     expect(health.headers.get("cache-control")).toBe("no-store");
-    for (const path of ["/", "/health", "/c/whiffkorea.enc"]) {
+    for (const path of ["/", "/c/whiffkorea.enc"]) {
       const result = await worker.fetch(new Request(`https://private.test${path}`));
       expect(result.status).toBe(404);
       expect(await result.json()).toEqual({ error: "not_found" });

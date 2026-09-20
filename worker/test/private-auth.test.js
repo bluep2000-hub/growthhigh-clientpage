@@ -61,7 +61,7 @@ describe("고객·PM 서버 인증 경계", () => {
 
   it("잘못된 비밀번호·기업·설정과 교차 출처 요청은 세션을 만들지 않는다", async () => {
     expect((await call("/auth/customer/login", { slug: "whiffkorea", password: "wrong" })).status).toBe(401);
-    expect((await call("/auth/customer/login", { slug: "sample", password: PASSWORD })).status).toBe(422);
+    expect((await call("/auth/customer/login", { slug: "sample", password: PASSWORD })).status).toBe(403);
     expect((await call("/auth/customer/login", { slug: "whiffkorea", password: PASSWORD }, undefined, "https://evil.test")).status).toBe(403);
     const missing = await worker.fetch(request("/auth/customer/login", { slug: "whiffkorea", password: PASSWORD }), { ...env, AUTH_PEPPER: "" });
     expect(missing.status).toBe(503);

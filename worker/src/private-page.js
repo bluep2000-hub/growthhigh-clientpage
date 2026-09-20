@@ -1,15 +1,15 @@
 import template from "../../index.html";
 
 // 고객 UI는 기존 원본을 쓰고, 공개 봉투 읽기만 서버 인증 후 읽기로 바꾼다.
-export function customerPage(staff = false) {
+export function customerPage(staff = false, slug = "whiffkorea") {
   const nonce = crypto.randomUUID();
   const start = template.indexOf("(async function boot(){");
   const end = template.indexOf("/* ── 렌더 ── */",start);
   if (start < 0 || end < start) throw new Error("private_template_boundary_missing");
   const boot = `(async function boot(){
     try {
-      const response = await fetch('/whiffkorea/api/customer'+location.search, {cache:'no-store',credentials:'same-origin'});
-      if (response.status === 401 || response.status === 403) return location.replace('/whiffkorea/' + location.search);
+      const response = await fetch('/${slug}/api/customer'+location.search, {cache:'no-store',credentials:'same-origin'});
+      if (response.status === 401 || response.status === 403) return location.replace('/${slug}/' + location.search);
       if (!response.ok) return fatal('정보를 준비하고 있습니다.<br>잠시 후 다시 접속해 주세요.');
       const data = await response.json();
       ENV = {enc:false};
@@ -29,7 +29,7 @@ export function customerPage(staff = false) {
     on(){ return this.can() && this.active; },
     async unlock(){ await this.call('GET','/auth/staff/session'); this.active=true; return true; },
     async call(method,path,body,signal){
-      const response=await fetch('/whiffkorea'+path,{method,credentials:'same-origin',cache:'no-store',
+      const response=await fetch('/${slug}'+path,{method,credentials:'same-origin',cache:'no-store',
         headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,signal});
       const data=await response.json();
       if(!response.ok){const error=new Error(data.detail||data.error||'연결하지 못했습니다');error.status=response.status;error.code=data.error;error.data=data;
@@ -54,9 +54,9 @@ export function customerPage(staff = false) {
     .replace("roomRebuildMessage = '반영 요청을 보냈습니다. 배포 후 새 고객 탭에서 확인해 주세요.';",
       "roomRebuildMessage = '반영 요청을 보냈습니다. 다음 자동 갱신 후 새 고객 탭에서 확인해 주세요.';")
     .replace(/\s*<a href="https:\/\/github\.com\/bluep2000-hub\/growthhigh-clientpage\/actions\/workflows\/rebuild\.yml"[\s\S]*?<\/a>/, '');
-  html = html.replace("const BASE = (typeof window.__BASE__ === 'string') ? window.__BASE__ : '';", "const BASE = ''; ")
-    .replace("const CLIENT = clean(window.__SLUG__) || clean(Q.get('c') || Q.get('client')) || null;", "const CLIENT = 'whiffkorea';")
-    .replace("const BRAND_LOGO = `${BASE}assets/growthhigh-logo.png`;", "const BRAND_LOGO = 'https://client.growthhigh.co.kr/assets/growthhigh-logo.png';");
+  html = html.replace(/const BASE = .*?;/, "const BASE = '';")
+    .replace(/const CLIENT = .*?;/, `const CLIENT = ${JSON.stringify(slug)};`)
+    .replace(/const BRAND_LOGO = .*?;/, "const BRAND_LOGO = 'https://client.growthhigh.co.kr/assets/growthhigh-logo.png';");
   html = html.replaceAll('<script>', '<script nonce="'+nonce+'">');
   return new Response(html,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store',
     'x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'strict-origin-when-cross-origin',

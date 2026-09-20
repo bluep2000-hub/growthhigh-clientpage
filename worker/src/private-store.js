@@ -2,7 +2,6 @@
  * 서버 내부 저장용. 고객 인증과 HTTP 응답은 여기서 다루지 않는다.
  * 고객 공개용으로 변환한 완성된 결과만 전달한다. Notion 원본 객체는 넣지 않는다.
  */
-const SLUG = "whiffkorea";
 const PAYLOAD_KEYS = [
   "generated_at", "company", "notice", "perf", "progress", "recommend", "talks",
   "actions", "actions_done", "events", "kpi",
@@ -13,7 +12,8 @@ const COMPANY_KEYS = [
 ];
 
 function requireSlug(slug) {
-  if (slug !== SLUG) throw new Error("unsupported_client");
+  if (typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug))
+    throw new Error("unsupported_client");
 }
 
 function object(value) {
@@ -46,16 +46,18 @@ export function snapshotSql({slug, buildKey, startedAt, payload, assets = {}}) {
   const text = serializePayload(payload);
   if (!object(assets) || Object.keys(assets).length > 40) throw new Error("invalid_customer_assets");
   const entries = Object.entries(assets);
+  const safe = slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const assetPattern = new RegExp(`^(?:logo/${safe}|assets/notice/${safe}-[a-f0-9]{12})\\.(?:png|jpg|jpeg|gif|webp)$`);
   let size = 0;
   for (const [path, item] of entries) {
-    if (!/^(?:logo\/whiffkorea|assets\/notice\/whiffkorea-[a-f0-9]{12})\.(?:png|jpg|jpeg|gif|webp)$/.test(path)
+    if (!assetPattern.test(path)
         || !object(item) || !["image/png", "image/jpeg", "image/gif", "image/webp"].includes(item.type)
         || typeof item.data !== "string" || !/^[A-Za-z0-9+/]+={0,2}$/.test(item.data)
         || item.data.length > 800000 || item.data.length % 4) throw new Error("invalid_customer_assets");
     size += item.data.length;
   }
   if (size > 10000000) throw new Error("customer_assets_too_large");
-  const referenced = new Set(text.match(/(?:logo\/whiffkorea|assets\/notice\/whiffkorea-[a-f0-9]{12})\.(?:png|jpg|jpeg|gif|webp)/g) || []);
+  const referenced = new Set(text.match(new RegExp(`(?:logo/${safe}|assets/notice/${safe}-[a-f0-9]{12})\\.(?:png|jpg|jpeg|gif|webp)`, "g")) || []);
   if ([...referenced].some(path => !Object.hasOwn(assets, path))) throw new Error("missing_customer_asset");
   return [
     ["INSERT INTO customer_snapshots (slug, build_key, source_started_at, payload, saved_at, ready) VALUES (?, ?, ?, ?, ?, 0) ON CONFLICT (slug, build_key) DO NOTHING",

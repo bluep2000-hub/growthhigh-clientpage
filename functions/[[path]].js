@@ -1,6 +1,6 @@
 const WORKER_ORIGIN = "https://growthhigh-clientpage-private.growthhigh-clientpage-worker.workers.dev";
 
-export async function onRequest({ request, env }) {
+export async function onRequest({ request, env, next }) {
   const incoming = new URL(request.url);
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method)
       && (request.headers.get("origin") !== incoming.origin
@@ -16,5 +16,7 @@ export async function onRequest({ request, env }) {
     init.body = request.body;
     init.duplex = "half";
   }
-  return env.PRIVATE_WORKER.fetch(new Request(target, init));
+  const response = await env.PRIVATE_WORKER.fetch(new Request(target, init));
+  return response.status === 404 && ["GET", "HEAD"].includes(request.method)
+    ? next() : response;
 }

@@ -4,7 +4,9 @@ export const LOGIN_SCRIPT = String.raw`
   const el = id => document.getElementById(id);
   const staff = new URLSearchParams(location.search).has('edit');
   const kind = staff ? 'staff' : 'customer';
-  el('openpage').href = '/whiffkorea/page/' + (staff ? '?edit' : '');
+  const slug = (location.pathname || '/whiffkorea/').split('/').filter(Boolean)[0];
+  const base = '/' + slug;
+  el('openpage').href = base + '/page/' + (staff ? '?edit' : '');
   let googleReady, googleBusy = false, checkBusy = false, authenticated = false;
   const messages = {
     unauthorized: staff ? 'Google 로그인을 다시 확인해 주세요.' : '비밀번호가 올바르지 않습니다.',
@@ -22,7 +24,7 @@ export const LOGIN_SCRIPT = String.raw`
   async function call(path, input) {
     let res;
     try {
-      res = await fetch('/whiffkorea/auth/' + kind + '/' + path, {
+      res = await fetch(base + '/auth/' + kind + '/' + path, {
         method: input === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store',
         headers: input === undefined ? {} : {'Content-Type':'application/json'},
         body: input === undefined ? undefined : JSON.stringify(input),
@@ -41,12 +43,13 @@ export const LOGIN_SCRIPT = String.raw`
     authenticated = !!session.authenticated;
     el('entry').hidden = authenticated;
     el('result').hidden = !authenticated;
+    el('staff-tools').hidden = !(staff && authenticated);
     el('gtitle').textContent = authenticated ? '로그인 확인 완료' : staff ? '담당자 로그인' : '클라이언트 페이지';
     el('gsub').textContent = authenticated
       ? (staff ? '담당 기업과 내부 권한을 확인했습니다.' : '기업 비밀번호로 접속을 확인했습니다.')
       : staff ? '등록된 그로스하이 Google 계정으로 접속해 주세요.' : '담당 컨설턴트에게 받은 비밀번호를 입력해 주세요.';
     if (authenticated) {
-      el('scope').textContent = staff ? session.role + ' · 위프코리아' : '고객 · 위프코리아';
+      el('scope').textContent = staff ? session.role + ' · ' + slug : '고객 · ' + slug;
       message('');
     }
   }
@@ -110,11 +113,28 @@ export const LOGIN_SCRIPT = String.raw`
     if (el('gbtn').disabled || !el('pw').value) return;
     el('gbtn').disabled = el('pw').disabled = true;
     message('확인 중…', true);
-    try { showSession(await call('login', {slug:'whiffkorea', password:el('pw').value})); el('pw').value = ''; }
+    try { showSession(await call('login', {slug, password:el('pw').value})); el('pw').value = ''; }
     catch (err) { message(err.message); }
     finally { el('gbtn').disabled = el('pw').disabled = false; if (!authenticated) el('pw').focus(); }
   });
   el('retry').addEventListener('click', () => prepareGoogle(false));
+  el('pwform').addEventListener('submit', async event => {
+    event.preventDefault();
+    const first = el('newpw').value, second = el('newpw2').value;
+    if (!first || first !== second) { el('pwmsg').textContent = '두 칸에 같은 비밀번호를 입력해 주세요.'; return; }
+    el('setpw').disabled = true; el('pwmsg').textContent = '저장 중…';
+    try {
+      const response = await fetch(base + '/auth/customer/password', {
+        method:'POST', credentials:'same-origin', cache:'no-store',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({slug,password:first}),
+        signal:AbortSignal.timeout(15000)
+      });
+      if (!response.ok) throw new Error();
+      el('newpw').value = el('newpw2').value = '';
+      el('pwmsg').textContent = '고객 비밀번호를 저장했습니다.';
+    } catch (_) { el('pwmsg').textContent = '저장하지 못했습니다. 다시 시도해 주세요.'; }
+    finally { el('setpw').disabled = false; }
+  });
   el('logout').addEventListener('click', async () => {
     el('logout').disabled = true;
     try {
@@ -132,7 +152,7 @@ export const LOGIN_SCRIPT = String.raw`
   (async () => { await checkSession(false); if (staff && !authenticated) await prepareGoogle(false); })();
 })();`;
 
-export function loginPage(request) {
+export function loginPage(request, slug = "whiffkorea") {
   const nonce = crypto.randomUUID();
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -145,7 +165,7 @@ export function loginPage(request) {
     form{margin-top:20px;display:flex;flex-direction:column;gap:9px}input{width:100%;height:44px;padding:0 13px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--tx);font:inherit;font-size:16px}input::placeholder{color:var(--tx-3)}
     button{min-height:44px;border:0;border-radius:7px;background:var(--accent);color:#fff;font:inherit;font-size:14px;cursor:pointer}button:hover{filter:brightness(.93)}button:disabled{opacity:.55;cursor:wait}input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}input:focus-visible{border-color:var(--accent)}
     .msg{font-size:13px;color:var(--no);min-height:22px;margin-top:12px}.msg.busy{color:var(--tx-2)}#staff-entry{margin-top:23px}#google{display:flex;justify-content:center;min-height:44px}#retry{background:transparent;color:var(--tx-2);font-size:12px;margin-top:10px;text-decoration:underline;text-underline-offset:3px}
-    #result{margin-top:23px}#scope{font-size:14px;font-weight:600}#result .sub{margin:10px 0 20px}#logout{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--tx)}::selection{background:#dce8ff}input{caret-color:var(--accent)}
+    #result{margin-top:23px}#scope{font-size:14px;font-weight:600}#result .sub{margin:10px 0 20px}#logout{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--tx)}#staff-tools{margin-top:18px;padding-top:18px;border-top:1px solid var(--line);text-align:left}#staff-tools h2{font-size:14px;margin:0 0 8px}#staff-tools form{margin-top:10px}.ok{font-size:12px;color:var(--tx-2);min-height:20px;margin-top:7px}::selection{background:#dce8ff}input{caret-color:var(--accent)}
     @media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#17181b;--panel:#222429;--tx:#f0f0f3;--tx-2:#b2b6c0;--tx-3:#a0a5b0;--line:#515763;--accent:#3876df;--no:#ff9a9a}.mk{outline:1px solid var(--line)}}
     @media(max-width:360px){body{padding:18px}#google{overflow:hidden}}
     </style></head><body>
@@ -158,7 +178,8 @@ export function loginPage(request) {
     <h1 id="gtitle">클라이언트 페이지</h1><p class="sub" id="gsub">담당 컨설턴트에게 받은 비밀번호를 입력해 주세요.</p>
     <div id="entry"><form id="gform"><input id="pw" type="password" autocomplete="current-password" placeholder="비밀번호" aria-label="비밀번호" required><button id="gbtn" type="submit">확인</button></form>
     <div id="staff-entry" hidden><div id="google"></div><button id="retry" type="button">Google 로그인 다시 준비</button></div></div>
-    <section id="result" hidden aria-label="로그인 확인 결과"><p id="scope"></p><p class="sub">보안이 적용된 위프코리아 고객페이지입니다.</p><a id="openpage" href="/whiffkorea/page/" style="display:block;margin:0 0 18px;color:var(--accent)">고객페이지 열기</a><button id="logout" type="button">로그아웃</button></section>
+    <section id="result" hidden aria-label="로그인 확인 결과"><p id="scope"></p><p class="sub">보안이 적용된 고객페이지입니다.</p><a id="openpage" href="/${slug}/page/" style="display:block;margin:0 0 18px;color:var(--accent)">고객페이지 열기</a><button id="logout" type="button">로그아웃</button></section>
+    <section id="staff-tools" hidden><h2>고객 비밀번호 설정</h2><p class="sub">고객에게 전달할 비밀번호를 두 번 입력해 주세요.</p><form id="pwform"><input id="newpw" type="password" autocomplete="new-password" placeholder="새 비밀번호" required><input id="newpw2" type="password" autocomplete="new-password" placeholder="새 비밀번호 확인" required><button id="setpw" type="submit">비밀번호 저장</button></form><p class="ok" id="pwmsg" role="status" aria-live="polite"></p></section>
     <p class="msg" id="gmsg" role="status" aria-live="polite"></p></main>
     <script nonce="${nonce}">${LOGIN_SCRIPT}</script></body></html>`;
   return new Response(html, {headers:{

@@ -2,7 +2,7 @@ name = "growthhigh-clientpage-private"
 main = "src/private-index.js"
 compatibility_date = "2026-09-01"
 
-# Cloudflare Pages가 위프코리아 경로만 이 Worker에 내부 전달한다.
+# Cloudflare Pages가 클라이언트별 경로를 이 Worker에 내부 전달한다.
 # 회사 전체 DNS나 Worker route는 바꾸지 않는다.
 # 실제 기업 데이터·비밀번호·토큰은 설정이나 GitHub에 넣지 않는다.
 workers_dev = true

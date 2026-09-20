@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "include": ["/whiffkorea", "/whiffkorea/*"],
-  "exclude": []
+  "include": ["/*"],
+  "exclude": ["/assets/*", "/logo/*", "/_verify/*", "/favicon.ico", "/robots.txt"]
 }
