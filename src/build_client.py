@@ -1667,9 +1667,8 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 # ══════════════════════════════════════════════════════════════════════════
 # 소통 내역
 #
-# 메일은 본문까지 읽어 노션 소통 DB 에 「공개」로 앉히고, 그대로 화면에 나간다.
-# 고객사와 오간 메일 아카이빙이라 우리가 검토할 대상이 아니고, 본문도 원문 그대로다.
-# 감출 것이 있으면 담당자가 「보류」로 바꾼다 — 읽을 때 그것만 뺀다.
+# 메일은 본문까지 읽어 커뮤니케이션보드에 기본 공개로 앉히고 화면에 내보낸다.
+# 감출 것이 있으면 담당자가 「고객 공개」 체크를 해제한다.
 #
 # 통화록·요약은 이 스크립트가 만들지 않는다 (클로드 코워크가 노션에 기록한다).
 # 이 스크립트는 IMAP 을 노션에 쓰고, 노션을 읽는다.
@@ -1683,8 +1682,7 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 # PM이 실제로 쓰는 커뮤니케이션보드. 고객 페이지는 「고객 공개」가 체크된
 # 그 기업 기록만 직접 읽는다.
 TALKS_DB_ID = COMMUNICATION_DB_ID
-# 이메일 자동 수집은 별도 승인 전까지 기존 원본에만 쓴다. 커뮤니케이션보드로
-# 옮기며 곧바로 고객 공개하는 것은 이번 변경 범위가 아니다.
+# 이메일 원본 보관 DB도 유지한다. 고객 화면은 커뮤니케이션보드만 읽는다.
 MAIL_TALKS_DB_ID = "3aa815d7-12b9-80f9-ae45-e9f2bebcd9de"
 # 「검토대기」는 지금 아무것도 쓰지 않지만 옵션은 남겨둔다.
 # 통화·미팅 AI 요약이 붙으면 그때는 사람이 거를 대상이 생긴다.
@@ -2475,12 +2473,12 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
     log(f"  소통 DB: {added}건 추가(공개) · {skipped}건 중복 건너뜀")
 
 
-def sync_mail_drafts_to_board(nt: Notion, company_name: str,
-                              mails: list[dict]) -> None:
-    """메일을 커뮤니케이션보드의 비공개 초안으로 옮긴다.
+def sync_mails_to_board(nt: Notion, company_name: str,
+                        mails: list[dict]) -> None:
+    """메일을 커뮤니케이션보드에 기본 공개로 옮긴다.
 
-    고객에게 보이는 것은 여전히 PM이 `고객 공개`를 체크한 기록뿐이다. 보드에
-    Message-ID 속성이 없으므로 같은 기업의 날짜+제목으로 재실행 중복을 막는다.
+    PM이 `고객 공개`를 해제하면 고객 페이지에서 빠진다. 보드에 Message-ID 속성이
+    없으므로 같은 기업의 날짜+제목으로 재실행 중복을 막는다.
     """
     try:
         rows = nt.query_all(TALKS_DB_ID, {
@@ -2490,7 +2488,7 @@ def sync_mail_drafts_to_board(nt: Notion, company_name: str,
             ]},
         })
     except ClientFailure as e:
-        warn(f"커뮤니케이션보드 기존 메일 조회 실패 — 초안 쓰기 생략: {e}")
+        warn(f"커뮤니케이션보드 기존 메일 조회 실패 — 쓰기 생략: {e}")
         return
 
     seen = set()
@@ -2510,7 +2508,7 @@ def sync_mail_drafts_to_board(nt: Notion, company_name: str,
             "상세내용": {"title": [{"text": {"content": key[1][:2000]}}]},
             "기업명": {"multi_select": [{"name": company_name}]},
             "소통형태": {"multi_select": [{"name": "메일"}]},
-            "고객 공개": {"checkbox": False},
+            "고객 공개": {"checkbox": True},
             "주요사항 확인": {"checkbox": False},
         }
         if key[0]:
@@ -2532,9 +2530,9 @@ def sync_mail_drafts_to_board(nt: Notion, company_name: str,
             seen.add(key)
             added += 1
         except ClientFailure as e:
-            warn(f"커뮤니케이션보드 메일 초안 쓰기 실패 — 건너뜁니다: {e}")
+            warn(f"커뮤니케이션보드 메일 쓰기 실패 — 건너뜁니다: {e}")
 
-    log(f"  커뮤니케이션보드 메일 초안: {added}건 추가(비공개) · "
+    log(f"  커뮤니케이션보드 메일: {added}건 추가(기본 공개) · "
         f"{skipped}건 중복 건너뜀")
 
 
@@ -2944,7 +2942,7 @@ def build_talks(nt: Notion, client: dict, company_name: str,
             log(f"  (dry-run) 노션 쓰기 건너뜀 — 대상 {len(mails)}건")
         elif mails:
             sync_mails_to_notion(nt, client["page_id"], mails)
-            sync_mail_drafts_to_board(nt, company_name, mails)
+            sync_mails_to_board(nt, company_name, mails)
     # IMAP 이 실패해도 읽기는 그대로 진행한다.
     return read_talks(nt, company_name)
 

@@ -34,7 +34,7 @@ class MailFallbackTests(unittest.TestCase):
 
         self.assertEqual(found, [mails[1]])
 
-    def test_mail_board_draft_is_private_and_deduplicated(self):
+    def test_mail_board_entry_is_public_by_default_and_deduplicated(self):
         mail = {
             "date": "2026-09-14",
             "title": "[보울게임즈] 계약 진행 안내",
@@ -60,7 +60,7 @@ class MailFallbackTests(unittest.TestCase):
                 return {}
 
         notion = FakeNotion()
-        builder.sync_mail_drafts_to_board(notion, "보울게임즈", [
+        builder.sync_mails_to_board(notion, "보울게임즈", [
             mail,
             {**mail, "title": "[보울게임즈] 이미 있는 메일"},
         ])
@@ -70,7 +70,7 @@ class MailFallbackTests(unittest.TestCase):
         path, payload = notion.created[0]
         self.assertEqual(path, "/pages")
         props = payload["properties"]
-        self.assertFalse(props["고객 공개"]["checkbox"])
+        self.assertTrue(props["고객 공개"]["checkbox"])
         self.assertFalse(props["주요사항 확인"]["checkbox"])
         self.assertEqual(props["기업명"]["multi_select"], [{"name": "보울게임즈"}])
         self.assertEqual(props["소통형태"]["multi_select"], [{"name": "메일"}])
