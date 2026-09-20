@@ -2704,6 +2704,15 @@ function init(D){
     edClearNote(it);
   }
 
+  async function edOpenDraft(){
+    try {
+      return await ED.call('GET', '/notice/doc/draft?slug=' + encodeURIComponent(CLIENT));
+    } catch(e){
+      if(e.status !== 404) throw e;
+      return ED.call('POST', '/notice/doc', {slug: CLIENT});
+    }
+  }
+
   /**
    * 편집을 연다.
    *
@@ -2722,7 +2731,7 @@ function init(D){
       edStatus('공지를 불러오는 중…');
       let doc = null;
       try {
-        doc = await ED.call('GET', '/notice/doc/draft?slug=' + encodeURIComponent(CLIENT));
+        doc = await edOpenDraft();
         edOffline = false;
         /* 직전 연결 실패 때 탭 안에 남겨 둔 내용이 서버 초안보다 새로우면 먼저
            복구한다. 같은 초안 판에서 출발했을 때만 자동으로 보내 남의 저장을
@@ -2746,22 +2755,19 @@ function init(D){
         }
       }
       catch(e){
-        if(e.status !== 404){
-          /* 네트워크가 끊겼더라도 이 탭에 임시본이 있으면 계속 쓸 수 있다.
-             다시 연결되면 같은 초안 판을 기준으로 자동저장한다. */
-          const cached = !e.status && edCacheLatest();
-          if(cached){
-            doc = { ...cached, version: cached.publishedVersion,
-                    hasUnpublishedChanges: true, updatedAt: cached.at };
-            edOffline = true;
-            edRecovered = true;
-          } else {
-            edMsg(edErr(e, '공지를 불러오지 못했습니다'), true);
-            edStatus('불러오지 못했습니다 — 연결을 확인해 주세요');
-            return;
-          }
+        /* 네트워크가 끊겼더라도 이 탭에 임시본이 있으면 계속 쓸 수 있다.
+           다시 연결되면 같은 초안 판을 기준으로 자동저장한다. */
+        const cached = !e.status && edCacheLatest();
+        if(cached){
+          doc = { ...cached, version: cached.publishedVersion,
+                  hasUnpublishedChanges: true, updatedAt: cached.at };
+          edOffline = true;
+          edRecovered = true;
+        } else {
+          edMsg(edErr(e, '공지를 불러오지 못했습니다'), true);
+          edStatus('불러오지 못했습니다 — 연결을 확인해 주세요');
+          return;
         }
-        /* 공지가 한 건도 없는 기업이다. 실패가 아니라 만들어야 할 까닭이다 */
       }
       edLoaded = true;
       edDoc = doc;
