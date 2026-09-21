@@ -6,7 +6,7 @@ export const LOGIN_SCRIPT = String.raw`
   const kind = staff ? 'staff' : 'customer';
   const slug = (location.pathname || '/whiffkorea/').split('/').filter(Boolean)[0];
   const base = '/' + slug;
-  el('openpage').href = base + '/page/' + (staff ? '?edit' : '');
+  el('openpage').href = base + '/page/' + (staff ? '?edit' : '') + location.hash;
   let googleReady, googleBusy = false, checkBusy = false, authenticated = false;
   const messages = {
     unauthorized: staff ? 'Google 로그인을 다시 확인해 주세요.' : '비밀번호가 올바르지 않습니다.',

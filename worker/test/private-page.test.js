@@ -52,6 +52,16 @@ describe("비공개 고객 데이터와 기존 화면 연결",()=>{
       expect(response.status).toBe(401); expect(await response.text()).not.toContain('가상 고객');
     }} finally {sqlite.close();}
   });
+  it("담당자 세션이 끝난 깊은 링크는 오류 JSON 대신 로그인 화면으로 돌린다",async()=>{
+    const {sqlite,db}=privateDb();
+    try {
+      const response=await worker.fetch(new Request('https://private.test/bowlgames/page/?edit'),
+        {PRIVATE_DB:db});
+      expect(response.status).toBe(302);
+      expect(response.headers.get('location')).toBe('/bowlgames/?edit');
+      expect(response.headers.get('cache-control')).toBe('no-store');
+    } finally {sqlite.close();}
+  });
   it("위프코리아 밖의 공용 경로에는 고객 API를 만들지 않는다",async()=>{
     for(const path of ['/api/customer','/auth/customer/session','/notice/doc','/room/pin','/talk/major']) {
       const response=await worker.fetch(new Request('https://private.test'+path));

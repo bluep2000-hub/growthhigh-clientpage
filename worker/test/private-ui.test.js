@@ -3,7 +3,7 @@ import vm from "node:vm";
 import worker from "../src/private-index.js";
 import { LOGIN_SCRIPT, loginPage } from "../src/private-ui.js";
 
-function browserHarness(search = "", replies = []) {
+function browserHarness(search = "", replies = [], hash = "") {
   const elements = new Map();
   const element = id => {
     if (!elements.has(id)) elements.set(id, { hidden:false, disabled:false, value:"", textContent:"",
@@ -16,7 +16,7 @@ function browserHarness(search = "", replies = []) {
   const document = { hidden:false, getElementById:element,
     addEventListener(name, fn) { events[name] = fn; }, createElement() { return {}; },
     head:{appendChild(script) { googleLoads += 1; script.onload(); }} };
-  const context = { document, location:{search,pathname:"/whiffkorea/"}, URLSearchParams, AbortSignal,
+  const context = { document, location:{search,hash,pathname:"/whiffkorea/"}, URLSearchParams, AbortSignal,
     setInterval(fn) { timers.push(fn); },
     fetch:async (url, options) => {
       requests.push({url, options});
@@ -33,6 +33,11 @@ function browserHarness(search = "", replies = []) {
 }
 
 describe("위프코리아 로그인 화면", () => {
+  it("담당자 재로그인 뒤 원래 열려던 화면 위치를 유지한다", async () => {
+    const h = browserHarness("?edit", [], "#info");
+    await h.settle();
+    expect(h.element("openpage").href).toBe("/whiffkorea/page/?edit#info");
+  });
   it("비공개 서버에 고객 데이터 없는 로그인 화면만 제공한다", async () => {
     const response = loginPage(new Request("https://private.test/whiffkorea/"), "whiffkorea");
     const html = await response.text();

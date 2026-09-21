@@ -138,6 +138,13 @@ export default {
           'content-type':asset.content_type,'cache-control':'no-store','x-content-type-options':'nosniff',
           'content-security-policy':"default-src 'none'; sandbox",'x-frame-options':'DENY'}});
       } catch (error) {
+        // 새 탭의 ?edit 깊은 링크에 PM 세션이 없으면 JSON 401 대신 로그인으로 보낸다.
+        // 상대 경로를 쓰면 Pages 프록시를 거쳐도 현재 고객 도메인에 머문다.
+        if (path === "/page/" && url.searchParams.has("edit")
+            && error instanceof ApiError && error.status === 401)
+          return new Response(null, { status: 302, headers: {
+            location: `/${slug}/?edit`, "cache-control": "no-store",
+          } });
         return json({error:error instanceof ApiError ? error.code : "internal_error"},error instanceof ApiError ? error.status : 500);
       }
     }
