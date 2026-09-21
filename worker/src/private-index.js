@@ -89,7 +89,7 @@ export default {
       try {
         const items = await selectedPrograms(env, slug);
         return Response.json({ items }, { headers: { "cache-control": "no-store",
-          "access-control-allow-origin": "https://bluep2000-hub.github.io",
+          "access-control-allow-origin": "https://curation.growthhigh.co.kr",
           "x-content-type-options": "nosniff" } });
       } catch { return json({ error: "recommendations_unavailable" }, 503); }
     }

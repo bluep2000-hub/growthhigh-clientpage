@@ -55,7 +55,7 @@ describe("보울게임즈 추천 지원사업 실시간 관리", () => {
     expect((await call("/recommendations", "PUT", input, staff)).status).toBe(200);
     expect((await call("/recommendations", "PUT", input, staff)).status).toBe(200);
     const share = await call("/recommendations/share");
-    expect(share.headers.get("access-control-allow-origin")).toBe("https://bluep2000-hub.github.io");
+    expect(share.headers.get("access-control-allow-origin")).toBe("https://curation.growthhigh.co.kr");
     expect((await share.json()).items).toMatchObject([{ slug: "review-active" }]);
     const visible = await (await call("/api/customer", "GET", undefined, customer)).json();
     expect(visible.recommend).toMatchObject([{ slug: "review-active", title: "검수용 지원사업",
