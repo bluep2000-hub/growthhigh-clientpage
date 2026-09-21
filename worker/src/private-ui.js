@@ -11,7 +11,7 @@ export const LOGIN_SCRIPT = String.raw`
   const messages = {
     unauthorized: staff ? 'Google 로그인을 다시 확인해 주세요.' : '비밀번호가 올바르지 않습니다.',
     staff_not_registered: '등록된 그로스하이 계정으로 로그인해 주세요.',
-    not_assigned: '이 기업의 담당자로 등록된 계정이 아닙니다.',
+    not_assigned: '요청한 기업 범위를 확인할 수 없습니다.',
     auth_not_configured: '로그인 연결을 준비 중입니다. 담당 컨설턴트에게 알려 주세요.',
     google_unavailable: 'Google에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.',
     too_many_requests: '요청이 많습니다. 1분 후 다시 시도해 주세요.',
@@ -46,7 +46,7 @@ export const LOGIN_SCRIPT = String.raw`
     el('staff-tools').hidden = !(staff && authenticated);
     el('gtitle').textContent = authenticated ? '로그인 확인 완료' : staff ? '담당자 로그인' : '클라이언트 페이지';
     el('gsub').textContent = authenticated
-      ? (staff ? '담당 기업과 내부 권한을 확인했습니다.' : '기업 비밀번호로 접속을 확인했습니다.')
+      ? (staff ? '내부 계정과 역할을 확인했습니다.' : '기업 비밀번호로 접속을 확인했습니다.')
       : staff ? '등록된 그로스하이 Google 계정으로 접속해 주세요.' : '담당 컨설턴트에게 받은 비밀번호를 입력해 주세요.';
     if (authenticated) {
       el('scope').textContent = staff ? session.role + ' · ' + slug : '고객 · ' + slug;

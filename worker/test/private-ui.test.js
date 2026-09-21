@@ -106,12 +106,12 @@ describe("위프코리아 로그인 화면", () => {
     expect(h.element("result").hidden).toBe(true);
     expect(h.element("retry").disabled).toBe(false);
   });
-  it("담당 변경·권한 조회 실패 시 확인 결과를 숨기고 자동 로그인으로 우회하지 않는다", async () => {
+  it("권한 조회 실패 시 확인 결과를 숨기고 자동 로그인으로 우회하지 않는다", async () => {
     const h = browserHarness("?edit", [{body:{authenticated:true,role:"PM",slug:"whiffkorea"}},
       {status:403,body:{error:"not_assigned"}}]);
     await h.settle(); await h.timers[0]();
     expect(h.element("result").hidden).toBe(true);
-    expect(h.element("gmsg").textContent).toContain("담당자로 등록된 계정");
+    expect(h.element("gmsg").textContent).toContain("기업 범위를 확인할 수 없습니다");
     expect(h.prompts()).toBe(0);
   });
 });

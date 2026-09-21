@@ -1,6 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { ApiError, unauthorized } from "./error.js";
-import { createNotion, findClient, sameId } from "./notion.js";
+import { createNotion } from "./notion.js";
 import { setupError, staffSession } from "./private-auth.js";
 
 const GOOGLE_KEYS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
@@ -26,7 +26,7 @@ export async function verifyGoogleToken(token, clientId, nonce, keys = GOOGLE_KE
   }
 }
 
-/** Notion이 권한 원본이다. 매 요청에서 읽어 삭제·담당 변경을 즉시 확인한다. */
+/** Notion이 권한 원본이다. 매 요청에서 읽어 등록·역할 변경을 즉시 확인한다. */
 export async function resolveStaff(env, email, slug = "whiffkorea") {
   if (!env.INTERNAL_USERS_DB_ID || !env.NOTION_TOKEN) throw setupError();
   if (!/^[0-9a-f-]{32,36}$/i.test(env.INTERNAL_USERS_DB_ID)) throw setupError();
@@ -39,12 +39,6 @@ export async function resolveStaff(env, email, slug = "whiffkorea") {
   const role = user.properties?.["역할"]?.select?.name;
   if (user.archived || user.in_trash || !["PM", "대표"].includes(role))
     throw new ApiError(403, "staff_not_registered");
-  const client = await findClient(nt, slug);
-  if (role === "PM") {
-    const scope = user.properties?.["담당 기업"];
-    if (scope?.has_more || !scope?.relation?.some((item) => sameId(item.id, client.id)))
-      throw new ApiError(403, "not_assigned");
-  }
   return { role, slug };
 }
 export async function requireStaff(request, env, slug = "whiffkorea") {

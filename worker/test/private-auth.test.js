@@ -11,8 +11,6 @@ const ORIGIN = "https://private.test";
 const PASSWORD = "검수용-비밀번호🔒";
 const CLIENT_ID = "unit-test.apps.googleusercontent.com";
 const USERS_ID = "11111111-1111-1111-1111-111111111111";
-const SHARE_ID = "21e815d7-12b9-80dc-8310-d038abd8a502";
-const CLIENT_PAGE = "22222222-2222-2222-2222-222222222222";
 
 describe("고객·PM 서버 인증 경계", () => {
   let sqlite;
@@ -26,16 +24,10 @@ describe("고객·PM 서버 인증 경계", () => {
   const call = (path, input, cookie, origin) => worker.fetch(request(path, input, cookie, origin), env);
   const cookieFrom = (response) => response.headers.get("set-cookie").split(";")[0];
   const login = () => call("/auth/customer/login", { slug: "whiffkorea", password: PASSWORD });
-  function roles(role = "PM", assigned = true) {
-    const mock = vi.fn(async (url) => {
-      const body = url.endsWith(`/databases/${SHARE_ID}/query`)
-        ? { results: [{ id: CLIENT_PAGE }] }
-        : { results: [{ properties: {
-          "역할": { select: { name: role } },
-          "담당 기업": { relation: assigned ? [{ id: CLIENT_PAGE }] : [] },
-        } }] };
-      return Response.json(body);
-    });
+  function roles(role = "PM") {
+    const mock = vi.fn(async () => Response.json({ results: [{ properties: {
+      "역할": { select: { name: role } },
+    } }] }));
     vi.stubGlobal("fetch", mock);
     return mock;
   }
@@ -148,23 +140,29 @@ describe("고객·PM 서버 인증 경계", () => {
     vi.restoreAllMocks();
   });
 
-  it("PM 담당 범위·등록 제거를 매 요청에서 확인하고 Notion 오류 때는 쓰기를 막는다", async () => {
+  it("PM은 담당 기업 관계 없이 모든 기업에 접근하고 등록 제거는 바로 반영된다", async () => {
     const token = await createStaffSession(env, { sub: "google-test-sub", email: "pm@example.com", exp: Math.floor(Date.now() / 1000) + 3600 });
     const cookie = `__Host-gh_staff=${token}`;
-    roles("PM", true);
+    const mock = roles("PM");
     expect(await requireStaff(request("/auth/staff/session", undefined, cookie), env)).toEqual({ role: "PM", slug: "whiffkorea" });
-    roles("PM", false);
-    await expect(requireStaff(request("/auth/staff/session", undefined, cookie), env)).rejects.toMatchObject({ status: 403 });
+    expect(await requireStaff(request("/auth/staff/session", undefined, cookie), env, "bowlgames"))
+      .toEqual({ role: "PM", slug: "bowlgames" });
+    expect(mock).toHaveBeenCalledTimes(2);
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ results: [] })));
     await expect(requireStaff(request("/auth/staff/session", undefined, cookie), env)).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("Notion 권한 조회 오류 때는 내부 쓰기를 막는다", async () => {
+    const token = await createStaffSession(env, { sub: "google-test-sub", email: "pm@example.com", exp: Math.floor(Date.now() / 1000) + 3600 });
+    const cookie = `__Host-gh_staff=${token}`;
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ message: "private upstream detail" }, { status: 429 })));
     const blocked = await call("/auth/customer/password", { slug: "whiffkorea", password: "new" }, cookie);
     expect(blocked.status).toBe(502);
     expect(await blocked.json()).toEqual({ error: "notion_failed" });
   });
 
-  it("대표는 담당 관계 없이 허용하며 고객 비밀번호 변경은 응답에 원문을 남기지 않는다", async () => {
-    roles("대표", false);
+  it("대표도 전체 기업에 허용하며 고객 비밀번호 변경은 응답에 원문을 남기지 않는다", async () => {
+    roles("대표");
     expect(await resolveStaff(env, "owner@example.com")).toEqual({ role: "대표", slug: "whiffkorea" });
     const token = await createStaffSession(env, { sub: "owner-sub", email: "owner@example.com", exp: Math.floor(Date.now() / 1000) + 3600 });
     const oldCustomer = cookieFrom(await login());
