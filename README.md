@@ -339,7 +339,7 @@ python -m http.server 8000 --bind 127.0.0.1
 | 기업 정보 | 기업 DB 페이지 |
 | 공지사항 | Cloudflare D1의 최신 게시본(`/notice/export`). D1에 한 건도 없을 때만 노션 `공지 DB`를 fallback으로 읽는다 |
 | 진행 현황 | 프로젝트 DB, `고객사 정보` 릴레이션으로 필터 |
-| 추천 지원사업 | Firestore `playlists/{기업명}` + `growthhigh-policy/data-full.json` |
+| 추천 지원사업 | 보울게임즈는 비공개 D1 `recommendation_items` + `growthhigh-policy/data-full.json`(화면에서 즉시 관리). 다른 기업은 Firestore `playlists/{기업명}` + 같은 정책정보 목록 |
 | 일정 | 위 JSON 안의 날짜(프로젝트 종료 예정일 + 추천 마감일)로 만든다 |
 | 소통 내역 | 소통 내역 DB 에서 **「상태 = 보류」만 뺀 전부** (아래 참고) |
 | 로고 | 공유페이지 DB 행의 페이지 아이콘을 내려받아 저장 |

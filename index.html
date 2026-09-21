@@ -826,6 +826,19 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .dr-manage p{margin:8px 0;line-height:1.6}
 .dr-manage a{margin-right:12px;text-decoration:underline}
 .dr-manage button:disabled{opacity:.5;cursor:wait}
+.rec-manage{padding:16px}
+.rec-manage h2{font-size:14px;margin:0 0 8px}
+.rec-manage p{font-size:12px;color:var(--tx-2);line-height:1.5;margin:6px 0 12px}
+.rec-manage input{width:100%;max-width:440px;border:1px solid var(--line);border-radius:8px;
+  padding:9px 11px;background:var(--panel);color:var(--tx);font:inherit}
+.rec-manage ul{list-style:none;padding:0;margin:8px 0 16px}
+.rec-manage li{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  border-bottom:1px solid var(--line);padding:8px 0;font-size:12px}
+.rec-manage li span{min-width:0;overflow-wrap:anywhere}
+.rec-manage li button{flex-shrink:0;border:1px solid var(--line);border-radius:7px;
+  padding:6px 10px;background:var(--panel);color:var(--tx);cursor:pointer}
+.rec-manage li button:disabled{opacity:.5;cursor:wait}
+.rec-manage [role=status]{min-height:18px}
 .dr-sec>h2{font-size:12.5px;font-weight:600;margin-bottom:9px;color:var(--tx-2)}
 .dr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
 .dr-cards.bowlgames{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr))}
@@ -1598,6 +1611,8 @@ function init(D){
   });
   const events = Array.isArray(D.events) ? D.events : [];
   const recommend = Array.isArray(D.recommend) ? D.recommend : [];
+  let recommendUnavailable = D.recommend_unavailable === true;
+  let recCatalog = null, recSelected = [], recBusy = false;
   /* 공백뿐인 본문은 없는 것으로 본다 — 아래 검사가 모두 이 값을 쓴다.
      body 는 평문(메일), body_html 은 회의록 HTML(미팅·통화)이다. */
   const talks = (Array.isArray(D.talks) ? D.talks : [])
@@ -6755,8 +6770,16 @@ function init(D){
 
   /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
      검토서는 발행된 HTML 이라 새 탭으로 연다. */
+  const recManageUi = () => CLIENT==='bowlgames' && !SAMPLE && ED.on() ?
+    `<section class="card rec-manage"><h2>추천 사업 관리</h2>
+      <p>공고를 찾아 추가하거나 목록에서 빼면 고객페이지와 검토서에 바로 반영됩니다.</p>
+      <input id="rec-search" type="search" placeholder="사업명 검색" aria-label="추천할 사업 검색">
+      <div id="rec-manage-list">불러오는 중…</div>
+      <p id="rec-status" role="status" aria-live="polite"></p></section>` : '';
   V.open=()=>`<div class="vh"><h1>추천 지원사업</h1>
-    ${recommend.length?`<span class="n">${recommend.length}건</span>`:''}</div>
+    ${recommend.length?`<span class="n">${recommend.length}건</span>`:''}
+    ${CLIENT==='bowlgames'?editSwitch():''}</div>
+   ${recommendUnavailable?'<p class="empty">최신 추천 사업을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.</p>':''}
    ${recommend.length?`<div class="card"><table><thead><tr>
     <th style="width:12%">마감</th><th style="width:66%">사업명</th>
     <th class="num" style="width:22%">지원 규모</th></tr></thead>
@@ -6768,7 +6791,65 @@ function init(D){
         ${[o.org, o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')
           ?`<div class="t-sub">${[o.org?esc(o.org):'', o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td class="num">${o.amount?esc(o.amount):'—'}</td></tr>`).join('')}
-   </tbody></table></div>`:emptyBox('등록된 내용이 없습니다.')}`;
+   </tbody></table></div>`:recommendUnavailable?'':emptyBox('등록된 내용이 없습니다.')}
+   ${recManageUi()}`;
+
+  function recManageRender(){
+    const box = document.getElementById('rec-manage-list');
+    if(!box || !recCatalog) return;
+    const q = (document.getElementById('rec-search')?.value || '').trim().toLowerCase();
+    const chosen = new Set(recSelected.map(x=>x.slug));
+    const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',
+      year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const selected = recSelected.map(x=>({item:recCatalog.find(p=>p.slug===x.slug),slug:x.slug}));
+    const choices = q ? recCatalog.filter(p=>!chosen.has(p.slug)
+      && p.title.toLowerCase().includes(q) && (!p.deadline || p.deadline>=today)).slice(0,15) : [];
+    const list = (rows, action, label) => rows.length ? `<ul>${rows.map(x=>{
+      const p=x.item || x, id=x.slug || p.slug;
+      return `<li><span>${esc(p?.title||'정책정보에서 찾을 수 없는 사업')} · ${esc(p?.deadline||'상시')}</span>
+        <button type="button" data-rec-${action}="${esc(id)}"${recBusy?' disabled':''}>${label}</button></li>`;
+    }).join('')}</ul>` : '<p>해당 사업이 없습니다.</p>';
+    box.innerHTML = `<h2>추천 중인 사업 ${selected.length}건</h2>${list(selected,'remove','빼기')}
+      <h2>검색 결과</h2>${q?list(choices,'add','추가'):'<p>사업명을 입력해 주세요.</p>'}`;
+    box.querySelectorAll('[data-rec-add],[data-rec-remove]').forEach(button=>button.onclick=async()=>{
+      if(recBusy) return;
+      recBusy=true; recManageRender();
+      const status=document.getElementById('rec-status');
+      if(status) status.textContent='저장 중…';
+      try{
+        const method=button.hasAttribute('data-rec-add')?'PUT':'DELETE';
+        const result=await ED.call(method,'/recommendations',
+          {slug:CLIENT,program:button.dataset.recAdd||button.dataset.recRemove});
+        recSelected=result.selected;
+        if(status) status.textContent='저장했습니다. 고객페이지와 검토서를 새로 열면 반영됩니다.';
+        const fresh=await ED.call('GET','/api/customer');
+        recommend.splice(0,recommend.length,...(fresh.recommend||[]));
+        recommendUnavailable=fresh.recommend_unavailable===true;
+        const nav=document.querySelector('#nav .nv[data-id="open"]');
+        if(nav){nav.classList.toggle('dim',!recommend.length);
+          let badge=nav.querySelector('.ct');
+          if(!badge && recommend.length){badge=document.createElement('span');badge.className='ct';nav.appendChild(badge);}
+          if(badge){badge.textContent=recommend.length;badge.hidden=!recommend.length;}}
+        go('open');
+        const saved=document.getElementById('rec-status');
+        if(saved) saved.textContent='저장했습니다. 고객페이지와 검토서를 새로 열면 반영됩니다.';
+      }catch(e){
+        if(status) status.textContent=e.status===401||e.status===403
+          ?'담당자 로그인을 다시 확인해 주세요.':'저장 또는 새 목록 확인에 실패했습니다. 새로고침해 확인해 주세요.';
+      }finally{recBusy=false;recManageRender();}
+    });
+  }
+  async function bindRecommend(){
+    const input=document.getElementById('rec-search');
+    if(!input) return;
+    input.oninput=recManageRender;
+    if(recCatalog){recManageRender();return;}
+    try{
+      const data=await ED.call('GET','/recommendations/catalog');
+      recCatalog=data.programs; recSelected=data.selected; recManageRender();
+    }catch(_){const box=document.getElementById('rec-manage-list');
+      if(box) box.textContent='사업 목록을 불러오지 못했습니다. 화면을 다시 열어 주세요.';}
+  }
 
   /* ── 인쇄 리포트 ───────────────────────────────────────────────
      화면 DOM 은 손대지 않고 #printdoc 을 따로 채워 그것만 인쇄한다.
@@ -6979,6 +7060,7 @@ function init(D){
     bindNotice();
     bindReviewNotice();
     bindRoom();
+    bindRecommend();
     /* 조달현황은 그려진 뒤에 값을 채우고 높이를 잰다. 숨은 상태에서 재면
        폭·높이가 0 이라 차트 크기 계산이 틀어진다 */
     if(id==='perf' && window.perfFit) window.perfFit();

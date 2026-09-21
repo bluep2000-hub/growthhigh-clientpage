@@ -10,6 +10,7 @@ import { loginPage } from "./private-ui.js";
 import { customerPage } from "./private-page.js";
 import { createPrivateStore } from "./private-store.js";
 import { EDITOR_ROUTES, editorRequest, requestPrivateRebuild } from "./private-editor.js";
+import { changeRecommendation, customerRecommendations, policyCatalog, selectedPrograms } from "./private-recommend.js";
 
 function json(body, status = 200, cookie) {
   return Response.json(body, { status, headers: {
@@ -84,6 +85,36 @@ export default {
     const route = scopedPath(url);
     if (route === null) return json({ error: "not_found" }, 404);
     const { slug, path } = route;
+    if (slug === "bowlgames" && path === "/recommendations/share" && request.method === "GET") {
+      try {
+        const items = await selectedPrograms(env, slug);
+        return Response.json({ items }, { headers: { "cache-control": "no-store",
+          "access-control-allow-origin": "https://bluep2000-hub.github.io",
+          "x-content-type-options": "nosniff" } });
+      } catch { return json({ error: "recommendations_unavailable" }, 503); }
+    }
+    if (slug === "bowlgames" && (path === "/recommendations/catalog"
+        || path === "/recommendations")) {
+      try {
+        if (path === "/recommendations/catalog" && request.method !== "GET"
+            || path === "/recommendations" && !["PUT", "DELETE"].includes(request.method))
+          throw new ApiError(405, "method_not_allowed");
+        await requireStaff(request, env, slug);
+        if (request.method === "GET") return json({
+          selected: await selectedPrograms(env, slug), programs: await policyCatalog(),
+        });
+        sameOrigin(request, env);
+        const input = await body(request);
+        if (input.slug !== slug) throw new ApiError(403, "not_assigned");
+        const catalog = request.method === "PUT" ? await policyCatalog() : [];
+        const selected = await changeRecommendation(env, slug, input.program,
+          request.method, catalog);
+        return json({ saved: true, selected });
+      } catch (error) {
+        return json({ error: error instanceof ApiError ? error.code : "internal_error" },
+          error instanceof ApiError ? error.status : 500);
+      }
+    }
     if (request.method === "GET" && path === "/") {
       try {
         if (!url.searchParams.has("edit") && !await hasCustomerCredential(env, slug))
@@ -130,7 +161,14 @@ export default {
         const store = createPrivateStore(env);
         if (path === "/api/customer") {
           const latest = await store.latest(slug);
-          return latest ? json(latest.payload) : json({error:"data_not_ready"},503);
+          if (!latest) return json({error:"data_not_ready"},503);
+          if (slug !== "bowlgames") return json(latest.payload);
+          try {
+            const selected = await selectedPrograms(env, slug);
+            const catalog = selected.length ? await policyCatalog() : [];
+            return json({ ...latest.payload,
+              recommend: customerRecommendations(selected, catalog) });
+          } catch { return json({ ...latest.payload, recommend: [], recommend_unavailable: true }); }
         }
         const asset = await store.asset(slug,assetPath.slice(1));
         if (!asset) return json({error:"not_found"},404);

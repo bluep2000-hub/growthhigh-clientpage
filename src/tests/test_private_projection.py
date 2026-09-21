@@ -38,13 +38,16 @@ class PrivateProjectionTests(unittest.TestCase):
             item.stop()
 
     def test_private_projection_accepts_any_registered_client_in_dry_run(self):
-        result = builder.build_one(
-            object(), self.client, False, True, True, {"보울게임즈"},
-            private_assets={},
-        )
+        with patch.object(builder, "fetch_recommend", side_effect=AssertionError(
+                "보울게임즈는 옛 재생목록을 읽으면 안 됩니다")):
+            result = builder.build_one(
+                object(), self.client, False, True, True, {"보울게임즈"},
+                private_assets={},
+            )
 
         self.assertEqual(result["slug"], "bowlgames")
         self.assertEqual(result["payload"]["company"]["name"], "보울게임즈")
+        self.assertEqual(result["payload"]["recommend"], [])
 
     def test_missing_legacy_notice_source_is_an_empty_state_not_a_warning(self):
         result = builder.build_one(
