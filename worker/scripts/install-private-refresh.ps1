@@ -47,7 +47,7 @@ Register-ScheduledTask `
     -Trigger $triggers `
     -Settings $settings `
     -Principal $principal `
-    -Description "위프코리아 고객 공개 승인 데이터를 비공개 고객 페이지에 갱신합니다." `
+    -Description "등록된 고객사의 공개 승인 데이터를 비공개 고객 페이지에 갱신합니다." `
     -Force | Out-Null
 
 Write-Output "TASK_NAME=$taskName"

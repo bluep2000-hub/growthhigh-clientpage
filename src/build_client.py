@@ -372,6 +372,55 @@ def parse_extra_links(raw: str) -> list[dict]:
     return [g for g in groups if g["items"]]
 
 
+def fetch_material_links(nt: Notion, page_id: str) -> list[dict]:
+    """공유페이지 본문의 「주요 자료」 링크만 데이터룸 자료로 읽는다."""
+    items = []
+    seen = set()
+    in_materials = False
+    guidebook_id = re.search(r"[0-9a-f]{32}", GUIDEBOOK_URL).group()
+
+    def add_link(label: str, url: str) -> None:
+        label, url = label.strip(), url.strip()
+        try:
+            parsed = urllib.parse.urlsplit(url)
+        except ValueError:
+            return
+        if not label or parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return
+        # 공통 가이드북은 B안의 별도 메뉴에 이미 있다.
+        if guidebook_id in url.replace("-", "").lower() or url in seen:
+            return
+        seen.add(url)
+        items.append({"label": label, "url": url})
+
+    def collect(block: dict) -> None:
+        kind = block.get("type")
+        body = block.get(kind) or {}
+        for run in body.get("rich_text") or []:
+            add_link(run.get("plain_text") or "", run.get("href") or "")
+        if kind in ("bookmark", "link_preview", "embed") and body.get("url"):
+            caption = "".join(r.get("plain_text", "") for r in body.get("caption") or [])
+            add_link(caption or body["url"], body["url"])
+        if block.get("has_children") and kind in ("bulleted_list_item", "numbered_list_item", "toggle", "callout"):
+            for child in nt.children(block["id"]):
+                collect(child)
+
+    for block in nt.children(page_id):
+        kind = block.get("type")
+        body = block.get(kind) or {}
+        if kind in ("heading_1", "heading_2"):
+            title = "".join(r.get("plain_text", "") for r in body.get("rich_text") or [])
+            in_materials = "주요 자료" in title
+            continue
+        if not in_materials:
+            continue
+        if kind == "divider":
+            in_materials = False
+            continue
+        collect(block)
+    return [{"group": "주요 자료", "items": items}] if items else []
+
+
 def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
     """빌드 대상과 함께 「우리 클라이언트 이름」 전부를 돌려준다.
 
@@ -3162,6 +3211,13 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
         "next": next_ev,
     }
 
+    extra_links = list(client.get("extra_links") or [])
+    known_urls = {item["url"] for group in extra_links for item in group["items"]}
+    for group in fetch_material_links(nt, client["page_id"]):
+        items = [item for item in group["items"] if item["url"] not in known_urls]
+        if items:
+            extra_links.append({**group, "items": items})
+
     payload = {
         "generated_at": now_kst().replace(microsecond=0).isoformat(),
         "company": {
@@ -3181,7 +3237,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
             "bizplan_url": client.get("bizplan_url"),
             "guidebook_url": GUIDEBOOK_URL,
             # 클라이언트별 추가 링크. 없으면 빈 목록이고 화면에 아무것도 안 나온다.
-            "extra_links": client.get("extra_links") or [],
+            "extra_links": extra_links,
             "pinned_links": client.get("pinned_links") or [],
         },
         "notice": notice,

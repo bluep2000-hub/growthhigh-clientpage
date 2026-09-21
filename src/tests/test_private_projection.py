@@ -28,6 +28,7 @@ class PrivateProjectionTests(unittest.TestCase):
             patch.object(builder, "read_actions", return_value=([], 0)),
             patch.object(builder, "build_events", return_value=[]),
             patch.object(builder, "build_perf", return_value=(None, [])),
+            patch.object(builder, "fetch_material_links", return_value=[]),
         ]
         for item in self.patches:
             item.start()
