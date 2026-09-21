@@ -40,6 +40,8 @@ class SummaryValidationTests(unittest.TestCase):
 
         self.assertIn("`| 항목 | 담당 | 기한 |`", prompt)
         self.assertIn("`| --- | --- | --- |`", prompt)
+        self.assertIn("배경과 현재 상황, 실제 논의 내용", prompt)
+        self.assertIn("결정 및 그 근거", prompt)
 
     def test_accepts_legitimate_short_call(self):
         transcript = (

@@ -9,19 +9,19 @@ import { COMPANY_PAGE, dispatches, ENV, installNotion, run, writes } from "./hel
 const good = Buffer.from(ENV.EDITOR_PASSWORD, "utf8").toString("base64");
 const NOTE = "https://www.notion.so/research-note";
 
-function call(body, password = good) {
+function call(body, password = good, env = ENV) {
   const headers = { "content-type": "application/json" };
   if (password !== null) headers.authorization = `Bearer ${password}`;
   return worker.fetch(new Request("https://relay.test/room/pin", {
     method: "PUT", headers, body: JSON.stringify(body),
-  }), ENV);
+  }), env);
 }
 
-const share = (pins = "") => ({
+const share = (pins = "", slug = "whiffkorea") => ({
   results: [{
     id: "share-row",
     properties: {
-      "슬러그": { type: "rich_text", rich_text: [run("whiffkorea")] },
+      "슬러그": { type: "rich_text", rich_text: [run(slug)] },
       "기업 DB": { type: "relation", relation: [{ id: COMPANY_PAGE }] },
       "추가 링크": { type: "rich_text", rich_text: [run(`R&D\n연구노트 | ${NOTE}`)] },
       "고정 자료": { type: "rich_text", rich_text: pins ? [run(pins)] : [] },
@@ -69,6 +69,20 @@ describe("PUT /room/pin", () => {
       body: { properties: { "고정 자료": { rich_text: [
         { text: { content: `https://drive.google.com/x\n${NOTE}` } }] } } },
     })]);
+    expect(dispatches(calls)).toHaveLength(1);
+  });
+
+  it("보울게임즈 주요 자료의 게시 링크를 고정한다", async () => {
+    const publicLink = "https://yuncommon.notion.site/bowlgames-material";
+    const { calls } = installNotion({ share: share("", "bowlgames") });
+    const env = { ...ENV, PRIVATE_DB: { prepare: () => ({ bind: () => ({ first: async () => ({
+      payload: JSON.stringify({ company: { extra_links: [{ group: "주요 자료", items: [
+        { label: "1차 자료", url: publicLink },
+      ] }] } }),
+    }) }) }) } };
+    const res = await call({ slug: "bowlgames", url: publicLink, pinned: true }, good, env);
+    expect(res.status).toBe(200);
+    expect(writes(calls)).toHaveLength(1);
     expect(dispatches(calls)).toHaveLength(1);
   });
 

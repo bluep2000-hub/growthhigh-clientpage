@@ -54,6 +54,7 @@ import {
 import { blockRuns, editHtmlToRuns, lockReason, runsToEditHtml } from "./richtext.js";
 import { requestRebuild } from "./rebuild.js";
 import { createStore } from "./store.js";
+import { createPrivateStore } from "./private-store.js";
 
 /** 데이터룸이 읽는 공유페이지 속성. 이름은 src/build_client.py 와 같아야 한다 */
 const ROOM_PINS = "고정 자료";
@@ -991,8 +992,7 @@ async function route(request, env) {
     requireEditor(request, env);
     const body = await readJson(request);
     const slug = requireText(body.slug, "slug");
-    // ponytail: 기존 소통 이전을 검증한 위프코리아만 재빌드한다. 다른 기업 이전 완료 후 확대한다.
-    if (slug !== "whiffkorea") {
+    if (!["whiffkorea", "bowlgames"].includes(slug)) {
       throw unprocessable("기존 소통 이력 이전 확인 전에는 자료 고정을 사용할 수 없습니다");
     }
     const link = requireText(body.url, "url");
@@ -1004,6 +1004,12 @@ async function route(request, env) {
     const text = (name) => (props[name]?.rich_text || []).map((r) => r.plain_text || "").join("");
     const known = [props[ROOM_DRIVE]?.url, props[ROOM_BIZPLAN]?.url, GUIDEBOOK_URL,
       ...text(ROOM_LINKS).split("\n").map((l) => l.split("|").slice(1).join("|").trim())];
+    // 보울게임즈 「주요 자료」는 페이지 본문에서 수집되어 비공개 스냅샷에 들어 있다.
+    if (slug === "bowlgames") {
+      const latest = await createPrivateStore(env).latest(slug);
+      known.push(...(latest?.payload?.company?.extra_links || []).flatMap(group =>
+        (group.items || []).map(item => item.url)));
+    }
     if (!known.includes(link)) throw notFound("그 기업의 자료가 아닙니다");
 
     const before = text(ROOM_PINS).split("\n").map((l) => l.trim()).filter(Boolean);

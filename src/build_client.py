@@ -1834,7 +1834,7 @@ ANGLE_URL_RE = re.compile(r"<(?:https?|mailto):[^>\s]*>")
 PIXEL_LINE_RE = re.compile(r"^\s*\[https?://[^\]]*\]\s*$")
 
 TAG_RE = re.compile(r"<[^>]+>")
-BR_RE = re.compile(r"(?i)<\s*(?:br\s*/?|/p|/div|/tr)\s*>")
+BR_RE = re.compile(r"(?i)<\s*(?:br\s*/?|/p|/div|/tr|/li|/h[1-6])\s*>")
 SPACE_RE = re.compile(r"[ \t ]+")
 
 # LIST 응답에서 메일함 원본 이름(수정 UTF-7)을 뽑는다.

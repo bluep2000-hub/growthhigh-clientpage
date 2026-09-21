@@ -837,6 +837,7 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .dr-card b a::after{content:'';position:absolute;inset:0}   /* 카드 전체가 링크 */
 .dr-card .dr-src{margin-top:auto}
 .dr-card .dr-pin{position:absolute;top:8px;right:8px;z-index:1}
+.dr-cards.bowlgames .dr-card .dr-pin{top:auto;bottom:8px}
 
 
 /* 할 일 — 일정 목록 안에서 일정 아래에 이어 선다. 카드를 따로 세우지 않는다:
@@ -912,6 +913,7 @@ tr.tkb>td{padding:0 13px 13px;border-bottom:1px solid var(--line)}
 .tkbd.doc h3{font-size:13px;font-weight:600;color:var(--tx);margin:14px 0 5px}
 .tkbd.doc h4{font-size:12.5px;font-weight:600;color:var(--tx);margin:12px 0 4px}
 .tkbd.doc p{margin:5px 0}
+.tkbd.doc.mail p{white-space:pre-wrap}
 .tkbd.doc hr{border:none;border-top:1px solid var(--line);margin:14px 0}
 .tkbd.doc ul,.tkbd.doc ol{margin:5px 0 5px 17px}
 .tkbd.doc li{margin:2px 0}
@@ -6446,12 +6448,14 @@ function init(D){
   V.cert=()=>`<div class="vh"><h1>${CATNM.cert}</h1><span class="n">${cnt('cert')}건</span></div>${certTable()}`;
   V.proj=()=>`<div class="vh"><h1>${CATNM.proj}</h1><span class="n">${cnt('proj')}건</span></div>${table('proj')}`;
 
-  const drSrc = u => /notion\.(so|site)/.test(u) ? '노션' : /drive\.google/.test(u) ? '구글 드라이브'
+  const drSrc = u => /notion\.(so|site)/.test(u) ? (CLIENT==='bowlgames'?'바로가기':'노션') : /drive\.google/.test(u) ? '구글 드라이브'
     : (()=>{ try { return new URL(u).hostname; } catch(e) { return ''; } })();
   const drLink = it => `<a href="${esc(encodeURI(it.url))}" target="_blank" rel="noopener"
     title="${esc(it.label)}">${esc(it.label)}</a>`;
   /* 고정 단추는 담당자 편집 모드에서만 그린다. 클라이언트는 고정된 결과만 본다 */
-  const drPin = it => { if(!ED.on() || CLIENT !== 'whiffkorea') return ''; const on = drPins.includes(it.url);
+  const drPin = it => { const on = drPins.includes(it.url);
+    if(!ED.on()) return CLIENT==='bowlgames' && on ? '<span class="dr-pin on" title="즐겨찾기" aria-label="즐겨찾기">📌</span>' : '';
+    if(!['whiffkorea','bowlgames'].includes(CLIENT)) return '';
     return `<button type="button" class="dr-pin${on?' on':''}" data-drpin="${esc(it.url)}"
       aria-label="즐겨찾기에 고정" aria-pressed="${on}" title="${on?'고정 해제':'즐겨찾기에 고정'}">📌</button>`; };
 
@@ -6486,7 +6490,8 @@ function init(D){
         <strong><b>B안</b> · 카드</strong>
         <p>담당자가 📌 로 고정한 자료는 사이드바 맨 아래 「즐겨찾기」에 모두에게 보입니다(편집 모드에서만 고정).${ROOM_DEMO
           ? ' 노션 「추가 링크」가 비어 있어 <b>예시 항목</b>을 보여 줍니다.' : ''}</p></section>` : ''}
-      <div class="vh"><h1>데이터룸</h1><span class="n">${ROOM.reduce((s,x)=>s+x.items.length,0)}건</span></div>
+      <div class="vh"><h1>데이터룸</h1><span class="n">${ROOM.reduce((s,x)=>s+x.items.length,0)}건</span>
+        ${CLIENT==='bowlgames' ? editSwitch() : ''}</div>
       ${roomRebuildUi()}
       <div class="chips">${[{g:'전체', n:ROOM.reduce((s,x)=>s+x.items.length,0), k:'all'},
         ...ROOM.map((x,i)=>({g:`${ROOM_IC[x.g] || '📁'} ${x.g}`, n:x.items.length, k:String(i)}))]
@@ -6692,7 +6697,7 @@ function init(D){
       </tr>${open?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
        ${t.body_html
          /* body_html 은 build_client.py 가 이스케이프해 조립한 HTML 이다 */
-         ?`<div class="tkbd doc">${t.body_html}</div>`
+         ?`<div class="tkbd doc${CLIENT==='bowlgames'&&t.channel==='메일'?' mail':''}">${t.body_html}</div>`
          :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`;}).join('')}
      </tbody></table></div>`;
   }

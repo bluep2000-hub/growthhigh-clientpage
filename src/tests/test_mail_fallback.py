@@ -10,6 +10,10 @@ import build_client as builder  # noqa: E402
 
 
 class MailFallbackTests(unittest.TestCase):
+    def test_html_mail_keeps_paragraph_and_list_breaks(self):
+        body = builder.clean_body("<p>안녕하세요.</p><p>확인 사항:</p><ul><li>첫째</li><li>둘째</li></ul>", True)
+        self.assertEqual(body, "안녕하세요.\n확인 사항:\n첫째\n둘째")
+
     def test_shared_folder_keeps_only_exact_company_subject_tag(self):
         mails = [
             {"title": "[보울게임즈] 방문세션 안내"},
