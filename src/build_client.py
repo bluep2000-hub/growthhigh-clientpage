@@ -1180,11 +1180,18 @@ def notice_from_doc(doc: dict) -> dict | None:
     for s in doc.get("sections") or []:
         items = doc_items(s.get("items") or [])
         title = (s.get("title") or "").strip()
-        if not items and not title:
+        heading_html = None
+        # 옛 공지를 저장소로 옮길 때 첫 섹션 제목이 제목 칸이 아니라 첫 번째
+        # heading 줄로 들어간 문서가 있다. 그대로 내보내면 글자는 보이지만
+        # 섹션 토글이 생기지 않는다. 제목 줄만 제목 칸으로 올려 같은 구조로 낸다.
+        if (not title and items
+                and items[0].get("type") in {"heading1", "heading2", "heading3"}):
+            heading_html = items.pop(0).get("html") or ""
+        if not items and not title and not heading_html:
             continue
         # 제목이 없는 섹션은 heading 도 없다. 화면이 빈 제목 줄을 그리지 않는다.
         sections.append({"id": s.get("id") or "", "heading": title or None,
-                         "items": items})
+                         "heading_html": heading_html, "items": items})
 
     if not any(sec["items"] for sec in sections):
         return None
