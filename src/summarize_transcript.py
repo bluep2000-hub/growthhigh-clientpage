@@ -12,7 +12,7 @@ from google.genai import types
 
 DEFAULT_MODEL = "gemini-3.6-flash"
 # 짧은 확인 전화도 소통 기록이 될 수 있다. 인사말 몇 마디 수준의 전사만 막고,
-# 내용의 품질은 아래 회의록 형식 검증과 PM의 고객 공개 승인에서 다시 확인한다.
+# 내용의 품질은 아래 회의록 형식 검증과 공개 후 PM 수정에서 다시 확인한다.
 MIN_TRANSCRIPT_CHARS = 100
 
 SUMMARY_SCHEMA = {

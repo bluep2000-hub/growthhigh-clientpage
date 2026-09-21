@@ -55,10 +55,10 @@ class FakeClient(NotionDraftClient):
 
 
 class NotionTalkDraftTests(unittest.TestCase):
-    def test_draft_is_private_and_not_major(self):
+    def test_recording_is_public_by_default_and_not_major(self):
         props = draft_properties(job(), MeetingSummary("서류 진행 협의", MINUTES))
 
-        self.assertIs(props[PUBLIC_PROP]["checkbox"], False)
+        self.assertIs(props[PUBLIC_PROP]["checkbox"], True)
         self.assertIs(props[MAJOR_PROP]["checkbox"], False)
         self.assertEqual(
             props[COMPANY_PROP]["multi_select"],
@@ -81,7 +81,7 @@ class NotionTalkDraftTests(unittest.TestCase):
         self.assertTrue(result.created)
         self.assertEqual(client.calls[0][1].split("/")[-1], "query")
         create_body = client.calls[1][2]
-        self.assertIs(create_body["properties"][PUBLIC_PROP]["checkbox"], False)
+        self.assertIs(create_body["properties"][PUBLIC_PROP]["checkbox"], True)
 
     def test_existing_marker_prevents_duplicate_page(self):
         existing = {

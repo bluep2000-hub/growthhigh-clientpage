@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""검증된 회의록을 커뮤니케이션보드의 비공개 초안으로 기록한다."""
+"""검증된 회의록을 커뮤니케이션보드의 고객 공개 기록으로 저장한다."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def pending_jobs(store: RecordingJobStore) -> list[dict]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Notion 회의록 비공개 초안 기록기")
+    parser = argparse.ArgumentParser(description="Notion 고객 공개 회의록 기록기")
     parser.add_argument("--dry-run", action="store_true",
                         help="대상만 보여 주고 Notion을 건드리지 않는다")
     parser.add_argument("--limit", metavar="개수", type=int, default=None)
@@ -43,10 +43,10 @@ def main() -> int:
     if args.limit:
         todo = todo[:args.limit]
     if not todo:
-        print("Notion에 기록할 새 회의록 초안이 없다.")
+        print("Notion에 기록할 새 회의록이 없다.")
         return 0
 
-    print(f"Notion 비공개 초안 대상 {len(todo)}건")
+    print(f"Notion 고객 공개 회의록 대상 {len(todo)}건")
     for job in todo:
         print(f"  {job.get('company_name')} · {job.get('occurred_at')}")
     if args.dry_run:
@@ -70,7 +70,7 @@ def main() -> int:
                 notion_page_id=draft.page_id,
                 notion_url=draft.url,
             )
-            result = "새 초안" if draft.created else "기존 초안 확인"
+            result = "새 회의록" if draft.created else "기존 회의록 확인"
             print(f"  → {result}: {summary.title}")
         except Exception as exc:
             store.mark_failed(job_id, exc)

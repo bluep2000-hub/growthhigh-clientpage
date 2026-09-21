@@ -43,7 +43,7 @@ def status_kind(job: dict) -> str:
 def status_label(job: dict) -> str:
     return {
         "attention": "확인 필요",
-        "approval": "승인 대기",
+        "approval": "공개 해제",
         "working": "처리 중",
         "complete": "완료",
     }[status_kind(job)]
@@ -54,7 +54,7 @@ def stage_detail(job: dict) -> str:
     if kind == "attention":
         return str(job.get("last_error_detail") or "자동 처리 중 멈췄습니다.")
     if kind == "approval":
-        return "Notion 초안을 검토한 뒤 ‘고객 공개’를 체크해 주세요."
+        return "Notion에서 ‘고객 공개’를 체크하면 고객 페이지에 반영됩니다."
     if kind == "complete":
         return "고객 화면 반영까지 완료되었습니다."
     return {
@@ -62,7 +62,7 @@ def stage_detail(job: dict) -> str:
         "transcribing": "녹음을 받아쓰고 있습니다.",
         "transcribed": "전사를 마치고 회의록 생성을 기다립니다.",
         "summarizing": "회의록 초안을 만들고 있습니다.",
-        "notion_writing": "Notion 비공개 초안을 등록하고 있습니다.",
+        "notion_writing": "Notion 고객 공개 회의록을 등록하고 있습니다.",
         "building": "고객 화면 반영을 요청하고 있습니다.",
     }.get(str(job.get("state") or ""), "자동 처리 중입니다.")
 
@@ -255,7 +255,7 @@ h1{{font-size:clamp(30px,4vw,46px);line-height:1.1;letter-spacing:-.035em;margin
 <!--
 THESIS: PM이 터미널 대신 한 장의 처리 장부에서 멈춘 녹음을 먼저 발견한다.
 OWN-WORLD: 기존 GrowthHigh의 중성 바탕, 얇은 경계, 보라 포인트와 상태색을 잇는다.
-STORY: 마지막 자동 확인 확인 → 주의 항목 파악 → 승인 대기 초안을 Notion에서 검토한다.
+STORY: 마지막 자동 확인 확인 → 주의 항목 파악 → 공개 해제 기록을 Notion에서 검토한다.
 FIRST VIEWPORT: 큰 현황 제목, 세 번의 실행 시각, 상태 문장과 우선순위 장부가 한 화면에 온다.
 FORM: local-extension-direct — 기존 운영 화면의 코드 주도 확장으로 concept seed는 적용하지 않는다. 장식 카드나 개발 로그를 노출하지 않는다.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
@@ -263,12 +263,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <main class="wrap">
   <header class="top"><div class="brand">GROWTH'HIGH</div><div class="local">이 PC에만 저장되는 담당자 화면</div></header>
   <section class="lead"><div><h1>자동화 현황</h1>
-    <p>PM이 접수한 통화녹음의 전사, 회의록, 승인과 고객 화면 반영 상태입니다.<br>{SCHEDULE}에 자동으로 확인합니다.</p></div>
+    <p>PM이 접수한 통화녹음의 전사, 회의록과 고객 화면 반영 상태입니다.<br>{SCHEDULE}에 자동으로 확인합니다.</p></div>
     <button class="refresh" type="button" onclick="location.reload()">화면 새로고침</button></section>
   <div class="strip" aria-label="상태별 건수">
     <span class="counts-label" id="counts-label" hidden>마지막 저장 기준</span>
     <span class="attention">확인 필요 <b>{counts['attention']}</b></span>
-    <span class="approval">승인 대기 <b>{counts['approval']}</b></span>
+    <span class="approval">공개 해제 <b>{counts['approval']}</b></span>
     <span>처리 중 <b>{counts['working']}</b></span>
     <span class="complete">완료 <b>{counts['complete']}</b></span>
   </div>

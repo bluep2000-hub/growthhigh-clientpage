@@ -3,12 +3,13 @@ import {
   consumeStaffNonce, createStaffSession, customerLogin, customerSession, issueStaffNonce,
   hasCustomerCredential, limitAuthRequests, logout, nonceCookie, requireSlug, sessionCookie,
   setCustomerPassword, setupError,
+  tokenHash,
 } from "./private-auth.js";
 import { requireStaff, resolveStaff, verifyGoogleToken } from "./private-staff.js";
 import { loginPage } from "./private-ui.js";
 import { customerPage } from "./private-page.js";
 import { createPrivateStore } from "./private-store.js";
-import { EDITOR_ROUTES, editorRequest } from "./private-editor.js";
+import { EDITOR_ROUTES, editorRequest, requestPrivateRebuild } from "./private-editor.js";
 
 function json(body, status = 200, cookie) {
   return Response.json(body, { status, headers: {
@@ -63,6 +64,23 @@ function routedRequest(request, path) {
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
+    if (url.pathname === "/ops/rebuild") {
+      try {
+        if (request.method !== "POST") throw new ApiError(405, "method_not_allowed");
+        if (!env.AUTOMATION_TOKEN) throw setupError();
+        const given = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+        if (!given || await tokenHash(given) !== await tokenHash(env.AUTOMATION_TOKEN))
+          throw new ApiError(401, "unauthorized");
+        const input = await body(request);
+        requireSlug(input.slug);
+        if (!await hasCustomerCredential(env, input.slug))
+          throw new ApiError(404, "not_found");
+        return json({ slug: input.slug, rebuild: await requestPrivateRebuild(env, input.slug) });
+      } catch (error) {
+        return json({ error: error instanceof ApiError ? error.code : "internal_error" },
+          error instanceof ApiError ? error.status : 500);
+      }
+    }
     const route = scopedPath(url);
     if (route === null) return json({ error: "not_found" }, 404);
     const { slug, path } = route;

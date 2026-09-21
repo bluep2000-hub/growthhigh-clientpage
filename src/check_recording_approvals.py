@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PM이 고객 공개를 승인한 회의록을 찾아 고객 페이지 재빌드를 요청한다."""
+"""고객 공개 회의록을 찾아 고객 페이지 재빌드를 요청한다."""
 
 from __future__ import annotations
 
@@ -29,9 +29,9 @@ def pending_jobs(store: RecordingJobStore) -> list[dict]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="회의록 고객 공개 승인 확인기")
+    parser = argparse.ArgumentParser(description="공개 회의록 고객 페이지 반영기")
     parser.add_argument("--dry-run", action="store_true",
-                        help="승인 대기 목록만 보고 외부 서비스를 건드리지 않는다")
+                        help="반영 대기 목록만 보고 외부 서비스를 건드리지 않는다")
     parser.add_argument("--limit", metavar="개수", type=int, default=None)
     args = parser.parse_args()
 
@@ -45,10 +45,10 @@ def main() -> int:
     if args.limit:
         todo = todo[:args.limit]
     if not todo:
-        print("고객 공개 승인을 기다리는 회의록이 없다.")
+        print("고객 페이지 반영을 기다리는 회의록이 없다.")
         return 0
 
-    print(f"고객 공개 승인 대기 {len(todo)}건")
+    print(f"고객 페이지 반영 대기 {len(todo)}건")
     for job in todo:
         print(f"  {job.get('company_name')} · {job.get('occurred_at')}")
     if args.dry_run:
@@ -70,7 +70,7 @@ def main() -> int:
         job_id = str(job["id"])
         try:
             if not notion.is_public(job):
-                print("  · 아직 승인 전")
+                print("  · 고객 공개가 해제되어 반영하지 않음")
                 continue
             store.mark_building(job_id)
             rebuild.request(str(job.get("company_slug") or ""))
@@ -82,7 +82,7 @@ def main() -> int:
             print(f"  ! 실패: {type(exc).__name__}: {str(exc)[:200]}")
             failed += 1
 
-    print(f"끝. 승인·반영 {approved}건, 승인 대기 {len(todo) - approved - failed}건, 실패 {failed}건.")
+    print(f"끝. 반영 요청 {approved}건, 공개 해제 {len(todo) - approved - failed}건, 실패 {failed}건.")
     return 1 if failed else 0
 
 

@@ -233,7 +233,7 @@ class RecordingJobStore:
         job["state"] = "needs_review"
         job["last_error_code"] = "WAITING_PUBLIC_APPROVAL"
         job["last_error_detail"] = (
-            "Notion 초안의 내용과 기업명을 확인한 뒤 고객 공개를 체크하세요"
+            "Notion 회의록의 고객 공개가 해제되어 고객 페이지에 반영하지 않았습니다"
         )
         job["notion_page_id"] = notion_page_id
         job["notion_url"] = notion_url

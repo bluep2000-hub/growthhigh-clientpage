@@ -1,4 +1,4 @@
-"""커뮤니케이션보드에 고객 비공개 회의록 초안을 멱등 생성한다."""
+"""커뮤니케이션보드에 고객 공개 회의록을 멱등 생성한다."""
 
 from __future__ import annotations
 
@@ -178,7 +178,7 @@ def draft_properties(job: dict, summary: MeetingSummary) -> dict:
         DATE_PROP: {"date": {"start": occurred}},
         CHANNEL_PROP: {"multi_select": [{"name": notion_channel(str(job.get("channel") or ""))}]},
         SOURCE_URL_PROP: {"url": source_marker_url(str(job.get("id") or ""))},
-        PUBLIC_PROP: {"checkbox": False},
+        PUBLIC_PROP: {"checkbox": True},
         MAJOR_PROP: {"checkbox": False},
     }
 
@@ -260,7 +260,7 @@ class NotionDraftClient:
         return NotionDraft(
             page_id=str(page.get("id") or ""),
             url=str(page.get("url") or ""),
-            public=False,
+            public=True,
             created=True,
         )
 

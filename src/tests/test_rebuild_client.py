@@ -6,7 +6,7 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC))
 
-from rebuild_client import RebuildClient, RebuildRequestError  # noqa: E402
+from rebuild_client import DEFAULT_RELAY_URL, RebuildClient, RebuildRequestError  # noqa: E402
 
 
 class Response:
@@ -36,6 +36,10 @@ class RebuildClientTests(unittest.TestCase):
         client.request("whiffkorea")
 
         url, kwargs = session.calls[0]
+        self.assertEqual(
+            DEFAULT_RELAY_URL,
+            "https://growthhigh-clientpage-private.growthhigh-clientpage-worker.workers.dev",
+        )
         self.assertTrue(url.endswith("/ops/rebuild"))
         self.assertEqual(kwargs["json"], {"slug": "whiffkorea"})
         self.assertEqual(

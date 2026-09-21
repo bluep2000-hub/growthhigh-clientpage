@@ -48,7 +48,7 @@ class RecordingStatusPageTests(unittest.TestCase):
             notion_url="https://www.notion.so/example",
         )])
 
-        self.assertIn("승인 대기", page)
+        self.assertIn("공개 해제", page)
         self.assertIn("Notion 초안 열기", page)
         self.assertIsNone(safe_notion_url("https://example.com/fake-notion"))
 

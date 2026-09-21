@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""녹음 전사 → 회의록 → Notion 비공개 초안을 한 회차로 실행한다."""
+"""녹음 전사 → 회의록 → Notion 공개 기록을 한 회차로 실행한다."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ ROOT = Path(__file__).resolve().parent.parent
 STEPS = (
     ("전사", "transcribe_drive.py"),
     ("회의록", "summarize_recordings.py"),
-    ("Notion 비공개 초안", "write_notion_drafts.py"),
-    ("고객 공개 승인", "check_recording_approvals.py"),
+    ("Notion 공개 기록", "write_notion_drafts.py"),
+    ("고객 페이지 반영", "check_recording_approvals.py"),
     ("담당자 현황 화면", "render_recording_status.py"),
 )
 

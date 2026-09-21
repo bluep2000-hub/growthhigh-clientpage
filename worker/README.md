@@ -39,7 +39,7 @@ npx wrangler secret put NOTION_TOKEN            # 노션 통합 토큰
 npx wrangler secret put EDITOR_PASSWORD         # 담당자 공용 비밀번호
 npx wrangler secret put GITHUB_DISPATCH_TOKEN   # 재빌드 신호용 (티켓 #14)
 npx wrangler secret put BUILD_TOKEN             # 빌드가 공지를 가져갈 때 (티켓 #35)
-npx wrangler secret put AUTOMATION_TOKEN        # 통화 자동화의 승인 후 재빌드 요청
+npx wrangler secret put AUTOMATION_TOKEN        # 통화 자동화의 고객 페이지 재빌드 요청
 ```
 
 `EDITOR_PASSWORD` 는 **클라이언트 페이지 비밀번호와 다른 값**이어야 한다.
@@ -497,10 +497,9 @@ Authorization: Bearer <AUTOMATION_TOKEN>
   →  200  { slug: "whiffkorea", rebuild: "sent"|"failed"|"skipped" }
 ```
 
-PM이 Notion 초안의 `고객 공개`를 체크한 것을 자동화가 다시 확인한 뒤에만
-부른다. Worker는 슬러그가 실제 공유페이지 기업인지 재검증하고 GitHub
-`repository_dispatch`를 보낸다. 이 토큰으로 공지나 소통의 내용을 바꾸지는
-못한다.
+자동화가 Notion 기록의 `고객 공개`를 확인한 뒤 부른다. Worker는 등록된 고객
+슬러그인지 확인하고 비공개 DB의 기업별 갱신 대기열에 넣는다. 이 토큰으로 공지나
+소통의 내용을 바꾸지는 못한다.
 
 ### 비밀번호를 싣는 법
 
@@ -588,7 +587,7 @@ npm test
 
 예약 작업 `GrowthHigh Clientpage Private Refresh`는 로그인된 Windows 사용자로 매일
 09:00·13:00·18:00 실행하며, 중복 실행은 시작하지 않는다. 원격 빌드는 고객 비밀번호가 등록된
-기업을 자동으로 찾아 각 기업의 고객 공개 승인 데이터만 비공개 D1에 저장하고, 실패 시 해당
+기업을 자동으로 찾아 각 기업의 고객 공개 데이터만 비공개 D1에 저장하고, 실패 시 해당
 기업의 이전 정상 결과를 유지한다. 설치할 때
 현재 PC의 Node와 Python 실행 파일 위치를 예약 작업에 고정하므로 백그라운드 실행이
 사용자 `PATH` 설정에 의존하지 않는다.

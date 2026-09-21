@@ -9,7 +9,7 @@ export const EDITOR_ROUTES = new Map([
 ]);
 const REBUILD_ROUTES = new Set(["/notice/doc/publish", "/room/rebuild", "/room/pin", "/talk/major"]);
 
-async function requestPrivateRebuild(env, slug) {
+export async function requestPrivateRebuild(env, slug) {
   try {
     await env.PRIVATE_DB.prepare(`INSERT INTO private_rebuild_job(slug, requested_at, state)
       VALUES (?, ?, 'requested') ON CONFLICT(slug) DO UPDATE SET

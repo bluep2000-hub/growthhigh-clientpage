@@ -53,7 +53,7 @@ Register-ScheduledTask `
     -Trigger $triggers `
     -Settings $settings `
     -Principal $principal `
-    -Description "Drive 접수 녹음을 Gemini로 전사·요약하고 Notion 비공개 초안과 공개 승인을 처리합니다." `
+    -Description "Drive 접수 녹음을 Gemini로 전사·요약하고 Notion 공개 기록과 고객페이지 반영을 처리합니다." `
     -Force | Out-Null
 
 Write-Output "TASK_NAME=$taskName"

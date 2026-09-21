@@ -1,4 +1,4 @@
-"""승인된 회의록의 고객 페이지 재빌드를 Worker에 요청한다."""
+"""공개 회의록의 고객 페이지 재빌드를 Worker에 요청한다."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import requests
 
 
 DEFAULT_RELAY_URL = (
-    "https://growthhigh-clientpage-relay"
+    "https://growthhigh-clientpage-private"
     ".growthhigh-clientpage-worker.workers.dev"
 )
 
