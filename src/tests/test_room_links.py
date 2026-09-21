@@ -14,6 +14,20 @@ def block(kind, text="", url=None):
 
 
 class RoomLinksTests(unittest.TestCase):
+    def test_unpublished_notion_page_is_not_given_to_customers(self):
+        class Notion:
+            def children(self, page_id):
+                return [block("heading_2", "주요 자료"),
+                        block("bulleted_list_item", "미게시 문서",
+                              "https://app.notion.com/p/3ce815d712b980cc9a43c455e3d80ddf")]
+
+            def get(self, path):
+                return {"public_url": None}
+
+        with patch.object(builder, "log") as notice:
+            self.assertEqual(builder.fetch_material_links(Notion(), "client-page"), [])
+        notice.assert_called_once()
+
     def test_nested_and_bookmark_links_under_materials_are_collected(self):
         parent = block("bulleted_list_item", "자료 묶음")
         parent.update(id="nested", has_children=True)
@@ -37,6 +51,8 @@ class RoomLinksTests(unittest.TestCase):
     def test_only_material_links_are_added_without_duplicate_guidebook_or_manual_link(self):
         first = "https://app.notion.com/p/3ce815d712b980cc9a43c455e3d80ddf"
         second = "https://app.notion.com/p/3d6815d712b980eeaf48f00488529ea3"
+        public_first = "https://yuncommon.notion.site/2026-09-01-1st-3ce815d712b980cc9a43c455e3d80ddf"
+        public_second = "https://yuncommon.notion.site/2026-09-10-2nd-3d6815d712b980eeaf48f00488529ea3"
         blocks = [
             block("bulleted_list_item", "내부 기업 정보", "https://app.notion.com/p/internal"),
             block("heading_2", "🔗 주요 자료"),
@@ -53,6 +69,9 @@ class RoomLinksTests(unittest.TestCase):
                 self.page_id = page_id
                 return blocks
 
+            def get(self, path):
+                return {"public_url": public_first if path.endswith(first[-32:]) else public_second}
+
         nt = Notion()
         with patch.object(builder, "fetch_company", return_value={"name": "보울게임즈"}), \
              patch.object(builder, "fetch_projects", return_value=[]), \
@@ -66,15 +85,15 @@ class RoomLinksTests(unittest.TestCase):
             result = builder.build_one(nt, {
                 "slug": "bowlgames", "page_id": "bowlgames-page", "page_name": "보울게임즈",
                 "company_page_id": "company", "extra_links": [
-                    {"group": "기존 자료", "items": [{"label": "수동 자료", "url": first}]},
+                    {"group": "기존 자료", "items": [{"label": "수동 자료", "url": public_first}]},
                 ],
             }, False, True, True, {"보울게임즈"}, private_assets={})
 
         self.assertEqual(nt.page_id, "bowlgames-page")
         self.assertEqual(result["payload"]["company"]["extra_links"], [
-            {"group": "기존 자료", "items": [{"label": "수동 자료", "url": first}]},
+            {"group": "기존 자료", "items": [{"label": "수동 자료", "url": public_first}]},
             {"group": "주요 자료", "items": [
-                {"label": "2026-09-10 보울게임즈 2차 자료", "url": second},
+                {"label": "2026-09-10 보울게임즈 2차 자료", "url": public_second},
             ]},
         ])
 

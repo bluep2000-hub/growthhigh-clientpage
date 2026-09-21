@@ -388,7 +388,19 @@ def fetch_material_links(nt: Notion, page_id: str) -> list[dict]:
         if not label or parsed.scheme not in ("http", "https") or not parsed.netloc:
             return
         # 공통 가이드북은 B안의 별도 메뉴에 이미 있다.
-        if guidebook_id in url.replace("-", "").lower() or url in seen:
+        if guidebook_id in url.replace("-", "").lower():
+            return
+        if parsed.hostname in ("app.notion.com", "notion.so", "www.notion.so"):
+            page_id = re.search(r"([0-9a-f]{32})$", parsed.path.rstrip("/").replace("-", "").lower())
+            if not page_id:
+                log(f"  주요 자료의 노션 페이지 주소를 읽을 수 없어 제외: {label}")
+                return
+            # 내부 app.notion.com 주소는 고객에게 보이지 않는다. 게시 사이트 주소만 싣는다.
+            url = (nt.get(f"/pages/{page_id.group(1)}").get("public_url") or "").strip()
+            if not url.startswith("https://"):
+                log(f"  주요 자료의 노션 페이지가 게시되지 않아 제외: {label}")
+                return
+        if url in seen:
             return
         seen.add(url)
         items.append({"label": label, "url": url})
