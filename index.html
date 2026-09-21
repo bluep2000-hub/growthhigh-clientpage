@@ -399,9 +399,9 @@ main{flex:1;display:flex;flex-direction:column;min-width:0;height:100vh}
 .ed-preview-b>h1{font-size:22px;letter-spacing:-.025em;margin-bottom:5px}
 .ed-preview-b>.date{font-size:11.5px;color:var(--tx-3);margin-bottom:24px}
 .ed-preview-b .notice{background:var(--panel)}
-/* ── 한 장의 문서로 쓰는 공지 편집 화면 ──
-   기존 공지 카드 안에 편집 도구를 얹지 않는다. 편집 모드에서는 스크롤 영역
-   전체가 문서 작업대가 되고, 저장·게시 도구는 얇은 상단 막대로만 남는다. */
+/* ── 공지 편집 화면 ──
+   문서 작업대에서 쓰되, 섹션은 고객용 공지와 같은 박스로 구분한다.
+   저장·게시 도구는 얇은 상단 막대로만 남는다. */
 main.notice-edit .scroll{background:var(--panel);scroll-padding-top:72px}
 main.notice-edit .view{max-width:none;margin:0;padding:0 0 110px}
 main.notice-edit .top .rpt{display:none}
@@ -444,8 +444,9 @@ main.notice-edit .top .rpt{display:none}
 .ed-page .notice[data-nsec]:not(.nsec-untitled) .ck{margin-left:0}
 .ed-page .notice[data-nsec] .ck li{font-size:16px;line-height:1.65;min-height:30px;
   padding-top:2px;padding-bottom:2px;letter-spacing:-.012em}
+.ed-page .notice[data-nsec] .ck li:is(.chk,.ord,.plain,.tg0){padding-left:26px}
 .ed-page .notice[data-nsec] .ck li.para{padding-left:0}
-.ed-page .notice[data-nsec] .ck ul{margin:2px 0 4px 28px}
+.ed-page .notice[data-nsec] .ck ul{margin:2px 0 4px 4px}
 .ed-page .notice[data-nsec] .nx[contenteditable]{min-height:1.65em;caret-color:var(--caret)}
 .ed-page .nx[contenteditable]{padding:1px 3px;margin:-1px -3px;box-shadow:none}
 .ed-page .nx[contenteditable]:hover{background:transparent}
@@ -1098,7 +1099,6 @@ body.locked #gate{display:grid}
   .ed-page{padding:48px 24px 90px}
   .ed-page .nti{font-size:34px}
   .ed-page .notice[data-nsec] .ck{margin-left:30px}
-  .ed-page .notice[data-nsec] .ck ul{margin-left:22px}
   .ed-page .nx-rail{left:-30px}
   .ed-page .notice[data-nsec] .ck li{font-size:16px}
   .ed-page .ck>li.hd1{font-size:27px}.ed-page .ck>li.hd2{font-size:22px}
