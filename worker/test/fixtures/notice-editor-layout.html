@@ -16,12 +16,23 @@ function checkLayout(){
     return Math.round(li.getBoundingClientRect().top+Number.parseFloat(b.top)
       +(Number.parseFloat(b.height)+2*Number.parseFloat(b.borderTopWidth))/2-t.top-t.height/2);
   });
+  const upper=document.querySelector('[data-nid="gap-upper"]');
+  const middle=document.querySelector('[data-nid="gap-middle"]');
+  const lower=document.querySelector('[data-nid="gap-lower"]');
+  const textRects=li=>{
+    const r=document.createRange();r.selectNodeContents(li.querySelector(':scope>.nx'));
+    const parts=[...r.getClientRects()];return {top:parts[0].top,bottom:parts.at(-1).bottom};
+  };
+  const a=textRects(upper),b=textRects(middle),c=textRects(lower);
+  const above=b.top-a.bottom,below=c.top-b.bottom;
   const pass=Math.min(...gaps)>=6 && document.documentElement.scrollWidth<=innerWidth
     && rows.every(li=>li.querySelector('.nx').getBoundingClientRect().right<=box.right-12)
-    && checkboxOffsets.every(offset=>Math.abs(offset)<=1);
+    && checkboxOffsets.every(offset=>Math.abs(offset)<=1)
+    && Math.abs(above-below)<=1;
   document.documentElement.dataset.qa=pass?'pass':'fail';
   document.documentElement.dataset.qaMinGap=String(Math.min(...gaps));
   document.documentElement.dataset.qaCheckboxOffsets=checkboxOffsets.join(',');
+  document.documentElement.dataset.qaNestedGaps=`${Math.round(above)},${Math.round(below)}`;
 }
 fetch('/index.html',{cache:'no-store'}).then(r=>r.text()).then(s=>{
   const c=s.match(/<style>([\s\S]*?)<\/style>/);
@@ -42,5 +53,11 @@ fetch('/index.html',{cache:'no-store'}).then(r=>r.text()).then(s=>{
 <li class="plain" data-nid="g"><span class="nx" contenteditable="true">일반 글머리</span></li>
 </ul></li>
 <li class="chk" data-nid="e"><span class="nx" contenteditable="true">다음 작업: 자료 보완</span></li>
+</ul><div class="ntail"></div></div></div>
+<div class="notice open" data-nsec="gap-qa"><h3><span class="nsx">간격 검사</span></h3><div class="bd"><ul class="ck">
+<li class="chk" data-nid="gap-upper"><span class="nx" contenteditable="true">09/23(수) ~ 09/30(수) 사업계획서 작업 / 서류 리스트업</span><ul>
+<li class="chk" data-nid="gap-middle"><span class="nx" contenteditable="true">10/01(목) 전산입력 및 신청</span></li>
+</ul></li>
+<li class="chk" data-nid="gap-lower"><span class="nx" contenteditable="true">10/02(금) 수수료 납부</span></li>
 </ul><div class="ntail"></div></div></div>
 </div></article></section></div></div></main></html>
