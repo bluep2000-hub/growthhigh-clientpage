@@ -446,7 +446,10 @@ main.notice-edit .top .rpt{display:none}
   padding-top:2px;padding-bottom:2px;letter-spacing:-.012em}
 .ed-page .notice[data-nsec] .ck li:is(.chk,.ord,.plain,.tg0){padding-left:26px}
 .ed-page .notice[data-nsec] .ck li.para{padding-left:0}
-.ed-page .notice[data-nsec] .ck ul{margin:2px 0 4px 4px}
+.ed-page .notice[data-nsec] .ck li>ul{margin:5px 0 8px 2px;
+  border-left:2px solid var(--line-2);padding-left:8px}
+.ed-page .notice[data-nsec] .ck>li>ul{padding:6px 10px;
+  background:var(--panel-2);border-radius:0 6px 6px 0}
 .ed-page .notice[data-nsec] .nx[contenteditable]{min-height:1.65em;caret-color:var(--caret)}
 .ed-page .nx[contenteditable]{padding:1px 3px;margin:-1px -3px;box-shadow:none}
 .ed-page .nx[contenteditable]:hover{background:transparent}
@@ -458,7 +461,7 @@ main.notice-edit .top .rpt{display:none}
 .ed-page .notice[data-nsec] .ck li.hd3{padding-left:0}
 .ed-page .nx-rail{left:-38px;top:4px;gap:2px}
 .ed-page .nx-plus,.ed-page .nx-gr{width:18px;height:22px}
-.ed-page .ntail{min-height:32px}
+.ed-page .ntail{min-height:8px}
 .ed-page .ck li[data-nid]:only-child>.nx.ed-hint:not(:focus)::before{
   content:'내용을 입력하거나 ‘/’를 눌러 블록을 선택하세요';color:var(--tx-3);opacity:.78}
 .ed-page .nsadd{margin:28px 0 0 38px}
@@ -1101,6 +1104,9 @@ body.locked #gate{display:grid}
   .ed-page .notice[data-nsec] .ck{margin-left:30px}
   .ed-page .nx-rail{left:-30px}
   .ed-page .notice[data-nsec] .ck li{font-size:16px}
+  .ed-page .notice[data-nsec] .ck ul li:is(.chk,.ord,.plain,.tg0){padding-left:23px}
+  .ed-page .notice[data-nsec] .ck li>ul{padding-left:5px}
+  .ed-page .notice[data-nsec] .ck>li>ul{padding:6px 7px}
   .ed-page .ck>li.hd1{font-size:27px}.ed-page .ck>li.hd2{font-size:22px}
   .ed-page .nsadd,.ed-page .ed-help{margin-left:30px}
   .ed-preview-b{padding:22px 18px 40px}

@@ -9,10 +9,15 @@ function checkLayout(){
     const end=r.left+Number.parseFloat(b.left)+Number.parseFloat(b.width)+Number.parseFloat(b.borderLeftWidth)+Number.parseFloat(b.borderRightWidth);
     return li.querySelector('.nx').getBoundingClientRect().left-end;
   });
+  const group=getComputedStyle(document.querySelector('.ck>li>ul'));
+  const visible=[...document.querySelectorAll('.ck>li')].filter(li=>li.querySelector(':scope>.nx')?.textContent.trim());
+  const blank=box.bottom-visible.at(-1).getBoundingClientRect().bottom;
   const pass=Math.min(...gaps)>=6 && document.documentElement.scrollWidth<=innerWidth
-    && rows.every(li=>li.querySelector('.nx').getBoundingClientRect().right<=box.right-12);
+    && rows.every(li=>li.querySelector('.nx').getBoundingClientRect().right<=box.right-12)
+    && Number.parseFloat(group.borderLeftWidth)>=2 && group.backgroundColor!=='rgba(0, 0, 0, 0)' && blank<=60;
   document.documentElement.dataset.qa=pass?'pass':'fail';
   document.documentElement.dataset.qaMinGap=String(Math.min(...gaps));
+  document.documentElement.dataset.qaBlank=String(Math.round(blank));
 }
 fetch('/index.html',{cache:'no-store'}).then(r=>r.text()).then(s=>{
   const c=s.match(/<style>([\s\S]*?)<\/style>/);
@@ -33,5 +38,6 @@ fetch('/index.html',{cache:'no-store'}).then(r=>r.text()).then(s=>{
 <li class="plain" data-nid="g"><span class="nx" contenteditable="true">일반 글머리</span></li>
 </ul></li>
 <li class="chk" data-nid="e"><span class="nx" contenteditable="true">다음 작업: 자료 보완</span></li>
+<li class="para ed-blank" data-nid="empty"><span class="nx ed-hint" contenteditable="true"></span></li>
 </ul><div class="ntail"></div></div></div>
 </div></article></section></div></div></main></html>
