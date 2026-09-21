@@ -115,6 +115,10 @@ def parse_name(name: str) -> tuple[str | None, str | None, str | None]:
     m = re.search(r"_(\d{6})_\d{6}$", stem)   # 녹음기가 끝에 날짜_시각을 붙인다
     if m:
         day, stem = m.group(1), stem[:m.start()]
+    else:
+        m = re.match(r"(\d{6})_", stem)       # 사람이 정리한 이름은 날짜로 시작하기도 한다
+        if m:
+            day = m.group(1)
 
     m = re.search(r"\[([^\]]+)\]", stem)      # 제목의 [고객사]
     company = m.group(1).strip() if m and m.group(1).strip() else None

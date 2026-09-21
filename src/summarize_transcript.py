@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 
 
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 # 짧은 확인 전화도 소통 기록이 될 수 있다. 인사말 몇 마디 수준의 전사만 막고,
 # 내용의 품질은 아래 회의록 형식 검증과 PM의 고객 공개 승인에서 다시 확인한다.
 MIN_TRANSCRIPT_CHARS = 100
@@ -50,8 +50,9 @@ def prompt_for(*, transcript: str, company: str, occurred_at: str,
 - 전사에 없는 내용, 결론, 담당자, 기한을 추측하지 않습니다.
 - 결론이 안 났으면 `추가 검토 필요`라고 적습니다.
 - 인사말·잡담·중복 발언과 화자 표시는 뺍니다.
-- 마지막 섹션은 반드시 `Action Items`이며 아래 머리 행을 정확히 사용합니다.
+- 마지막 섹션은 반드시 `Action Items`이며 아래 두 줄을 정확히 사용합니다.
   `| 항목 | 담당 | 기한 |`
+  `| --- | --- | --- |`
 - 확인된 할 일이 없으면 머리 행과 구분 행만 두고 임의의 할 일을 만들지 않습니다.
 - 담당은 전사에서 확인될 때만 `그로스하이` 또는 `클라이언트`로 씁니다.
 - 기한이 안 나왔으면 `미정`으로 씁니다.

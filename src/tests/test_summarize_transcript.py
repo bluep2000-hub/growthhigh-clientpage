@@ -9,6 +9,7 @@ sys.path.insert(0, str(SRC))
 
 from summarize_transcript import (  # noqa: E402
     SummaryNeedsReview,
+    prompt_for,
     summarize,
     validate_summary,
 )
@@ -29,6 +30,17 @@ VALID_MINUTES = """## 1. 지원사업 서류 진행
 
 
 class SummaryValidationTests(unittest.TestCase):
+    def test_prompt_requires_exact_action_table_separator(self):
+        prompt = prompt_for(
+            transcript="화자1: 서류를 검토했습니다.",
+            company="테스트 고객사",
+            occurred_at="2026-09-03",
+            channel="통화",
+        )
+
+        self.assertIn("`| 항목 | 담당 | 기한 |`", prompt)
+        self.assertIn("`| --- | --- | --- |`", prompt)
+
     def test_accepts_legitimate_short_call(self):
         transcript = (
             "화자1: 지원사업 안내 메일을 받았습니다.\n"

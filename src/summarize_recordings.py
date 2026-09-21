@@ -77,10 +77,18 @@ def safe_transcript_path(folder: Path, job: dict) -> Path:
     return path
 
 
-def pending_jobs(store: RecordingJobStore) -> list[dict]:
+def pending_jobs(store: RecordingJobStore, folder: Path) -> list[dict]:
+    def resumable(job: dict) -> bool:
+        state = job.get("state")
+        if state in {"transcribed", "summarizing"}:
+            return True
+        if state != "failed":
+            return False
+        name = str(job.get("transcript_name") or "")
+        return bool(name and Path(name).name == name and (folder / name).is_file())
+
     return sorted(
-        (job for job in store.all()
-         if job.get("state") in {"transcribed", "summarizing"}),
+        (job for job in store.all() if resumable(job)),
         key=lambda job: (job.get("received_at") or "", job.get("id") or ""),
     )
 
@@ -99,7 +107,7 @@ def main() -> int:
 
     try:
         store = RecordingJobStore()
-        todo = pending_jobs(store)
+        todo = pending_jobs(store, folder)
     except RecordingJobError as exc:
         print(f"처리 장부 확인 필요:\n{exc}")
         return 1
@@ -120,8 +128,7 @@ def main() -> int:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         sys.exit("GEMINI_API_KEY 가 없다. .env 를 확인해라.")
-    model = (os.environ.get("GEMINI_SUMMARY_MODEL")
-             or os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL)
+    model = os.environ.get("GEMINI_SUMMARY_MODEL") or DEFAULT_MODEL
     client = genai.Client(api_key=api_key)
 
     failed = 0

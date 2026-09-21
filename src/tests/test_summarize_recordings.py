@@ -45,14 +45,19 @@ class SummarizeRecordingsTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def test_only_transcribed_or_interrupted_summary_jobs_are_pending(self):
-        self.assertEqual(pending_jobs(self.store), [])
+    def test_transcribed_interrupted_or_failed_summary_jobs_are_pending(self):
+        transcript = self.root / self.job["transcript_name"]
+        self.assertEqual(pending_jobs(self.store, self.root), [])
         self.store.mark_transcribed(self.job["id"])
-        self.assertEqual(len(pending_jobs(self.store)), 1)
+        self.assertEqual(len(pending_jobs(self.store, self.root)), 1)
         self.store.mark_summarizing(self.job["id"])
-        self.assertEqual(len(pending_jobs(self.store)), 1)
+        self.assertEqual(len(pending_jobs(self.store, self.root)), 1)
+        self.store.mark_failed(self.job["id"], RuntimeError("temporary outage"))
+        self.assertEqual(pending_jobs(self.store, self.root), [])
+        transcript.write_text("전사 완료", encoding="utf-8")
+        self.assertEqual(len(pending_jobs(self.store, self.root)), 1)
         self.store.mark_notion_writing(self.job["id"], "draft.json")
-        self.assertEqual(pending_jobs(self.store), [])
+        self.assertEqual(pending_jobs(self.store, self.root), [])
 
     def test_summary_artifact_round_trips(self):
         path = self.root / "draft.json"
