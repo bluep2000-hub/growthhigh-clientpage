@@ -5,6 +5,7 @@ from __future__ import annotations
 
 COMPANY_SLUGS = {
     "위프코리아": "whiffkorea",
+    "보울게임즈": "bowlgames",
 }
 
 

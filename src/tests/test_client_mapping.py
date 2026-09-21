@@ -13,6 +13,9 @@ class ClientMappingTests(unittest.TestCase):
     def test_whiffkorea_folder_maps_to_page_slug(self):
         self.assertEqual(client_slug_for("위프코리아"), "whiffkorea")
 
+    def test_bowlgames_folder_maps_to_page_slug(self):
+        self.assertEqual(client_slug_for("보울게임즈"), "bowlgames")
+
     def test_surrounding_spaces_are_ignored(self):
         self.assertEqual(client_slug_for("  위프코리아  "), "whiffkorea")
 
