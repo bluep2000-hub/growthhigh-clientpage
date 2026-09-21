@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko" data-theme="light"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>공지 들여쓰기 품질검사</title>
+<!doctype html><html lang="ko" data-theme="light"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>공지 편집 화면 품질검사</title>
 <script>
 document.documentElement.dataset.theme=new URLSearchParams(location.search).get('theme')==='dark'?'dark':'light';
 function checkLayout(){
@@ -9,15 +9,19 @@ function checkLayout(){
     const end=r.left+Number.parseFloat(b.left)+Number.parseFloat(b.width)+Number.parseFloat(b.borderLeftWidth)+Number.parseFloat(b.borderRightWidth);
     return li.querySelector('.nx').getBoundingClientRect().left-end;
   });
-  const group=getComputedStyle(document.querySelector('.ck>li>ul'));
-  const visible=[...document.querySelectorAll('.ck>li')].filter(li=>li.querySelector(':scope>.nx')?.textContent.trim());
-  const blank=box.bottom-visible.at(-1).getBoundingClientRect().bottom;
+  const checkboxOffsets=rows.filter(li=>li.classList.contains('chk')).map(li=>{
+    const b=getComputedStyle(li,'::before'),r=document.createRange();
+    r.selectNodeContents(li.querySelector(':scope>.nx'));
+    const t=r.getClientRects()[0];
+    return Math.round(li.getBoundingClientRect().top+Number.parseFloat(b.top)
+      +(Number.parseFloat(b.height)+2*Number.parseFloat(b.borderTopWidth))/2-t.top-t.height/2);
+  });
   const pass=Math.min(...gaps)>=6 && document.documentElement.scrollWidth<=innerWidth
     && rows.every(li=>li.querySelector('.nx').getBoundingClientRect().right<=box.right-12)
-    && Number.parseFloat(group.borderLeftWidth)>=2 && group.backgroundColor!=='rgba(0, 0, 0, 0)' && blank<=60;
+    && checkboxOffsets.every(offset=>Math.abs(offset)<=1);
   document.documentElement.dataset.qa=pass?'pass':'fail';
   document.documentElement.dataset.qaMinGap=String(Math.min(...gaps));
-  document.documentElement.dataset.qaBlank=String(Math.round(blank));
+  document.documentElement.dataset.qaCheckboxOffsets=checkboxOffsets.join(',');
 }
 fetch('/index.html',{cache:'no-store'}).then(r=>r.text()).then(s=>{
   const c=s.match(/<style>([\s\S]*?)<\/style>/);
@@ -29,15 +33,14 @@ fetch('/index.html',{cache:'no-store'}).then(r=>r.text()).then(s=>{
 </script>
 <main class="notice-edit"><div class="scroll"><div class="view"><section class="ed-workspace"><article class="ed-page"><header class="ed-page-head"><input class="nti" value="공지사항" aria-label="공지 제목"><div class="ed-meta">작성 화면 테스트</div></header><div class="ed-body">
 <div class="notice open" data-nsec="qa"><h3><span class="nsx">진행 사항</span></h3><div class="bd"><ul class="ck">
-<li class="chk" data-nid="a"><span class="nx" contenteditable="true">1단계: 자료 접수</span><ul>
+<li class="chk on" data-nid="a"><span class="nx" contenteditable="true">1단계: 자료 접수</span><ul>
 <li class="chk ed-moved" data-nid="b"><span class="nx" contenteditable="true">2단계: 신청 서류와 일정 확인</span><ul>
 <li class="chk" data-nid="c"><span class="nx" contenteditable="true">3단계: 서류 누락 여부를 점검하고 담당자와 다음 미팅에서 제출 가능 시점을 확인합니다</span><ul>
-<li class="chk" data-nid="d"><span class="nx" contenteditable="true">4단계: 확인 완료</span></li>
+<li class="chk on" data-nid="d"><span class="nx" contenteditable="true">4단계: 확인 완료</span></li>
 </ul></li></ul></li>
 <li class="ord" data-nid="f"><span class="nx" contenteditable="true">번호 목록</span></li>
 <li class="plain" data-nid="g"><span class="nx" contenteditable="true">일반 글머리</span></li>
 </ul></li>
 <li class="chk" data-nid="e"><span class="nx" contenteditable="true">다음 작업: 자료 보완</span></li>
-<li class="para ed-blank" data-nid="empty"><span class="nx ed-hint" contenteditable="true"></span></li>
 </ul><div class="ntail"></div></div></div>
 </div></article></section></div></div></main></html>

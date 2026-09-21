@@ -446,10 +446,7 @@ main.notice-edit .top .rpt{display:none}
   padding-top:2px;padding-bottom:2px;letter-spacing:-.012em}
 .ed-page .notice[data-nsec] .ck li:is(.chk,.ord,.plain,.tg0){padding-left:26px}
 .ed-page .notice[data-nsec] .ck li.para{padding-left:0}
-.ed-page .notice[data-nsec] .ck li>ul{margin:5px 0 8px 2px;
-  border-left:2px solid var(--line-2);padding-left:8px}
-.ed-page .notice[data-nsec] .ck>li>ul{padding:6px 10px;
-  background:var(--panel-2);border-radius:0 6px 6px 0}
+.ed-page .notice[data-nsec] .ck ul{margin:2px 0 4px 4px}
 .ed-page .notice[data-nsec] .nx[contenteditable]{min-height:1.65em;caret-color:var(--caret)}
 .ed-page .nx[contenteditable]{padding:1px 3px;margin:-1px -3px;box-shadow:none}
 .ed-page .nx[contenteditable]:hover{background:transparent}
@@ -461,7 +458,7 @@ main.notice-edit .top .rpt{display:none}
 .ed-page .notice[data-nsec] .ck li.hd3{padding-left:0}
 .ed-page .nx-rail{left:-38px;top:4px;gap:2px}
 .ed-page .nx-plus,.ed-page .nx-gr{width:18px;height:22px}
-.ed-page .ntail{min-height:8px}
+.ed-page .ntail{min-height:32px}
 .ed-page .ck li[data-nid]:only-child>.nx.ed-hint:not(:focus)::before{
   content:'내용을 입력하거나 ‘/’를 눌러 블록을 선택하세요';color:var(--tx-3);opacity:.78}
 .ed-page .nsadd{margin:28px 0 0 38px}
@@ -478,15 +475,15 @@ main.notice-edit .top .rpt{display:none}
    클라이언트 화면은 읽기 전용이라 작은 원과 체크 표시만 둔다. 편집 모드에서는
    **누를 수 있는 네모**여야 한다 — 5px 원은 글머리 점과 구별이 안 되고,
    담당자는 `[] ` 를 쳐 놓고도 할 일이 된 줄을 모른다. 누를 자리도 못 된다 */
-.notice[data-nsec] .ck li.chk::before{content:'';left:0;top:5px;width:13px;height:13px;
+.notice[data-nsec] .ck li.chk::before{content:'';left:0;top:7px;width:13px;height:13px;
   border-radius:3.5px;border:1.5px solid var(--line-2);background:var(--panel-2);
   transform:none;cursor:pointer}
 .notice[data-nsec] .ck li.chk:hover::before{border-color:var(--accent)}
 .notice[data-nsec] .ck li.chk.on::before{content:'✓';border-color:var(--ok);
   background:var(--ok);color:#fff;font-size:9.5px;line-height:13px;text-align:center;
-  font-weight:700;border-radius:3.5px;width:13px;height:13px;left:0;top:5px;transform:none}
+  font-weight:700;border-radius:3.5px;width:13px;height:13px;left:0;top:7px;transform:none}
 .notice[data-nsec] .ck ul li.chk::before,
-.notice[data-nsec] .ck ul li.chk.on::before{top:3px;width:12px;height:12px;line-height:12px}
+.notice[data-nsec] .ck ul li.chk.on::before{top:7px;width:12px;height:12px;line-height:12px}
 /* ── 글자 색 ──
    노션이 쓰는 이름을 그대로 싣는다(`data-c`). 중계 서버가 그 이름만 받아 주고,
    봉투에도 노션에도 같은 이름으로 오간다 */
@@ -1104,9 +1101,6 @@ body.locked #gate{display:grid}
   .ed-page .notice[data-nsec] .ck{margin-left:30px}
   .ed-page .nx-rail{left:-30px}
   .ed-page .notice[data-nsec] .ck li{font-size:16px}
-  .ed-page .notice[data-nsec] .ck ul li:is(.chk,.ord,.plain,.tg0){padding-left:23px}
-  .ed-page .notice[data-nsec] .ck li>ul{padding-left:5px}
-  .ed-page .notice[data-nsec] .ck>li>ul{padding:6px 7px}
   .ed-page .ck>li.hd1{font-size:27px}.ed-page .ck>li.hd2{font-size:22px}
   .ed-page .nsadd,.ed-page .ed-help{margin-left:30px}
   .ed-preview-b{padding:22px 18px 40px}
