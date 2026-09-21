@@ -1687,7 +1687,8 @@ function init(D){
   const N = 'https://www.notion.so/';
   const ROOM_DEMO = SAMPLE && !ROOM_LINKS.length;
   /* 묶음은 노션 그룹 이름이 아니라 자료의 종류로 가른다 — 그룹 이름과 자료 이름에
-     든 낱말을 본다. 위에서부터 먼저 걸린 것이 이긴다. 아무 데도 안 걸리면 「기타」 */
+     든 낱말을 본다. 위에서부터 먼저 걸린 것이 이긴다. 보울게임즈의 남은 자료는 「컨설팅 자문」 */
+  const ROOM_OTHER = CLIENT === 'bowlgames' ? '컨설팅 자문' : '기타';
   const ROOM_KINDS = [
     ['연구노트', /연구\s*노트/],
     ['R&D 기획', /R\s*&\s*D|RND|연구개발|과제|선행기술/i],
@@ -1699,7 +1700,7 @@ function init(D){
     ['가이드', /가이드/],
   ];
   const ROOM_IC = {'연구노트':'📓','R&D 기획':'🧪','가결산·재무':'💰','사업계획서':'📑','인증·실사':'🧾',
-    '미팅 자료':'🗓️','기업 서류':'🗂️','가이드':'📘','기타':'📁'};
+    '미팅 자료':'🗓️','기업 서류':'🗂️','가이드':'📘',[ROOM_OTHER]:'📁'};
   /* 검토안에서는 사이드바 글리프를 노션처럼 이모지로 바꿔 본다 */
   const NGL = !REVIEW_ROOM ? GL : { info:'🏢', perf:'📊', notice:'📢', fund:'💸', cert:'🏅',
     proj:'🧭', talk:'💬', open:'🎯', room:'🗃️', guide:'📘' };
@@ -1712,8 +1713,8 @@ function init(D){
       ] : ROOM_LINKS),
       {g:'', items:ROOM_BASE},
     ].flatMap(x => x.items.map(it => ({...it, kind:(ROOM_KINDS.find(([, re]) =>
-      re.test(`${x.g} ${it.label}`)) || ['기타'])[0]})));
-    return [...ROOM_KINDS.map(k => k[0]), '기타']
+      re.test(`${x.g} ${it.label}`)) || [ROOM_OTHER])[0]})));
+    return [...ROOM_KINDS.map(k => k[0]), ROOM_OTHER]
       .map(g => ({g, items:all.filter(it => it.kind === g)})).filter(x => x.items.length);
   })();
   /* 즐겨찾기 — 담당자가 고정하고 클라이언트 모두가 본다. 원본은 노션 「고정 자료」(주소 목록).
