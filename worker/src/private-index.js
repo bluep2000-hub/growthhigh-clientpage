@@ -10,7 +10,7 @@ import { loginPage } from "./private-ui.js";
 import { customerPage } from "./private-page.js";
 import { createPrivateStore } from "./private-store.js";
 import { EDITOR_ROUTES, editorRequest, requestPrivateRebuild } from "./private-editor.js";
-import { changeRecommendation, customerRecommendations, policyCatalog, selectedPrograms } from "./private-recommend.js";
+import { changeRecommendation, customerRecommendations, policyCatalog, selectedPrograms, setRecommendationPin } from "./private-recommend.js";
 
 function json(body, status = 200, cookie) {
   return Response.json(body, { status, headers: {
@@ -97,7 +97,7 @@ export default {
         || path === "/recommendations")) {
       try {
         if (path === "/recommendations/catalog" && request.method !== "GET"
-            || path === "/recommendations" && !["PUT", "DELETE"].includes(request.method))
+            || path === "/recommendations" && !["PUT", "DELETE", "PATCH"].includes(request.method))
           throw new ApiError(405, "method_not_allowed");
         await requireStaff(request, env, slug);
         if (request.method === "GET") return json({
@@ -106,9 +106,10 @@ export default {
         sameOrigin(request, env);
         const input = await body(request);
         if (input.slug !== slug) throw new ApiError(403, "not_assigned");
-        const catalog = request.method === "PUT" ? await policyCatalog() : [];
-        const selected = await changeRecommendation(env, slug, input.program,
-          request.method, catalog);
+        const selected = request.method === "PATCH"
+          ? await setRecommendationPin(env, slug, input.program, input.pinned)
+          : await changeRecommendation(env, slug, input.program, request.method,
+            request.method === "PUT" ? await policyCatalog() : []);
         return json({ saved: true, selected });
       } catch (error) {
         return json({ error: error instanceof ApiError ? error.code : "internal_error" },
