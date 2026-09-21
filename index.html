@@ -828,10 +828,12 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .dr-manage button:disabled{opacity:.5;cursor:wait}
 .dr-sec>h2{font-size:12.5px;font-weight:600;margin-bottom:9px;color:var(--tx-2)}
 .dr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.dr-cards.bowlgames{grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr))}
 .dr-card{position:relative;display:flex;flex-direction:column;gap:10px;padding:14px;
   border:1px solid var(--line);border-radius:10px;background:var(--panel);min-height:96px}
 .dr-card:hover{border-color:var(--line-2);background:var(--hover)}
 .dr-card b{font-size:13px;font-weight:600;padding-right:24px;line-height:1.45}
+.dr-cards.bowlgames .dr-card b{padding-right:0;word-break:keep-all;overflow-wrap:anywhere}
 .dr-card b a::after{content:'';position:absolute;inset:0}   /* 카드 전체가 링크 */
 .dr-card .dr-src{margin-top:auto}
 .dr-card .dr-pin{position:absolute;top:8px;right:8px;z-index:1}
@@ -6478,7 +6480,7 @@ function init(D){
   /* A — 본문 화면이 없다. 사이드바의 「데이터룸」이 그 자리에서 펴진다 */
   if(REVIEW_ROOM === 'B') V.room=()=>{
     const body = ROOM.map((x,i)=>`<section class="dr-sec" id="drsec-${i}"><h2>${ROOM_IC[x.g] || '📁'} ${esc(x.g)} <span class="dr-src">${x.items.length}</span></h2>
-          <div class="dr-cards">${x.items.map(it=>`<div class="dr-card"><b>${drLink(it)}</b>
+          <div class="dr-cards${CLIENT==='bowlgames'?' bowlgames':''}">${x.items.map(it=>`<div class="dr-card"><b>${drLink(it)}</b>
             <span class="dr-src">${esc(drSrc(it.url))} ↗</span>${drPin(it)}</div>`).join('')}</div></section>`).join('');
     return `${ROOM_REVIEW ? `<section class="rnt-note" aria-label="PM 검토 안내">
         <strong><b>B안</b> · 카드</strong>
