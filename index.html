@@ -845,17 +845,15 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rm-detail .rm-period{font-size:14px;color:#258b79;font-weight:700;font-variant-numeric:tabular-nums}
 .rm-detail h3{font-size:18px;color:var(--tx);letter-spacing:-.02em}
 .rm-detail-body{flex:1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
-  grid-template-rows:1fr auto;gap:20px;color:var(--tx-2)}
+  gap:20px;color:var(--tx-2)}
 .rm-detail-body h4{font-size:14px;color:var(--tx);margin-bottom:8px}
 .rm-detail-body ul{padding-left:20px}.rm-detail-body li{margin:6px 0;line-height:1.6;font-size:15px}
-.rm-detail-body .rm-note{grid-column:1/-1;font-size:13px;line-height:1.5;color:var(--tx-2);
-  border-top:1px solid var(--line);padding-top:10px}
 [data-theme="dark"] .rm-month{background:#344153;color:#e0e9f2}
 [data-theme="dark"] .rm-label{color:#e2edf2}[data-theme="dark"] .rm-label small{color:#aebfce}
 [data-theme="dark"] .rm-summary article{background:#283545}
 [data-theme="dark"] .rm-summary span,[data-theme="dark"] .rm-summary li strong,
 [data-theme="dark"] .rm-detail .rm-period{color:#78cab9}
-@media(max-width:760px){.rm-phase-grid{grid-template-columns:1fr}.rm-detail-body{grid-template-columns:1fr;grid-template-rows:auto}}
+@media(max-width:760px){.rm-phase-grid{grid-template-columns:1fr}.rm-detail-body{grid-template-columns:1fr}}
 @media print{.rm-scroll{overflow:visible}.rm-grid{min-width:0}
   .rm-head,.rm-row{grid-template-columns:125px repeat(12,minmax(0,1fr))}
   .rm-lane{grid-template-columns:repeat(12,minmax(0,1fr))}.rm-bar{font-size:8px;padding:2px}}
@@ -6601,8 +6599,7 @@ function init(D){
       <div class="rm-detail-head"><span class="rm-period">${esc(p.period)}</span>
         <h3>${esc(p.title)}</h3></div>
       <div class="rm-detail-body"><section><h4>실행 항목</h4>${itemList(p.tasks)}</section>
-        <section><h4>예상 산출물</h4>${itemList(p.outputs)}</section>
-        ${(p.notes||[]).length?`<p class="rm-note">참고 · ${esc(p.notes.join(' · '))}</p>`:''}</div></article>`).join('');
+        <section><h4>예상 산출물</h4>${itemList(p.outputs)}</section></div></article>`).join('');
     const summaryCard = (period, phases, headings=phases) => phases.length ? `<article><span>${period}</span>
       <h2>${esc(headings.map(p=>p.title).join(' · '))}</h2>
       <ul>${phases.filter(p=>p.tasks?.[0]).map(p=>`<li><strong>${esc(p.period.replace(/^.*?년\s*/,''))}</strong>
