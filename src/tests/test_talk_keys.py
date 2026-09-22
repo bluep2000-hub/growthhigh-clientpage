@@ -44,6 +44,17 @@ class TalkKeyTests(unittest.TestCase):
 
         self.assertEqual(builder.talk_preview(blocks), "후속 절차 확인")
 
+    def test_board_preview_skips_korean_action_table_heading(self):
+        blocks = [
+            {"type": "heading_2", "heading_2": {
+                "rich_text": [{"plain_text": "출시 후 자금 확보 계획"}],
+            }},
+            {"type": "heading_2", "heading_2": {
+                "rich_text": [{"plain_text": "후속 실행 항목"}],
+            }},
+        ]
+        self.assertEqual(builder.talk_preview(blocks), "출시 후 자금 확보 계획")
+
 
 if __name__ == "__main__":
     unittest.main()

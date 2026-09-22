@@ -49,6 +49,11 @@ def prompt_for(*, transcript: str, company: str, occurred_at: str,
   제시된 선택지와 조건, 결정 및 그 근거, 남은 확인 사항을 구체적으로 적습니다.
 - 같은 안건 안에서도 서로 다른 발언·조건·후속 조치는 별도 불릿으로 구분합니다.
   짧은 통화는 실제 내용만큼만 적고, 긴 회의는 중요한 논의를 생략해 억지로 줄이지 않습니다.
+- 고객이 바로 확인할 수 있는 실무 메모로 씁니다. 각 불릿은 `쟁점: 확인된 사실·수치 / 판단·미결 상태`처럼
+  핵심어로 시작하고, 한 불릿에는 한 쟁점만 담습니다. 길어지면 불릿을 나눕니다.
+- 불릿을 보고서 문장처럼 `~다.`·`~습니다.`로 끝내지 않습니다. `검토 중`, `제안`, `미정`,
+  `확인 필요`, `예정`처럼 상태가 보이는 간결한 한국어로 끝냅니다.
+- 확정된 결정과 제안·목표·예시·미결 사항을 구분합니다. 전사에 없는 결론을 만들지 않습니다.
 - 누가 무엇을 말하거나 요청했는지가 의미 있는 경우에는 주체를 밝힙니다.
   결론·핵심 조건만 굵게 표시하고, 들리지 않은 내용은 채우지 않습니다.
 - 숫자·금액·날짜·지역명·기관명은 전사에 들린 값 그대로 씁니다.
@@ -56,7 +61,7 @@ def prompt_for(*, transcript: str, company: str, occurred_at: str,
 - 결론이 안 났으면 `추가 검토 필요`라고 적습니다.
 - 인사말·잡담·중복 발언과 화자 표시는 뺍니다.
 - 화면 연결 중 말한 와이파이 비밀번호 등 인증정보는 회의록에 싣지 않습니다.
-- 마지막 섹션은 반드시 `Action Items`이며 아래 두 줄을 정확히 사용합니다.
+- 마지막 섹션 제목은 반드시 `## 후속 실행 항목`이며 아래 표의 두 줄을 정확히 사용합니다.
   `| 항목 | 담당 | 기한 |`
   `| --- | --- | --- |`
 - 확인된 할 일이 없으면 머리 행과 구분 행만 두고 임의의 할 일을 만들지 않습니다.
@@ -92,8 +97,13 @@ def validate_summary(title: str, minutes_markdown: str) -> MeetingSummary:
     if not numbered_headings:
         raise SummaryNeedsReview("번호가 붙은 안건이 없다")
     final_heading = re.sub(r"^\d+\.\s+", "", headings[-1].group(1))
-    if "action items" not in final_heading.lower():
-        raise SummaryNeedsReview("마지막 섹션이 Action Items가 아니다")
+    if "action items" not in final_heading.lower() and final_heading != "후속 실행 항목":
+        raise SummaryNeedsReview("마지막 섹션이 후속 실행 항목이 아니다")
+
+    # 고객에게 곧바로 공개되는 기록이다. 장문 서술체가 다시 자동 게시되지 않게 한다.
+    if any(re.search(r"(?:다|니다)\.(?:\s|$)", line)
+           for line in minutes.splitlines() if line.lstrip().startswith("- ")):
+        raise SummaryNeedsReview("회의록 불릿이 서술형 문체다. 실무 메모로 다시 작성 필요")
 
     lines = minutes.splitlines()
     header_index = next(
@@ -102,25 +112,25 @@ def validate_summary(title: str, minutes_markdown: str) -> MeetingSummary:
         None,
     )
     if header_index is None or header_index + 1 >= len(lines):
-        raise SummaryNeedsReview("Action Items 표 머리 행이 없다")
+        raise SummaryNeedsReview("후속 실행 항목 표 머리 행이 없다")
     separator = _table_cells(lines[header_index + 1])
     if len(separator) != 3 or any(not re.fullmatch(r":?-{3,}:?", x) for x in separator):
-        raise SummaryNeedsReview("Action Items 표 구분 행이 올바르지 않다")
+        raise SummaryNeedsReview("후속 실행 항목 표 구분 행이 올바르지 않다")
 
     for line in lines[header_index + 2:]:
         if not line.strip():
             continue
         if line.startswith("## "):
-            raise SummaryNeedsReview("Action Items 뒤에 다른 섹션이 있다")
+            raise SummaryNeedsReview("후속 실행 항목 뒤에 다른 섹션이 있다")
         if not line.lstrip().startswith("|"):
             continue
         cells = _table_cells(line)
         if len(cells) != 3:
-            raise SummaryNeedsReview("Action Items 표의 열 수가 맞지 않는다")
+            raise SummaryNeedsReview("후속 실행 항목 표의 열 수가 맞지 않는다")
         if cells[1] not in {"그로스하이", "클라이언트"}:
-            raise SummaryNeedsReview("Action Items 담당이 허용된 값이 아니다")
+            raise SummaryNeedsReview("후속 실행 항목 담당이 허용된 값이 아니다")
         if not cells[0] or not cells[2]:
-            raise SummaryNeedsReview("Action Items 항목 또는 기한이 비어 있다")
+            raise SummaryNeedsReview("후속 실행 항목 표의 항목 또는 기한이 비어 있다")
 
     return MeetingSummary(title=title, minutes_markdown=minutes)
 

@@ -42,6 +42,9 @@ class SummaryValidationTests(unittest.TestCase):
         self.assertIn("`| --- | --- | --- |`", prompt)
         self.assertIn("배경과 현재 상황, 실제 논의 내용", prompt)
         self.assertIn("결정 및 그 근거", prompt)
+        self.assertIn("실무 메모", prompt)
+        self.assertIn("`~다.`·`~습니다.`로 끝내지 않습니다", prompt)
+        self.assertIn("## 후속 실행 항목", prompt)
 
     def test_accepts_legitimate_short_call(self):
         transcript = (
@@ -124,6 +127,17 @@ class SummaryValidationTests(unittest.TestCase):
         summary = validate_summary("지원사업 서류 협의", minutes)
 
         self.assertEqual(summary.title, "지원사업 서류 협의")
+
+    def test_accepts_korean_follow_up_heading(self):
+        minutes = VALID_MINUTES.replace("향후 일정 및 Action Items", "후속 실행 항목")
+        self.assertEqual(validate_summary("지원사업 서류 협의", minutes).title,
+                         "지원사업 서류 협의")
+
+    def test_rejects_narrative_bullets_before_customer_publication(self):
+        minutes = VALID_MINUTES.replace("신청서 초안을 검토하기로 함",
+                                         "신청서 초안을 검토하기로 했다.")
+        with self.assertRaisesRegex(SummaryNeedsReview, "서술형 문체"):
+            validate_summary("지원사업 서류 협의", minutes)
 
     def test_rejects_title_over_25_characters(self):
         with self.assertRaisesRegex(SummaryNeedsReview, "25자"):

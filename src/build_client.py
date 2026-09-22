@@ -2848,7 +2848,7 @@ def talk_preview(blocks: list[dict], limit: int = 180) -> str:
     """보드 본문에서 목록용 짧은 미리보기를 만든다."""
     headings: list[str] = []
     lines: list[str] = []
-    generic = {"소통 내용", "체크 사항", "체크사항", "action items"}
+    generic = {"소통 내용", "체크 사항", "체크사항", "action items", "후속 실행 항목"}
     for block in blocks:
         kind = block.get("type") or ""
         if kind not in TALK_HEADING_TAG and kind not in {
