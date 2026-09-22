@@ -48,6 +48,28 @@ class RoomLinksTests(unittest.TestCase):
             ]},
         ])
 
+    def test_published_child_page_under_materials_is_collected(self):
+        page_id = "3e3815d7-12b9-80d3-862b-ca2cd8b3cf0d"
+        public_url = "https://yuncommon.notion.site/2026-09-22-Kick-Off-3e3815d712b980d3862bca2cd8b3cf0d"
+
+        class Notion:
+            def children(self, page_id):
+                return [block("heading_2", "주요 자료"),
+                        {"type": "child_page", "id": "3e3815d7-12b9-80d3-862b-ca2cd8b3cf0d",
+                         "child_page": {"title": "2026-09-22 보울게임즈 Kick-Off 미팅"}},
+                        block("divider")]
+
+            def get(self, path):
+                self.path = path
+                return {"public_url": public_url}
+
+        nt = Notion()
+        self.assertEqual(builder.fetch_material_links(nt, "client-page"), [
+            {"group": "주요 자료", "items": [{"label": "2026-09-22 보울게임즈 Kick-Off 미팅",
+                                           "url": public_url}]},
+        ])
+        self.assertEqual(nt.path, "/pages/" + page_id.replace("-", ""))
+
     def test_only_material_links_are_added_without_duplicate_guidebook_or_manual_link(self):
         first = "https://app.notion.com/p/3ce815d712b980cc9a43c455e3d80ddf"
         second = "https://app.notion.com/p/3d6815d712b980eeaf48f00488529ea3"

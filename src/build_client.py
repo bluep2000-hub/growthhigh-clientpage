@@ -412,6 +412,9 @@ def fetch_material_links(nt: Notion, page_id: str) -> list[dict]:
     def collect(block: dict) -> None:
         kind = block.get("type")
         body = block.get(kind) or {}
+        if kind == "child_page":
+            add_link(body.get("title") or "", f"https://app.notion.com/p/{block['id'].replace('-', '')}")
+            return
         for run in body.get("rich_text") or []:
             add_link(run.get("plain_text") or "", run.get("href") or "")
         if kind in ("bookmark", "link_preview", "embed") and body.get("url"):
