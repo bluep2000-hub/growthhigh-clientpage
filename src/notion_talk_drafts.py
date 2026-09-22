@@ -164,6 +164,8 @@ def markdown_blocks(markdown: str) -> list[dict]:
 def notion_channel(channel: str) -> str:
     if channel == "통화":
         return "유선"
+    if channel in {"대면미팅", "비대면미팅"}:
+        return channel
     raise NotionDraftError(f"자동으로 확정할 수 없는 소통형태다: {channel}")
 
 

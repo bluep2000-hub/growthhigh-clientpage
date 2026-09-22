@@ -66,6 +66,14 @@ class NotionTalkDraftTests(unittest.TestCase):
         )
         self.assertIn("recording_sha256=", props["URL"]["url"])
 
+    def test_confirmed_in_person_meeting_uses_meeting_channel(self):
+        props = draft_properties(
+            {**job(), "channel": "대면미팅"},
+            MeetingSummary("킥오프 미팅", MINUTES),
+        )
+
+        self.assertEqual(props["소통형태"]["multi_select"], [{"name": "대면미팅"}])
+
     def test_markdown_table_does_not_keep_separator_as_data(self):
         blocks = markdown_blocks(MINUTES)
         table = next(block["table"] for block in blocks if block["type"] == "table")

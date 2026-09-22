@@ -15,6 +15,12 @@ DEFAULT_MODEL = "gemini-3.6-flash"
 # 내용의 품질은 아래 회의록 형식 검증과 공개 후 PM 수정에서 다시 확인한다.
 MIN_TRANSCRIPT_CHARS = 100
 
+# 고객 공개 전에는 표현을 임의로 지우지 않고 검토 대상으로 멈춘다.
+PUBLIC_REVIEW_TERMS = re.compile(
+    r"장애|병신|미친|바보|멍청|또라이|벙어리|장님|절름발이|불구|정박아|씨발|개새끼|리젝|표현 검토 필요",
+    re.IGNORECASE,
+)
+
 SUMMARY_SCHEMA = {
     "type": "object",
     "properties": {
@@ -43,7 +49,8 @@ def prompt_for(*, transcript: str, company: str, occurred_at: str,
 일자: {occurred_at}
 
 반드시 지킬 규칙:
-- title은 가장 큰 안건을 담은 25자 이내의 짧은 제목입니다.
+- title은 가장 큰 안건을 담은 짧은 제목입니다. 띄어쓰기를 포함해 반드시 25자
+  이하로 쓰고, JSON을 반환하기 전에 글자 수를 확인하세요.
 - 전사에 나온 순서대로 `## 1. 안건명` 형식의 섹션을 만듭니다.
 - 한 줄 요약으로 끝내지 마세요. 안건마다 전사에서 확인되는 배경과 현재 상황, 실제 논의 내용,
   제시된 선택지와 조건, 결정 및 그 근거, 남은 확인 사항을 구체적으로 적습니다.
@@ -60,6 +67,14 @@ def prompt_for(*, transcript: str, company: str, occurred_at: str,
 - 전사에 없는 내용, 결론, 담당자, 기한을 추측하지 않습니다.
 - 결론이 안 났으면 `추가 검토 필요`라고 적습니다.
 - 인사말·잡담·중복 발언과 화자 표시는 뺍니다.
+- 고객에게 불필요한 개인 평가, 욕설·비하·차별 표현, 외모·성별·건강·장애에 대한
+  언급은 회의록에 옮기지 않습니다. 업무상 필요한 사실은 의미를 보존해 중립적인
+  표현으로 적고, 원문의 부적절한 단어를 인용하지 않습니다.
+- 자금 논의에 나온 가족관계·가족 재산 등 제3자의 사생활은 고객용 회의록에
+  구체적으로 적지 않습니다. 자금 투입 가능성과 고객의 후속 검토 사항만 남깁니다.
+- 비속어·은어·불필요한 영어 표현은 고객이 이해할 수 있는 업무 용어로 바꿉니다.
+- 표현을 바꾸면 중요한 사실이 왜곡될 수 있으면 `표현 검토 필요`라고 적습니다.
+  이 표시는 자동 공개를 중단하고 담당자 확인으로 넘기는 신호입니다.
 - 화면 연결 중 말한 와이파이 비밀번호 등 인증정보는 회의록에 싣지 않습니다.
 - 마지막 섹션 제목은 반드시 `## 후속 실행 항목`이며 아래 표의 두 줄을 정확히 사용합니다.
   `| 항목 | 담당 | 기한 |`
@@ -88,6 +103,8 @@ def validate_summary(title: str, minutes_markdown: str) -> MeetingSummary:
         raise SummaryNeedsReview("회의록 제목이 25자를 넘는다")
     if not minutes:
         raise SummaryNeedsReview("회의록 본문이 비어 있다")
+    if PUBLIC_REVIEW_TERMS.search(f"{title}\n{minutes}"):
+        raise SummaryNeedsReview("고객 공개 전 표현 검토가 필요하다")
 
     headings = list(re.finditer(r"^##\s+(.+?)\s*$", minutes, re.MULTILINE))
     numbered_headings = [

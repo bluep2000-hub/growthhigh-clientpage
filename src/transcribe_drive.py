@@ -190,7 +190,7 @@ def plan_sources(folder: Path, ledger: dict[str, str], taken: set[str],
         digest_key = f"sha256:{digest}"
         day, parsed_company, parsed_channel = parse_name(source.path.name)
         company = source.company or parsed_company
-        channel = source.channel or parsed_channel
+        channel = parsed_channel or source.channel
         try:
             client_slug = client_slug_for(company or "")
         except UnknownCompanyError as exc:

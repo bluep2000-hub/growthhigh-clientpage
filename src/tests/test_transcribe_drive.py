@@ -55,6 +55,14 @@ class RecordingInboxTests(unittest.TestCase):
         self.assertEqual(plans[0].client_slug, "bowlgames")
         self.assertEqual(plans[0].stem, "260903_보울게임즈_통화")
 
+    def test_meeting_filename_uses_meeting_channel(self):
+        self.audio("수집대기/보울게임즈/26.09.22_보울게임즈_Kick-off 미팅.m4a")
+
+        plans = transcriber.plan_sources(self.root, {}, set())
+
+        self.assertEqual(plans[0].channel, "미팅")
+        self.assertTrue(plans[0].stem.endswith("_보울게임즈_미팅"))
+
     def test_audio_directly_under_inbox_fails_closed(self):
         self.audio("수집대기/고객사미지정.m4a")
 

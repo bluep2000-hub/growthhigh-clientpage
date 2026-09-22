@@ -139,6 +139,23 @@ class SummaryValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(SummaryNeedsReview, "서술형 문체"):
             validate_summary("지원사업 서류 협의", minutes)
 
+    def test_sensitive_language_stops_before_customer_publication(self):
+        minutes = VALID_MINUTES.replace("신청서 초안을 검토하기로 함",
+                                         "장애 관련 표현을 그대로 기록함")
+        with self.assertRaisesRegex(SummaryNeedsReview, "표현 검토"):
+            validate_summary("지원사업 서류 협의", minutes)
+
+        jargon = VALID_MINUTES.replace("신청서 초안을 검토하기로 함",
+                                        "심사에서 리젝 가능성 확인")
+        with self.assertRaisesRegex(SummaryNeedsReview, "표현 검토"):
+            validate_summary("지원사업 서류 협의", jargon)
+
+    def test_neutral_business_language_remains_allowed(self):
+        minutes = VALID_MINUTES.replace("신청서 초안을 검토하기로 함",
+                                         "서비스 접근성 문제 확인 필요")
+        self.assertEqual(validate_summary("지원사업 서류 협의", minutes).title,
+                         "지원사업 서류 협의")
+
     def test_rejects_title_over_25_characters(self):
         with self.assertRaisesRegex(SummaryNeedsReview, "25자"):
             validate_summary("가" * 26, VALID_MINUTES)
