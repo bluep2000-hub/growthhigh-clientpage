@@ -81,7 +81,8 @@ class RoomLinksTests(unittest.TestCase):
              patch.object(builder, "build_talks", return_value=[]), \
              patch.object(builder, "read_actions", return_value=([], 0)), \
              patch.object(builder, "build_events", return_value=[]), \
-             patch.object(builder, "build_perf", return_value=(None, [])):
+             patch.object(builder, "build_perf", return_value=(None, [])), \
+             patch.object(builder, "fetch_roadmap", return_value=None):
             result = builder.build_one(nt, {
                 "slug": "bowlgames", "page_id": "bowlgames-page", "page_name": "보울게임즈",
                 "company_page_id": "company", "extra_links": [

@@ -804,6 +804,91 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 @media print{.rnt-note,.rn-switch{display:none!important}}
 
 /* 데이터룸은 B 카드형으로 운영한다. ?review-room=A|B 로 두 안을 비교할 수 있다. */
+/* 실행 타임테이블 — 색은 시기를 구분한다. 완료 여부를 뜻하지 않는다. */
+.rm-page{--rm-color:#145e69;--rm-ink:#193047;--rm-sub:#435569}
+.rm-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.rm-intro h1{font-size:clamp(23px,2.5vw,34px);font-weight:700;line-height:1.2;letter-spacing:-.03em}
+.rm-intro p{margin-top:8px;color:var(--tx-2);font-size:13px;max-width:66ch}
+.rm-range{flex:none;color:var(--tx-2);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rm-shell{position:relative;isolation:isolate;overflow:hidden;border-radius:18px;padding:18px;
+  background:linear-gradient(125deg,#e6f3ee 0%,#e5edf8 51%,#faeee4 100%)}
+.rm-shell::before{content:"";position:absolute;z-index:-1;right:-8%;top:-100px;width:45%;height:260px;
+  border-radius:50%;background:rgba(89,158,207,.32);filter:blur(42px);pointer-events:none}
+.rm-board{overflow:hidden;border-radius:14px;
+  background:rgba(255,255,255,.7);backdrop-filter:blur(20px) saturate(1.25);
+  -webkit-backdrop-filter:blur(20px) saturate(1.25);box-shadow:0 12px 28px rgba(0,0,0,.12)}
+.rm-board-top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;
+  color:var(--rm-ink);border-bottom:1px solid rgba(33,63,81,.11)}
+.rm-board-top strong{font-size:13px;font-weight:650}
+.rm-board-top span{font-size:11px;color:var(--rm-sub)}
+.rm-jumps{display:flex;gap:5px;flex-wrap:wrap}
+.rm-jumps button{padding:5px 9px;border-radius:999px;color:#284d5b;font-size:11px;font-weight:600;
+  border:1px solid rgba(38,84,103,.18);background:rgba(255,255,255,.5)}
+.rm-jumps button:hover{background:#fff}
+.rm-scroll{overflow-x:auto;scrollbar-color:#9eafb9 transparent;scrollbar-width:thin;overscroll-behavior-x:contain}
+.rm-grid{min-width:1020px;padding:2px 14px 16px}
+.rm-head,.rm-row{display:grid;grid-template-columns:184px repeat(12,minmax(66px,1fr));align-items:stretch}
+.rm-head{border-bottom:1px solid rgba(33,63,81,.18);font-variant-numeric:tabular-nums}
+.rm-head .rm-corner{position:sticky;left:0;z-index:3;background:#f4f9f9}
+.rm-month{text-align:center;padding:12px 0 10px;font-size:11px;font-weight:650;color:#536475;white-space:nowrap}
+.rm-month b{display:block;font-size:10px;font-weight:550;color:#6a7b88}
+.rm-month.current{color:#184d67}.rm-month.current::after{content:"";display:block;width:5px;height:5px;
+  margin:4px auto -6px;border-radius:50%;background:#238595}
+.rm-row{min-height:66px;border-bottom:1px solid rgba(33,63,81,.1)}
+.rm-row:last-child{border-bottom:0}
+.rm-label{position:sticky;left:0;z-index:2;display:flex;flex-direction:column;justify-content:center;
+  padding:8px 12px 8px 4px;background:#f4f9f9;color:var(--rm-ink);line-height:1.35}
+.rm-label strong{font-size:12px;font-weight:650}.rm-label small{font-size:10px;color:#5b6d7a;margin-top:2px}
+.rm-lane{grid-column:2/-1;display:grid;grid-template-columns:repeat(12,minmax(66px,1fr));align-items:center;
+  background-image:linear-gradient(to right,rgba(43,74,89,.1) 1px,transparent 1px);
+  background-size:calc(100% / 12) 100%;padding:0 4px}
+.rm-bar{grid-column:var(--rm-col)/span var(--rm-span);min-width:0;margin:0 3px;height:36px;
+  display:flex;align-items:center;justify-content:center;padding:0 10px;border-radius:8px;
+  color:#fff;background:var(--rm-color);font-size:11px;font-weight:650;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;box-shadow:0 5px 12px rgba(0,0,0,.13);
+  transition:transform .2s cubic-bezier(.18,.85,.32,1),box-shadow .2s ease}
+.rm-bar:hover,.rm-bar:focus-visible{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,.2)}
+.rm-bar.single{border-radius:999px;width:40px;justify-self:center;padding:0;font-size:15px}
+.rm-row.pending{--rm-color:#a4afb9}.rm-row.pending .rm-bar{box-shadow:none;color:#263e4c}
+.rm-row.pending .rm-label strong{color:#667785}
+.rm-caption{display:flex;justify-content:space-between;gap:12px;padding:11px 18px;color:#4b6070;
+  font-size:11px;border-top:1px solid rgba(33,63,81,.11)}
+.rm-details{margin-top:22px}.rm-details h2{font-size:16px;margin-bottom:8px;letter-spacing:-.02em}
+.rm-detail{border-bottom:1px solid var(--line);background:var(--panel)}
+.rm-detail:first-of-type{border-top:1px solid var(--line)}
+.rm-detail summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px 3px;
+  font-weight:600}.rm-detail summary::-webkit-details-marker{display:none}
+.rm-detail summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:1.5px solid var(--tx-2);
+  border-bottom:1.5px solid var(--tx-2);transform:rotate(45deg);transition:transform .2s}
+.rm-detail[open] summary::after{transform:rotate(225deg)}
+.rm-detail .rm-period{flex:none;min-width:86px;font-size:11px;color:var(--tx-2);font-variant-numeric:tabular-nums}
+.rm-detail-body{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:2px 3px 18px 101px;color:var(--tx-2)}
+.rm-detail-body h3{font-size:11px;color:var(--tx);margin-bottom:6px}
+.rm-detail-body ul{padding-left:16px}.rm-detail-body li{margin:4px 0;line-height:1.55}
+.rm-detail-body .rm-note{grid-column:1/-1;font-size:11px;color:var(--tx-3)}
+[data-theme="dark"] .rm-shell{background:linear-gradient(125deg,#12333a,#252c48 54%,#42342f)}
+[data-theme="dark"] .rm-board{background:rgba(29,35,43,.75);box-shadow:0 12px 28px rgba(0,0,0,.25)}
+[data-theme="dark"] .rm-board-top,[data-theme="dark"] .rm-label{color:#e2edf2}
+[data-theme="dark"] .rm-board-top span,[data-theme="dark"] .rm-caption{color:#bfd0d8}
+[data-theme="dark"] .rm-head .rm-corner,[data-theme="dark"] .rm-label{background:#23313b}
+[data-theme="dark"] .rm-month{color:#c2d2db}[data-theme="dark"] .rm-month b{color:#aabfc8}
+[data-theme="dark"] .rm-month.current{color:#a9e4ef}
+[data-theme="dark"] .rm-label small{color:#aec3ce}
+[data-theme="dark"] .rm-jumps button{color:#e2edf2;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22)}
+[data-theme="dark"] .rm-jumps button:hover{background:rgba(255,255,255,.17)}
+[data-theme="dark"] .rm-row.pending .rm-label strong{color:#b9cbd3}
+@media(max-width:760px){
+  .rm-intro{align-items:flex-start;flex-direction:column;gap:5px}.rm-shell{padding:10px;border-radius:14px}
+  .rm-board-top{align-items:flex-start;flex-direction:column;padding:13px}.rm-grid{min-width:1030px}
+  .rm-head,.rm-row{grid-template-columns:138px repeat(12,minmax(72px,1fr))}
+  .rm-caption{flex-direction:column;gap:2px;padding:10px 13px}
+  .rm-detail-body{grid-template-columns:1fr;padding:0 4px 16px 4px;gap:14px}
+  .rm-detail-body .rm-note{grid-column:auto}.rm-detail .rm-period{min-width:75px}
+}
+@media print{.rm-shell{background:#fff;padding:0}.rm-board{box-shadow:none;background:#fff;backdrop-filter:none}
+  .rm-scroll{overflow:visible}.rm-grid{min-width:0}.rm-head,.rm-row{grid-template-columns:125px repeat(12,minmax(0,1fr))}
+  .rm-lane{grid-template-columns:repeat(12,minmax(0,1fr))}.rm-jumps{display:none}
+  .rm-detail-body{display:grid}.rm-detail:not([open])>.rm-detail-body{display:grid}}
 /* 노션 사이드바처럼 — 아이콘이 붙은 줄이 쌓이고, 올려 두면 아이콘 자리에 ▸ 가 뜬다.
    누르면 그 아래로 한 칸 들여 펴진다. 세로줄·건수는 두지 않는다 */
 .rv-room .nv .g{opacity:1;width:16px;font-size:13px}   /* 이모지는 흐리게 두면 탁해진다 */
@@ -1620,6 +1705,8 @@ function init(D){
   });
   const events = Array.isArray(D.events) ? D.events : [];
   const recommend = Array.isArray(D.recommend) ? D.recommend : [];
+  const roadmap = D.roadmap && Array.isArray(D.roadmap.phases) && D.roadmap.phases.length
+    ? D.roadmap : null;
   let recommendUnavailable = D.recommend_unavailable === true;
   let recCatalog = null, recSelected = [], recBusy = false;
   /* 공백뿐인 본문은 없는 것으로 본다 — 아래 검사가 모두 이 값을 쓴다.
@@ -1731,7 +1818,7 @@ function init(D){
     '미팅 자료':'🗓️','기업 서류':'🗂️','가이드':'📘',[ROOM_OTHER]:'📁'};
   /* 검토안에서는 사이드바 글리프를 노션처럼 이모지로 바꿔 본다 */
   const NGL = !REVIEW_ROOM ? GL : { info:'🏢', perf:'📊', notice:'📢', fund:'💸', cert:'🏅',
-    proj:'🧭', talk:'💬', open:'🎯', room:'🗃️', guide:'📘' };
+    proj:'🧭', talk:'💬', open:'🎯', room:'🗃️', guide:'📘', roadmap:'🗓️' };
   const ROOM = !REVIEW_ROOM ? [] : (() => {
     const all = [
       ...(ROOM_DEMO ? [
@@ -1768,8 +1855,11 @@ function init(D){
     /* 검토안은 「자료」 묶음 자리가 통째로 데이터룸이 된다. A 는 아래에서 나무를 채우고,
        B 는 「데이터룸」 한 줄만 두고, 누르면 본문에 카드가 깔린다 */
     REVIEW_ROOM === 'A' ? { g:'데이터룸', items:[] } :
-    REVIEW_ROOM === 'B' ? { g:'', items:[{id:'room',ic:'room',nm:'데이터룸',
-        ct:ROOM.reduce((s,x)=>s+x.items.length,0)},
+    REVIEW_ROOM === 'B' ? { g:'', items:roadmap ? [
+      {id:'x3',ic:'guide',nm:'그로스하이 가이드북',ext:1,url:CO.guidebook_url},
+      {id:'roadmap',ic:'roadmap',nm:'컨설팅 타임테이블'},
+      {id:'room',ic:'room',nm:'데이터룸',ct:ROOM.reduce((s,x)=>s+x.items.length,0)},
+    ] : [{id:'room',ic:'room',nm:'데이터룸',ct:ROOM.reduce((s,x)=>s+x.items.length,0)},
       {id:'x3',ic:'guide',nm:'그로스하이 가이드북',ext:1,url:CO.guidebook_url}] } :
     { g:'자료', items:[
       {id:'x1',nm:'기업자료 드라이브',ext:1,url:CO.drive_url},
@@ -6506,6 +6596,50 @@ function init(D){
   }
 
   /* A — 본문 화면이 없다. 사이드바의 「데이터룸」이 그 자리에서 펴진다 */
+  if(roadmap) V.roadmap=()=>{
+    const months = Array.from({length:12},(_,i)=>{
+      const year = 2026 + Math.floor((8+i)/12), month = (8+i)%12+1;
+      return {year,month,key:`${year}-${pad2(month)}`};
+    });
+    const colors=['#168271','#365990','#9a6221','#60528f','#167b80','#385b89'];
+    const plans = roadmap.phases.filter(p=>Number.isInteger(p.start) && Number.isInteger(p.span)
+      && p.start>=0 && p.span>0 && p.start+p.span<=12);
+    const pendingStart=Math.max(10,...plans.map(p=>p.start+p.span));
+    const pending=pendingStart<12 ? `<div class="rm-row pending"><div class="rm-label">
+        <strong>세부 일정 조율 중</strong><small>2027년 ${pendingStart-3}${pendingStart<11?'–8':''}월</small></div>
+        <div class="rm-lane"><span class="rm-bar" style="--rm-col:${pendingStart+1};--rm-span:${12-pendingStart}">
+          협의 예정</span></div></div>` : '';
+    const itemList = items => `<ul>${(items||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+    const rows = plans.map((p,i)=>`<div class="rm-row" style="--rm-color:${colors[i%colors.length]}">
+      <div class="rm-label"><strong>${esc(p.title)}</strong><small>${esc(p.period)}</small></div>
+      <div class="rm-lane"><button type="button" class="rm-bar${p.span===1?' single':''}"
+        style="--rm-col:${p.start+1};--rm-span:${p.span}" data-rm-open="${i}"
+        aria-label="${esc(p.period)} ${esc(p.title)} 계획 보기" title="${esc(p.title)}">
+        ${p.span===1?'●':esc(p.title)}</button></div></div>`).join('');
+    const detail = plans.map((p,i)=>`<details class="rm-detail" data-rm-detail="${i}">
+      <summary><span class="rm-period">${esc(p.period)}</span><span>${esc(p.title)}</span></summary>
+      <div class="rm-detail-body"><section><h3>실행 계획</h3>${itemList(p.tasks)}</section>
+        <section><h3>예상 산출물</h3>${itemList(p.outputs)}</section>
+        ${(p.notes||[]).length?`<p class="rm-note">${esc(p.notes.join(' · '))}</p>`:''}</div></details>`).join('');
+    return `<div class="rm-page"><header class="rm-intro"><div>
+      <h1>컨설팅 타임테이블</h1>
+      <p>계약 전 함께 구상한 실행 계획입니다. 실제 일정은 기업 상황과 공고에 따라 조정될 수 있습니다.</p>
+      </div><span class="rm-range">2026.09 — 2027.08</span></header>
+      <section class="rm-shell" aria-label="12개월 컨설팅 로드맵"><div class="rm-board">
+        <div class="rm-board-top"><div><strong>12개월 실행 로드맵</strong><span> · 계획</span></div>
+          <div class="rm-jumps" aria-label="시기별 이동">
+            <button type="button" data-rm-jump="0">2026년 9월</button>
+            <button type="button" data-rm-jump="4">2027년 1월</button>
+            <button type="button" data-rm-jump="10">2027년 7월</button></div></div>
+        <div class="rm-scroll" data-rm-scroll tabindex="0" aria-label="월별 실행 계획, 좌우로 스크롤 가능">
+          <div class="rm-grid"><div class="rm-head"><div class="rm-corner"></div>
+            ${months.map(m=>`<div class="rm-month${m.key===TODAY.slice(0,7)?' current':''}">
+              ${m.month===9||m.month===1?`<b>${m.year}</b>`:'<b>&nbsp;</b>'}${pad2(m.month)}월</div>`).join('')}</div>
+            ${rows}${pending}
+          </div></div><div class="rm-caption"><span>막대를 누르면 실행 내용과 예상 산출물을 볼 수 있습니다.</span>
+            <span>모바일에서는 좌우로 밀어 12개월을 살펴보세요.</span></div></div></section>
+      <section class="rm-details" aria-label="시기별 실행 계획"><h2>시기별 실행 계획</h2>${detail}</section></div>`;
+  };
   if(REVIEW_ROOM === 'B') V.room=()=>{
     const body = ROOM.map((x,i)=>`<section class="dr-sec" id="drsec-${i}"><h2>${ROOM_IC[x.g] || '📁'} ${esc(x.g)} <span class="dr-src">${x.items.length}</span></h2>
           <div class="dr-cards${CLIENT==='bowlgames'?' bowlgames':''}">${x.items.map(it=>`<div class="dr-card"><b>${drLink(it)}</b>
@@ -7061,7 +7195,8 @@ function init(D){
   });
 
   const CR={info:'기업 정보',perf:'조달현황',fund:CATNM.fund,cert:CATNM.cert,
-    proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업',room:'데이터룸'};
+    proj:CATNM.proj,talk:'소통 내역',open:'추천 지원사업',room:'데이터룸',
+    roadmap:'컨설팅 타임테이블'};
   CR.notice = noticeLabel;                     /* 공지가 없어도 화면은 있다 */
   /* 화면 전환을 브라우저 히스토리에 남긴다. 안 남기면 뒤로 가기가
      이전 화면이 아니라 사이트 밖으로 나가 버린다.
@@ -7095,6 +7230,7 @@ function init(D){
     bindNotice();
     bindReviewNotice();
     bindRoom();
+    bindRoadmap();
     bindRecommend();
     /* 조달현황은 그려진 뒤에 값을 채우고 높이를 잰다. 숨은 상태에서 재면
        폭·높이가 0 이라 차트 크기 계산이 틀어진다 */
@@ -7217,6 +7353,22 @@ function init(D){
   }
   function bindReviewNotice(){
     /* 검토 화면의 내용은 직접 입력해 볼 수 있지만 저장하지 않는다. */
+  }
+  function bindRoadmap(){
+    const scroll=document.querySelector('[data-rm-scroll]');
+    if(!scroll) return;
+    document.querySelectorAll('[data-rm-jump]').forEach(button=>button.onclick=()=>{
+      const grid=scroll.querySelector('.rm-head');
+      const label=grid.querySelector('.rm-corner').getBoundingClientRect().width;
+      const month=(grid.getBoundingClientRect().width-label)/12;
+      scroll.scrollTo({left:Number(button.dataset.rmJump)*month,behavior:'smooth'});
+    });
+    document.querySelectorAll('[data-rm-open]').forEach(button=>button.onclick=()=>{
+      const detail=document.querySelector(`[data-rm-detail="${button.dataset.rmOpen}"]`);
+      if(!detail)return;
+      detail.open=true;
+      detail.scrollIntoView({behavior:'smooth',block:'start'});
+    });
   }
   if(REVIEW_NOTICE){
     document.body.insertAdjacentHTML('beforeend', reviewNoticeSwitcher());

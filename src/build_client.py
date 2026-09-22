@@ -77,6 +77,10 @@ CLIENT_PAGE_TYPE = "\U0001F468‍\U0001F4BC" + "클라이언트페이지"
 # 좌측 「자료」 그룹의 가이드북. 클라이언트 공통이라 노션이 아니라 여기 둔다.
 GUIDEBOOK_URL = "https://yuncommon.notion.site/f12815d712b982d3af19812af6f50cbe"
 
+# 계약 전 제안서의 「진행 시나리오」 표. 내용은 저장소에 복사하지 않고
+# 빌드할 때 읽어 비공개 고객 데이터에만 싣는다.
+ROADMAP_SOURCE_PAGES = {"bowlgames": "3d6815d712b980eeaf48f00488529ea3"}
+
 PLAYLIST_URL = ("https://firestore.googleapis.com/v1/projects/growthhigh-playlist"
                 "/databases/(default)/documents/playlists/{name}")
 POLICY_DATA_URL = "https://bluep2000-hub.github.io/growthhigh-policy/data-full.json"
@@ -431,6 +435,74 @@ def fetch_material_links(nt: Notion, page_id: str) -> list[dict]:
             continue
         collect(block)
     return [{"group": "주요 자료", "items": items}] if items else []
+
+
+def fetch_roadmap(nt: Notion, slug: str) -> dict | None:
+    """제안서의 월별 계획만 읽는다. 3개년 목표나 다른 자료는 섞지 않는다."""
+    page_id = ROADMAP_SOURCE_PAGES.get(slug)
+    if not page_id:
+        return None
+
+    def rich_text(block: dict) -> str:
+        body = block.get(block.get("type")) or {}
+        return "".join(part.get("plain_text", "") for part in body.get("rich_text") or [])
+
+    blocks = nt.children(page_id)
+    in_scenario = in_roadmap = False
+    table = None
+    for block in blocks:
+        kind = block.get("type")
+        title = rich_text(block)
+        if kind == "heading_1":
+            in_scenario = title.strip() == "진행 시나리오"
+            in_roadmap = False
+        elif in_scenario and kind == "heading_2":
+            in_roadmap = "주요 로드맵" in title
+        elif in_roadmap and kind == "table":
+            table = block
+            break
+    if not table:
+        raise ClientFailure("진행 시나리오의 주요 로드맵 표를 찾지 못했습니다")
+
+    rows = nt.children(table["id"])
+    if not rows:
+        raise ClientFailure("진행 시나리오 표가 비어 있습니다")
+
+    def cells(row: dict) -> list[str]:
+        return ["".join(part.get("plain_text", "") for part in cell).strip()
+                for cell in (row.get("table_row") or {}).get("cells") or []]
+
+    if cells(rows[0])[:3] != ["시기", "실행 항목", "주요 성과 / 산출물"]:
+        raise ClientFailure("진행 시나리오 표의 열 구성이 바뀌었습니다")
+
+    def lines(value: str) -> list[str]:
+        return [re.sub(r"^[\s•✅]+", "", part).strip()
+                for part in re.split(r"\n+|(?=•)|(?=✅)", value)
+                if re.sub(r"^[\s•✅]+", "", part).strip()]
+
+    phases = []
+    for row in rows[1:]:
+        values = cells(row)
+        if len(values) < 4:
+            raise ClientFailure("진행 시나리오 표의 항목이 누락되었습니다")
+        period, action, output, note = values[:4]
+        match = re.fullmatch(r"'?([0-9]{2})년\s*([0-9]{1,2})(?:\s*[~～–-]\s*([0-9]{1,2}))?월", period)
+        if not match:
+            raise ClientFailure(f"진행 시나리오 시기를 읽을 수 없습니다: {period}")
+        year, start_month = 2000 + int(match[1]), int(match[2])
+        end_month = int(match[3] or start_month)
+        offset = (year - 2026) * 12 + start_month - 9
+        if not 0 <= offset < 12 or not start_month <= end_month <= 12 or offset + end_month - start_month >= 12:
+            raise ClientFailure(f"진행 시나리오 시기가 1년 범위를 벗어납니다: {period}")
+        tasks = lines(action)
+        title = tasks.pop(0).strip("() ") if tasks and tasks[0].startswith("(") else period
+        phases.append({"period": period, "title": title, "start": offset,
+                       "span": end_month - start_month + 1,
+                       "tasks": tasks, "outputs": lines(output), "notes": lines(note)})
+
+    if not phases:
+        raise ClientFailure("진행 시나리오에 표시할 계획이 없습니다")
+    return {"start": "2026-09", "months": 12, "phases": phases}
 
 
 def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
@@ -3255,6 +3327,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
             "pinned_links": client.get("pinned_links") or [],
         },
         "notice": notice,
+        "roadmap": fetch_roadmap(nt, slug),
         # 값이 없으면 null 이다. 화면이 조달현황 메뉴·카드를 통째로 뺀다
         "perf": perf,
         "progress": progress,
