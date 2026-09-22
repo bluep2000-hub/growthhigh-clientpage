@@ -827,11 +827,15 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rm-bar:hover{filter:brightness(1.06)}.rm-bar:focus-visible{outline:2px solid var(--tx);outline-offset:2px}
 .rm-row.pending{--rm-color:#bdc8d5}.rm-row.pending .rm-bar{color:#263e4c}
 .rm-row.pending .rm-label strong{color:#667785}
-.rm-summary{display:grid;grid-template-columns:repeat(3,minmax(280px,1fr));gap:16px;margin-top:18px;overflow-x:auto}
+.rm-summary{display:grid;grid-template-columns:repeat(3,minmax(320px,1fr));gap:16px;margin-top:18px;overflow-x:auto}
 .rm-summary article{min-width:0;padding:18px 20px;border-radius:12px;background:#f3f6fc}
 .rm-summary span{color:#258b79;font-size:12px;font-weight:700}
 .rm-summary h2{margin:6px 0;color:var(--tx);font-size:16px;line-height:1.35}
-.rm-summary p{color:var(--tx-2);font-size:13px;line-height:1.5}
+.rm-summary ul{list-style:none;margin:12px 0 0;padding:0}
+.rm-summary li{display:grid;grid-template-columns:42px minmax(0,1fr);gap:8px;align-items:start;
+  color:var(--tx-2);font-size:14px;line-height:1.5}
+.rm-summary li+li{margin-top:8px}
+.rm-summary li strong{color:#258b79;font-size:13px;font-weight:700;white-space:nowrap}
 .rm-details{margin-top:32px}.rm-details h2{font-size:19px;margin-bottom:14px;letter-spacing:-.02em}
 .rm-phase-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .rm-detail{scroll-margin-top:24px;min-width:0;padding:20px 22px;display:flex;flex-direction:column;
@@ -849,7 +853,8 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 [data-theme="dark"] .rm-month{background:#344153;color:#e0e9f2}
 [data-theme="dark"] .rm-label{color:#e2edf2}[data-theme="dark"] .rm-label small{color:#aebfce}
 [data-theme="dark"] .rm-summary article{background:#283545}
-[data-theme="dark"] .rm-summary span,[data-theme="dark"] .rm-detail .rm-period{color:#78cab9}
+[data-theme="dark"] .rm-summary span,[data-theme="dark"] .rm-summary li strong,
+[data-theme="dark"] .rm-detail .rm-period{color:#78cab9}
 @media(max-width:760px){.rm-phase-grid{grid-template-columns:1fr}.rm-detail-body{grid-template-columns:1fr;grid-template-rows:auto}}
 @media print{.rm-scroll{overflow:visible}.rm-grid{min-width:0}
   .rm-head,.rm-row{grid-template-columns:125px repeat(12,minmax(0,1fr))}
@@ -6600,7 +6605,8 @@ function init(D){
         ${(p.notes||[]).length?`<p class="rm-note">참고 · ${esc(p.notes.join(' · '))}</p>`:''}</div></article>`).join('');
     const summaryCard = (period, phases, headings=phases) => phases.length ? `<article><span>${period}</span>
       <h2>${esc(headings.map(p=>p.title).join(' · '))}</h2>
-      <p>${esc(phases.map(p=>p.tasks?.[0]).filter(Boolean).join(' · '))}</p></article>` : '';
+      <ul>${phases.filter(p=>p.tasks?.[0]).map(p=>`<li><strong>${esc(p.period.replace(/^.*?년\s*/,''))}</strong>
+        ${esc(p.tasks[0])}</li>`).join('')}</ul></article>` : '';
     return `<div class="rm-page"><header class="rm-intro"><div>
       <h1>12개월 실행 타임테이블</h1>
       </div></header>
