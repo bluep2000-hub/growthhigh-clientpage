@@ -21,8 +21,9 @@ function object(value) {
 }
 
 export function serializePayload(payload) {
-  if (!object(payload) || Object.keys(payload).some((key) => !PAYLOAD_KEYS.includes(key))
+  if (!object(payload) || Object.keys(payload).some((key) => !PAYLOAD_KEYS.includes(key) && key !== "roadmap")
       || PAYLOAD_KEYS.some((key) => !Object.hasOwn(payload, key))
+      || (payload.roadmap != null && (!object(payload.roadmap) || !Array.isArray(payload.roadmap.phases)))
       || !object(payload.company) || typeof payload.company.name !== "string"
       || Object.keys(payload.company).some((key) => !COMPANY_KEYS.includes(key))
       || !["progress", "recommend", "talks", "actions", "events"].every((key) => Array.isArray(payload[key]))

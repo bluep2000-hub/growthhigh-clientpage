@@ -77,6 +77,16 @@ describe("분리된 고객 정상 결과 저장소", () => {
       .run("BAD SLUG", "job-3", 3, "{}", "now")).toThrow();
   });
 
+  it("보울게임즈 로드맵을 비공개 결과에 보존한다", async () => {
+    const roadmap = { start: "2026-09", months: 12, phases: [
+      { period: "'26년 9월", title: "계약", start: 0, span: 1,
+        tasks: ["서류 수취"], outputs: ["실행 계획"], notes: [] },
+    ] };
+    await store.save({ slug: "bowlgames", buildKey: "roadmap-1", startedAt: 1,
+      payload: { ...payload("보울게임즈"), roadmap } });
+    expect((await store.latest("bowlgames")).payload.roadmap).toEqual(roadmap);
+  });
+
   it("동일 실행의 재전송과 늦게 끝난 과거 실행은 최신 정상 결과를 덮어쓰지 않는다", async () => {
     await save("new", 20, payload("새 결과"));
     await save("new", 20, payload("중복 변경"));
