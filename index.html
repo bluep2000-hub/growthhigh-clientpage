@@ -807,7 +807,8 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 /* 실행 타임테이블 — 색은 시기를 구분한다. 완료 여부를 뜻하지 않는다. */
 .rm-page{--rm-color:#145e69;--rm-ink:#193047;--rm-sub:#435569}
 .rm-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
-.rm-intro h1{font-size:clamp(23px,2.5vw,34px);font-weight:700;line-height:1.2;letter-spacing:-.03em}
+.rm-intro h1{font-size:clamp(24px,2.5vw,35px);font-weight:700;line-height:1.2;letter-spacing:-.03em}
+.rm-eyebrow{display:block;margin-bottom:8px;color:#218573;font-size:11px;font-weight:700;letter-spacing:.08em}
 .rm-intro p{margin-top:8px;color:var(--tx-2);font-size:13px;max-width:66ch}
 .rm-range{flex:none;color:var(--tx-2);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .rm-shell{position:relative;isolation:isolate;overflow:hidden;border-radius:18px;padding:18px;
@@ -826,46 +827,45 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
   border:1px solid rgba(38,84,103,.18);background:rgba(255,255,255,.5)}
 .rm-jumps button:hover{background:#fff}
 .rm-scroll{overflow-x:auto;scrollbar-color:#9eafb9 transparent;scrollbar-width:thin;overscroll-behavior-x:contain}
-.rm-grid{min-width:1020px;padding:2px 14px 16px}
-.rm-head,.rm-row{display:grid;grid-template-columns:184px repeat(12,minmax(66px,1fr));align-items:stretch}
+.rm-grid{min-width:925px;padding:2px 10px 16px}
+.rm-head,.rm-row{display:grid;grid-template-columns:145px repeat(12,minmax(65px,1fr));align-items:stretch}
 .rm-head{border-bottom:1px solid rgba(33,63,81,.18);font-variant-numeric:tabular-nums}
 .rm-head .rm-corner{position:sticky;left:0;z-index:3;background:#f4f9f9}
 .rm-month{text-align:center;padding:12px 0 10px;font-size:11px;font-weight:650;color:#536475;white-space:nowrap}
 .rm-month b{display:block;font-size:10px;font-weight:550;color:#6a7b88}
 .rm-month.current{color:#184d67}.rm-month.current::after{content:"";display:block;width:5px;height:5px;
   margin:4px auto -6px;border-radius:50%;background:#238595}
-.rm-row{min-height:66px;border-bottom:1px solid rgba(33,63,81,.1)}
+.rm-row{min-height:55px;border-bottom:1px solid rgba(33,63,81,.1)}
 .rm-row:last-child{border-bottom:0}
 .rm-label{position:sticky;left:0;z-index:2;display:flex;flex-direction:column;justify-content:center;
-  padding:8px 12px 8px 4px;background:#f4f9f9;color:var(--rm-ink);line-height:1.35}
+  padding:8px 8px 8px 4px;background:#f4f9f9;color:var(--rm-ink);line-height:1.35}
 .rm-label strong{font-size:12px;font-weight:650}.rm-label small{font-size:10px;color:#5b6d7a;margin-top:2px}
 .rm-lane{grid-column:2/-1;display:grid;grid-template-columns:repeat(12,minmax(66px,1fr));align-items:center;
   background-image:linear-gradient(to right,rgba(43,74,89,.1) 1px,transparent 1px);
   background-size:calc(100% / 12) 100%;padding:0 4px}
-.rm-bar{grid-column:var(--rm-col)/span var(--rm-span);min-width:0;margin:0 3px;height:36px;
-  display:flex;align-items:center;justify-content:center;padding:0 10px;border-radius:8px;
-  color:#fff;background:var(--rm-color);font-size:11px;font-weight:650;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;box-shadow:0 5px 12px rgba(0,0,0,.13);
+.rm-bar{grid-column:var(--rm-col)/span var(--rm-span);min-width:0;margin:0 2px;min-height:40px;
+  display:flex;align-items:center;justify-content:center;padding:4px 3px;border-radius:8px;
+  color:#fff;background:var(--rm-color);font-size:10px;font-weight:650;line-height:1.25;text-align:center;
+  white-space:normal;text-wrap:balance;box-shadow:0 5px 12px rgba(0,0,0,.13);
   transition:transform .2s cubic-bezier(.18,.85,.32,1),box-shadow .2s ease}
 .rm-bar:hover,.rm-bar:focus-visible{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,.2)}
-.rm-bar.single{border-radius:999px;width:40px;justify-self:center;padding:0;font-size:15px}
 .rm-row.pending{--rm-color:#a4afb9}.rm-row.pending .rm-bar{box-shadow:none;color:#263e4c}
 .rm-row.pending .rm-label strong{color:#667785}
 .rm-caption{display:flex;justify-content:space-between;gap:12px;padding:11px 18px;color:#4b6070;
   font-size:11px;border-top:1px solid rgba(33,63,81,.11)}
-.rm-details{margin-top:22px}.rm-details h2{font-size:16px;margin-bottom:8px;letter-spacing:-.02em}
-.rm-detail{border-bottom:1px solid var(--line);background:var(--panel)}
-.rm-detail:first-of-type{border-top:1px solid var(--line)}
-.rm-detail summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px 3px;
-  font-weight:600}.rm-detail summary::-webkit-details-marker{display:none}
-.rm-detail summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:1.5px solid var(--tx-2);
-  border-bottom:1.5px solid var(--tx-2);transform:rotate(45deg);transition:transform .2s}
-.rm-detail[open] summary::after{transform:rotate(225deg)}
-.rm-detail .rm-period{flex:none;min-width:86px;font-size:11px;color:var(--tx-2);font-variant-numeric:tabular-nums}
-.rm-detail-body{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:2px 3px 18px 101px;color:var(--tx-2)}
-.rm-detail-body h3{font-size:11px;color:var(--tx);margin-bottom:6px}
-.rm-detail-body ul{padding-left:16px}.rm-detail-body li{margin:4px 0;line-height:1.55}
-.rm-detail-body .rm-note{grid-column:1/-1;font-size:11px;color:var(--tx-3)}
+.rm-details{margin-top:26px}.rm-details h2{font-size:18px;margin-bottom:5px;letter-spacing:-.02em}
+.rm-details>p{color:var(--tx-2);font-size:12px;margin-bottom:14px}
+.rm-phase-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.rm-detail{--rm-color:#145e69;scroll-margin-top:24px;min-width:0;padding:19px 20px 17px;
+  border:1px solid var(--line);border-top:4px solid var(--rm-color);border-radius:12px;background:var(--panel)}
+.rm-detail-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+.rm-detail .rm-period{font-size:11px;color:var(--rm-color);font-weight:700;font-variant-numeric:tabular-nums}
+.rm-detail h3{font-size:16px;color:var(--tx);letter-spacing:-.02em}
+.rm-detail-body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;color:var(--tx-2)}
+.rm-detail-body h4{font-size:11px;color:var(--tx);margin-bottom:6px}
+.rm-detail-body ul{padding-left:16px}.rm-detail-body li{margin:4px 0;line-height:1.5;font-size:12px}
+.rm-detail-body .rm-note{grid-column:1/-1;font-size:11px;color:var(--tx-3);border-top:1px solid var(--line);padding-top:8px}
+.rm-detail:target{outline:2px solid var(--rm-color);outline-offset:2px}
 [data-theme="dark"] .rm-shell{background:linear-gradient(125deg,#12333a,#252c48 54%,#42342f)}
 [data-theme="dark"] .rm-board{background:rgba(29,35,43,.75);box-shadow:0 12px 28px rgba(0,0,0,.25)}
 [data-theme="dark"] .rm-board-top,[data-theme="dark"] .rm-label{color:#e2edf2}
@@ -877,18 +877,21 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 [data-theme="dark"] .rm-jumps button{color:#e2edf2;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22)}
 [data-theme="dark"] .rm-jumps button:hover{background:rgba(255,255,255,.17)}
 [data-theme="dark"] .rm-row.pending .rm-label strong{color:#b9cbd3}
+[data-theme="dark"] .rm-eyebrow{color:#78cab9}
+[data-theme="dark"] .rm-detail .rm-period{color:#a7ddd5}
 @media(max-width:760px){
   .rm-intro{align-items:flex-start;flex-direction:column;gap:5px}.rm-shell{padding:10px;border-radius:14px}
-  .rm-board-top{align-items:flex-start;flex-direction:column;padding:13px}.rm-grid{min-width:1030px}
-  .rm-head,.rm-row{grid-template-columns:138px repeat(12,minmax(72px,1fr))}
+  .rm-board-top{align-items:flex-start;flex-direction:column;padding:13px}.rm-grid{min-width:1080px}
+  .rm-head,.rm-row{grid-template-columns:138px repeat(12,minmax(76px,1fr))}
   .rm-caption{flex-direction:column;gap:2px;padding:10px 13px}
-  .rm-detail-body{grid-template-columns:1fr;padding:0 4px 16px 4px;gap:14px}
+  .rm-phase-grid{grid-template-columns:1fr}.rm-detail{padding:17px}
+  .rm-detail-body{grid-template-columns:1fr;gap:12px}
   .rm-detail-body .rm-note{grid-column:auto}.rm-detail .rm-period{min-width:75px}
 }
 @media print{.rm-shell{background:#fff;padding:0}.rm-board{box-shadow:none;background:#fff;backdrop-filter:none}
   .rm-scroll{overflow:visible}.rm-grid{min-width:0}.rm-head,.rm-row{grid-template-columns:125px repeat(12,minmax(0,1fr))}
   .rm-lane{grid-template-columns:repeat(12,minmax(0,1fr))}.rm-jumps{display:none}
-  .rm-detail-body{display:grid}.rm-detail:not([open])>.rm-detail-body{display:grid}}
+  .rm-detail-body{display:grid}.rm-bar{font-size:8px;padding:3px}}
 /* 노션 사이드바처럼 — 아이콘이 붙은 줄이 쌓이고, 올려 두면 아이콘 자리에 ▸ 가 뜬다.
    누르면 그 아래로 한 칸 들여 펴진다. 세로줄·건수는 두지 않는다 */
 .rv-room .nv .g{opacity:1;width:16px;font-size:13px}   /* 이모지는 흐리게 두면 탁해진다 */
@@ -6602,6 +6605,14 @@ function init(D){
       return {year,month,key:`${year}-${pad2(month)}`};
     });
     const colors=['#168271','#365990','#9a6221','#60528f','#167b80','#385b89'];
+    const barLabels={
+      '계약 및 서류 수취':'서류 수취',
+      '초기 Build-Up':'벤처인증·사업계획',
+      '출시':'DISTRAIL 출시',
+      '2027년 준비':'가결산·차년도 계획',
+      '정부지원사업':'제작지원·창업사업 검토',
+      '정책자금 조달검토':'중진공·기보 자금 검토',
+    };
     const plans = roadmap.phases.filter(p=>Number.isInteger(p.start) && Number.isInteger(p.span)
       && p.start>=0 && p.span>0 && p.start+p.span<=12);
     const pendingStart=Math.max(10,...plans.map(p=>p.start+p.span));
@@ -6612,21 +6623,23 @@ function init(D){
     const itemList = items => `<ul>${(items||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
     const rows = plans.map((p,i)=>`<div class="rm-row" style="--rm-color:${colors[i%colors.length]}">
       <div class="rm-label"><strong>${esc(p.title)}</strong><small>${esc(p.period)}</small></div>
-      <div class="rm-lane"><button type="button" class="rm-bar${p.span===1?' single':''}"
+      <div class="rm-lane"><button type="button" class="rm-bar"
         style="--rm-col:${p.start+1};--rm-span:${p.span}" data-rm-open="${i}"
-        aria-label="${esc(p.period)} ${esc(p.title)} 계획 보기" title="${esc(p.title)}">
-        ${p.span===1?'●':esc(p.title)}</button></div></div>`).join('');
-    const detail = plans.map((p,i)=>`<details class="rm-detail" data-rm-detail="${i}">
-      <summary><span class="rm-period">${esc(p.period)}</span><span>${esc(p.title)}</span></summary>
-      <div class="rm-detail-body"><section><h3>실행 계획</h3>${itemList(p.tasks)}</section>
-        <section><h3>예상 산출물</h3>${itemList(p.outputs)}</section>
-        ${(p.notes||[]).length?`<p class="rm-note">${esc(p.notes.join(' · '))}</p>`:''}</div></details>`).join('');
+        aria-label="${esc(p.period)} ${esc(p.title)} 실행 항목으로 이동">
+        ${esc(barLabels[p.title]||p.title)}</button></div></div>`).join('');
+    const detail = plans.map((p,i)=>`<article class="rm-detail" data-rm-detail="${i}"
+      style="--rm-color:${colors[i%colors.length]}">
+      <div class="rm-detail-head"><span class="rm-period">${esc(p.period)}</span>
+        <h3>${esc(p.title)}</h3></div>
+      <div class="rm-detail-body"><section><h4>실행 항목</h4>${itemList(p.tasks)}</section>
+        <section><h4>예상 산출물</h4>${itemList(p.outputs)}</section>
+        ${(p.notes||[]).length?`<p class="rm-note">참고 · ${esc(p.notes.join(' · '))}</p>`:''}</div></article>`).join('');
     return `<div class="rm-page"><header class="rm-intro"><div>
-      <h1>컨설팅 타임테이블</h1>
-      <p>계약 전 함께 구상한 실행 계획입니다. 실제 일정은 기업 상황과 공고에 따라 조정될 수 있습니다.</p>
+      <span class="rm-eyebrow">PHASE 2 · 컨설팅 자문</span><h1>12개월 실행 타임테이블</h1>
+      <p>계약·자료 수취부터 출시, 기업인증, 지원사업과 정책자금 검토까지의 예정 흐름입니다.</p>
       </div><span class="rm-range">2026.09 — 2027.08</span></header>
       <section class="rm-shell" aria-label="12개월 컨설팅 로드맵"><div class="rm-board">
-        <div class="rm-board-top"><div><strong>12개월 실행 로드맵</strong><span> · 계획</span></div>
+        <div class="rm-board-top"><div><strong>월별 주요 실행 계획</strong><span> · 예정</span></div>
           <div class="rm-jumps" aria-label="시기별 이동">
             <button type="button" data-rm-jump="0">2026년 9월</button>
             <button type="button" data-rm-jump="4">2027년 1월</button>
@@ -6636,9 +6649,11 @@ function init(D){
             ${months.map(m=>`<div class="rm-month${m.key===TODAY.slice(0,7)?' current':''}">
               ${m.month===9||m.month===1?`<b>${m.year}</b>`:'<b>&nbsp;</b>'}${pad2(m.month)}월</div>`).join('')}</div>
             ${rows}${pending}
-          </div></div><div class="rm-caption"><span>막대를 누르면 실행 내용과 예상 산출물을 볼 수 있습니다.</span>
+          </div></div><div class="rm-caption"><span>막대를 누르면 아래의 실행 항목으로 이동합니다. 일정은 상황에 따라 조정될 수 있습니다.</span>
             <span>모바일에서는 좌우로 밀어 12개월을 살펴보세요.</span></div></div></section>
-      <section class="rm-details" aria-label="시기별 실행 계획"><h2>시기별 실행 계획</h2>${detail}</section></div>`;
+      <section class="rm-details" aria-label="시기별 실행 계획"><h2>시기별 실행 계획</h2>
+        <p>실행 항목과 예상 산출물을 펼치지 않고 바로 확인할 수 있습니다.</p>
+        <div class="rm-phase-grid">${detail}</div></section></div>`;
   };
   if(REVIEW_ROOM === 'B') V.room=()=>{
     const body = ROOM.map((x,i)=>`<section class="dr-sec" id="drsec-${i}"><h2>${ROOM_IC[x.g] || '📁'} ${esc(x.g)} <span class="dr-src">${x.items.length}</span></h2>
@@ -7366,7 +7381,6 @@ function init(D){
     document.querySelectorAll('[data-rm-open]').forEach(button=>button.onclick=()=>{
       const detail=document.querySelector(`[data-rm-detail="${button.dataset.rmOpen}"]`);
       if(!detail)return;
-      detail.open=true;
       detail.scrollIntoView({behavior:'smooth',block:'start'});
     });
   }
