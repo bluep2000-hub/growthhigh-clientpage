@@ -6597,6 +6597,9 @@ function init(D){
       <div class="rm-detail-body"><section><h4>실행 항목</h4>${itemList(p.tasks)}</section>
         <section><h4>예상 산출물</h4>${itemList(p.outputs)}</section>
         ${(p.notes||[]).length?`<p class="rm-note">참고 · ${esc(p.notes.join(' · '))}</p>`:''}</div></article>`).join('');
+    const summaryCard = (period, phases) => phases.length ? `<article><span>${period}</span>
+      <h2>${esc(phases.map(p=>p.title).join(' · '))}</h2>
+      <p>${esc(phases.map(p=>p.tasks?.[0]).filter(Boolean).join(' · '))}</p></article>` : '';
     return `<div class="rm-page"><header class="rm-intro"><div>
       <span class="rm-eyebrow">PHASE 2 · 컨설팅 자문</span><h1>12개월 실행 타임테이블</h1>
       </div></header>
@@ -6607,9 +6610,9 @@ function init(D){
             ${rows}${pending}
           </div></div></div></section>
       <section class="rm-summary" aria-label="로드맵 요약">
-        <article><span>'26년 9–12월</span><h2>기반 준비와 출시</h2><p>계약 자료를 정리하고 벤처인증·사업계획을 준비하며 DISTRAIL 출시를 점검합니다.</p></article>
-        <article><span>'27년 상반기</span><h2>지원사업과 정책자금</h2><p>공고 일정에 맞춰 신청을 검토하고 중진공·기보 자금 조달 가능성을 살핍니다.</p></article>
-        <article><span>'27년 7–8월</span><h2>세부 일정 조율 중</h2><p>후속 실행 항목과 일정은 협의 후 확정합니다.</p></article>
+        ${summaryCard("'26년 9–12월", plans.filter(p=>p.start<4))}
+        ${summaryCard("'27년 상반기", plans.filter(p=>p.start>=4 && p.start<10))}
+        <article><span>'27년 7–8월</span><h2>세부 일정 조율 중</h2></article>
       </section>
       <section class="rm-details" aria-label="시기별 실행 계획"><h2>시기별 실행 계획</h2>
         <div class="rm-phase-grid">${detail}</div></section></div>`;
