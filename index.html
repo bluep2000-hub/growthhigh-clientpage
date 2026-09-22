@@ -804,84 +804,54 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 @media print{.rnt-note,.rn-switch{display:none!important}}
 
 /* 데이터룸은 B 카드형으로 운영한다. ?review-room=A|B 로 두 안을 비교할 수 있다. */
-/* 실행 타임테이블 — 색은 시기를 구분한다. 완료 여부를 뜻하지 않는다. */
-.rm-page{--rm-color:#145e69;--rm-ink:#193047;--rm-sub:#435569}
-.view:has(.rm-page){max-width:1600px}
-.rm-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
-.rm-intro h1{font-size:clamp(24px,2.5vw,35px);font-weight:700;line-height:1.2;letter-spacing:-.03em}
-.rm-eyebrow{display:block;margin-bottom:8px;color:#218573;font-size:13px;font-weight:700;letter-spacing:.06em}
-.rm-shell{position:relative;isolation:isolate;overflow:hidden;border-radius:18px;padding:18px;
-  background:linear-gradient(125deg,#e6f3ee 0%,#e5edf8 51%,#faeee4 100%)}
-.rm-shell::before{content:"";position:absolute;z-index:-1;right:-8%;top:-100px;width:45%;height:260px;
-  border-radius:50%;background:rgba(89,158,207,.32);filter:blur(42px);pointer-events:none}
-.rm-board{overflow:hidden;border-radius:14px;
-  background:rgba(255,255,255,.7);backdrop-filter:blur(20px) saturate(1.25);
-  -webkit-backdrop-filter:blur(20px) saturate(1.25);box-shadow:0 12px 28px rgba(0,0,0,.12)}
-.rm-scroll{overflow-x:auto;scrollbar-color:#9eafb9 transparent;scrollbar-width:thin;overscroll-behavior-x:contain}
-.rm-grid{min-width:1440px;padding:10px 16px 16px}
-.rm-head,.rm-row{display:grid;grid-template-columns:300px repeat(12,minmax(92px,1fr));align-items:stretch}
-.rm-head{border-bottom:1px solid rgba(33,63,81,.18);font-variant-numeric:tabular-nums}
-.rm-head .rm-corner{position:sticky;left:0;z-index:3;background:#f4f9f9}
-.rm-month{text-align:center;padding:12px 0 10px;font-size:15px;font-weight:650;color:#536475;white-space:nowrap}
-.rm-month b{display:block;font-size:13px;font-weight:550;color:#6a7b88}
-.rm-month.current{color:#184d67}.rm-month.current::after{content:"";display:block;width:5px;height:5px;
-  margin:4px auto -6px;border-radius:50%;background:#238595}
-.rm-row{min-height:124px;border-bottom:1px solid rgba(33,63,81,.1)}
-.rm-row:last-child{border-bottom:0}
+/* 실행 타임테이블 — 제안 시안처럼 고정된 12개월 판. 색은 완료 상태가 아니다. */
+.rm-page{--rm-ink:#1c2b42}
+.rm-intro{margin-bottom:18px}
+.rm-intro h1{font-size:clamp(26px,2.5vw,36px);font-weight:700;line-height:1.2;letter-spacing:-.03em}
+.rm-eyebrow{display:block;margin-bottom:8px;color:#258b79;font-size:13px;font-weight:700;letter-spacing:.06em}
+.rm-scroll{overflow-x:auto;scrollbar-color:#a9b5c3 transparent;scrollbar-width:thin;overscroll-behavior-x:contain}
+.rm-grid{min-width:1120px}
+.rm-head,.rm-row{display:grid;grid-template-columns:160px repeat(12,minmax(80px,1fr));align-items:center}
+.rm-head{margin-bottom:8px;font-variant-numeric:tabular-nums}
+.rm-head .rm-corner{position:sticky;left:0;z-index:3;background:var(--panel)}
+.rm-month{margin:0 2px;padding:10px 0;border-radius:5px;background:#e9eef6;
+  color:#46556a;text-align:center;font-size:12px;font-weight:700;white-space:nowrap}
+.rm-row{min-height:42px;margin-bottom:3px}
 .rm-label{position:sticky;left:0;z-index:2;display:flex;flex-direction:column;justify-content:center;
-  padding:12px 18px 12px 8px;background:#f4f9f9;color:var(--rm-ink);line-height:1.35}
-.rm-label strong{font-size:18px;font-weight:700}.rm-label small{font-size:14px;color:#5b6d7a;margin-top:3px}
-.rm-label ul{margin:7px 0 0;padding-left:17px;color:#435569;font-size:14px;line-height:1.45}
-.rm-label li{margin-top:3px}
-.rm-lane{grid-column:2/-1;display:grid;grid-template-columns:repeat(12,minmax(92px,1fr));align-items:center;
-  background-image:linear-gradient(to right,rgba(43,74,89,.1) 1px,transparent 1px);
-  background-size:calc(100% / 12) 100%;padding:0 4px}
-.rm-bar{grid-column:var(--rm-col)/span var(--rm-span);min-width:0;margin:0 3px;min-height:58px;
-  display:flex;align-items:center;justify-content:center;padding:9px 6px;border-radius:8px;
-  color:#fff;background:var(--rm-color);font-size:14px;font-weight:650;line-height:1.35;text-align:center;
-  white-space:normal;text-wrap:balance;box-shadow:0 5px 12px rgba(0,0,0,.13);
-  transition:transform .2s cubic-bezier(.18,.85,.32,1),box-shadow .2s ease}
-.rm-bar:hover,.rm-bar:focus-visible{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,.2)}
-.rm-row.pending{--rm-color:#a4afb9}.rm-row.pending .rm-bar{box-shadow:none;color:#263e4c}
+  padding-right:8px;background:var(--panel);color:var(--rm-ink);line-height:1.25}
+.rm-label strong{font-size:13px;font-weight:700}.rm-label small{font-size:11px;color:#657487;margin-top:2px}
+.rm-lane{grid-column:2/-1;display:grid;grid-template-columns:repeat(12,minmax(80px,1fr));align-items:center}
+.rm-bar{grid-column:var(--rm-col)/span var(--rm-span);min-width:0;min-height:34px;margin:0 2px;
+  display:flex;align-items:center;justify-content:center;padding:4px 5px;border:0;border-radius:5px;
+  color:#fff;background:var(--rm-color);font-size:11px;font-weight:650;line-height:1.2;text-align:center;
+  white-space:normal;text-wrap:balance}
+.rm-bar:hover{filter:brightness(1.06)}.rm-bar:focus-visible{outline:2px solid var(--tx);outline-offset:2px}
+.rm-row.pending{--rm-color:#bdc8d5}.rm-row.pending .rm-bar{color:#263e4c}
 .rm-row.pending .rm-label strong{color:#667785}
-.rm-details{margin-top:28px}.rm-details h2{font-size:22px;margin-bottom:16px;letter-spacing:-.02em}
+.rm-summary{display:grid;grid-template-columns:repeat(3,minmax(280px,1fr));gap:16px;margin-top:18px;overflow-x:auto}
+.rm-summary article{min-width:0;padding:18px 20px;border-radius:12px;background:#f3f6fc}
+.rm-summary span{color:#258b79;font-size:12px;font-weight:700}
+.rm-summary h2{margin:6px 0;color:var(--tx);font-size:16px;line-height:1.35}
+.rm-summary p{color:var(--tx-2);font-size:13px;line-height:1.5}
+.rm-details{margin-top:32px}.rm-details h2{font-size:19px;margin-bottom:14px;letter-spacing:-.02em}
 .rm-phase-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.rm-detail{--rm-color:#145e69;scroll-margin-top:24px;min-width:0;padding:22px;
+.rm-detail{scroll-margin-top:24px;min-width:0;padding:18px 20px;
   border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-.rm-detail-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:13px}
-.rm-detail .rm-period{font-size:14px;color:var(--rm-color);font-weight:700;font-variant-numeric:tabular-nums}
-.rm-detail h3{font-size:19px;color:var(--tx);letter-spacing:-.02em}
-.rm-detail-body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;color:var(--tx-2)}
-.rm-detail-body h4{font-size:14px;color:var(--tx);margin-bottom:8px}
-.rm-detail-body ul{padding-left:19px}.rm-detail-body li{margin:6px 0;line-height:1.55;font-size:15px}
-.rm-detail-body .rm-note{grid-column:1/-1;font-size:13px;color:var(--tx-3);border-top:1px solid var(--line);padding-top:10px}
-.rm-detail:target{outline:2px solid var(--rm-color);outline-offset:2px}
-[data-theme="dark"] .rm-shell{background:linear-gradient(125deg,#12333a,#252c48 54%,#42342f)}
-[data-theme="dark"] .rm-board{background:rgba(29,35,43,.75);box-shadow:0 12px 28px rgba(0,0,0,.25)}
-[data-theme="dark"] .rm-label{color:#e2edf2}
-[data-theme="dark"] .rm-head .rm-corner,[data-theme="dark"] .rm-label{background:#23313b}
-[data-theme="dark"] .rm-month{color:#c2d2db}[data-theme="dark"] .rm-month b{color:#aabfc8}
-[data-theme="dark"] .rm-month.current{color:#a9e4ef}
-[data-theme="dark"] .rm-label small,[data-theme="dark"] .rm-label ul{color:#aec3ce}
-[data-theme="dark"] .rm-row.pending .rm-label strong{color:#b9cbd3}
-[data-theme="dark"] .rm-eyebrow{color:#78cab9}
-[data-theme="dark"] .rm-detail .rm-period{color:#a7ddd5}
-@media(max-width:760px){
-  .rm-intro{align-items:flex-start;flex-direction:column;gap:5px}.rm-shell{padding:10px;border-radius:14px}
-  .rm-grid{min-width:1320px}
-  .rm-head,.rm-row{grid-template-columns:150px repeat(12,minmax(96px,1fr))}
-  .rm-lane{grid-template-columns:repeat(12,minmax(96px,1fr))}
-  .rm-row{min-height:72px}.rm-label{padding:10px 8px 10px 6px}
-  .rm-label strong{font-size:16px}.rm-label small{font-size:13px}.rm-label ul{display:none}
-  .rm-phase-grid{grid-template-columns:1fr}.rm-detail{padding:18px}
-  .rm-detail-body{grid-template-columns:1fr;gap:12px}
-  .rm-detail-body .rm-note{grid-column:auto}.rm-detail .rm-period{min-width:75px}
-}
-@media(max-width:1450px){.rm-phase-grid{grid-template-columns:1fr}}
-@media print{.rm-shell{background:#fff;padding:0}.rm-board{box-shadow:none;background:#fff;backdrop-filter:none}
-  .rm-scroll{overflow:visible}.rm-grid{min-width:0}.rm-head,.rm-row{grid-template-columns:125px repeat(12,minmax(0,1fr))}
-  .rm-lane{grid-template-columns:repeat(12,minmax(0,1fr))}
-  .rm-detail-body{display:grid}.rm-bar{font-size:8px;padding:3px}}
+.rm-detail-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.rm-detail .rm-period{font-size:13px;color:#258b79;font-weight:700;font-variant-numeric:tabular-nums}
+.rm-detail h3{font-size:17px;color:var(--tx);letter-spacing:-.02em}
+.rm-detail-body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;color:var(--tx-2)}
+.rm-detail-body h4{font-size:13px;color:var(--tx);margin-bottom:6px}
+.rm-detail-body ul{padding-left:18px}.rm-detail-body li{margin:5px 0;line-height:1.5;font-size:14px}
+.rm-detail-body .rm-note{grid-column:1/-1;font-size:12px;color:var(--tx-3);border-top:1px solid var(--line);padding-top:8px}
+[data-theme="dark"] .rm-month{background:#344153;color:#e0e9f2}
+[data-theme="dark"] .rm-label{color:#e2edf2}[data-theme="dark"] .rm-label small{color:#aebfce}
+[data-theme="dark"] .rm-summary article{background:#283545}
+[data-theme="dark"] .rm-summary span,[data-theme="dark"] .rm-detail .rm-period,[data-theme="dark"] .rm-eyebrow{color:#78cab9}
+@media(max-width:760px){.rm-phase-grid{grid-template-columns:1fr}.rm-detail-body{grid-template-columns:1fr}}
+@media print{.rm-scroll{overflow:visible}.rm-grid{min-width:0}
+  .rm-head,.rm-row{grid-template-columns:125px repeat(12,minmax(0,1fr))}
+  .rm-lane{grid-template-columns:repeat(12,minmax(0,1fr))}.rm-bar{font-size:8px;padding:2px}}
 /* 노션 사이드바처럼 — 아이콘이 붙은 줄이 쌓이고, 올려 두면 아이콘 자리에 ▸ 가 뜬다.
    누르면 그 아래로 한 칸 들여 펴진다. 세로줄·건수는 두지 않는다 */
 .rv-room .nv .g{opacity:1;width:16px;font-size:13px}   /* 이모지는 흐리게 두면 탁해진다 */
@@ -6594,14 +6564,14 @@ function init(D){
       const year = 2026 + Math.floor((8+i)/12), month = (8+i)%12+1;
       return {year,month,key:`${year}-${pad2(month)}`};
     });
-    const colors=['#168271','#365990','#9a6221','#60528f','#167b80','#385b89'];
+    const colors=['#2c9e8c','#1d2a45','#d99b2e','#7890ac','#1d2a45','#38587e'];
     const barLabels={
       '계약 및 서류 수취':'서류 수취',
-      '초기 Build-Up':'벤처인증·사업계획',
-      '출시':'DISTRAIL 출시',
-      '2027년 준비':'가결산·차년도 계획',
-      '정부지원사업':'콘진원 제작지원 · 인디게임 데브캠프 · 초기창업패키지 · 게임더하기',
-      '정책자금 조달검토':'중진공 자금 · 기보 증액·완성보증',
+      '초기 Build-Up':'벤처인증',
+      '출시':'DISTRAIL',
+      '2027년 준비':'가결산',
+      '정부지원사업':'콘진원 제작지원 · 초기창패 · 게임더하기',
+      '정책자금 조달검토':'중진공 · 기보 · 완성보증',
     };
     const plans = roadmap.phases.filter(p=>Number.isInteger(p.start) && Number.isInteger(p.span)
       && p.start>=0 && p.span>0 && p.start+p.span<=12);
@@ -6609,11 +6579,10 @@ function init(D){
     const pending=pendingStart<12 ? `<div class="rm-row pending"><div class="rm-label">
         <strong>세부 일정 조율 중</strong><small>2027년 ${pendingStart-3}${pendingStart<11?'–8':''}월</small></div>
         <div class="rm-lane"><span class="rm-bar" style="--rm-col:${pendingStart+1};--rm-span:${12-pendingStart}">
-          협의 예정</span></div></div>` : '';
+          일정 조율 중</span></div></div>` : '';
     const itemList = items => `<ul>${(items||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
     const rows = plans.map((p,i)=>`<div class="rm-row" style="--rm-color:${colors[i%colors.length]}">
-      <div class="rm-label"><strong>${esc(p.title)}</strong><small>${esc(p.period)}</small>
-        ${itemList(p.tasks)}</div>
+      <div class="rm-label"><strong>${esc(p.title)}</strong><small>${esc(p.period)}</small></div>
       <div class="rm-lane"><button type="button" class="rm-bar"
         style="--rm-col:${p.start+1};--rm-span:${p.span}" data-rm-open="${i}"
         aria-label="${esc(p.period)} ${esc(p.title)} 실행 항목으로 이동">
@@ -6631,10 +6600,14 @@ function init(D){
       <section class="rm-shell" aria-label="12개월 컨설팅 로드맵"><div class="rm-board">
         <div class="rm-scroll" data-rm-scroll tabindex="0" aria-label="월별 실행 계획, 좌우로 스크롤 가능">
           <div class="rm-grid"><div class="rm-head"><div class="rm-corner"></div>
-            ${months.map(m=>`<div class="rm-month${m.key===TODAY.slice(0,7)?' current':''}">
-              ${m.month===9||m.month===1?`<b>${m.year}</b>`:'<b>&nbsp;</b>'}${pad2(m.month)}월</div>`).join('')}</div>
+            ${months.map(m=>`<div class="rm-month">${m.month===9||m.month===1?`'${String(m.year).slice(2)}.`:''}${pad2(m.month)}</div>`).join('')}</div>
             ${rows}${pending}
           </div></div></div></section>
+      <section class="rm-summary" aria-label="로드맵 요약">
+        <article><span>'26년 9–12월</span><h2>기반 준비와 출시</h2><p>계약 자료를 정리하고 벤처인증·사업계획을 준비하며 DISTRAIL 출시를 점검합니다.</p></article>
+        <article><span>'27년 상반기</span><h2>지원사업과 정책자금</h2><p>공고 일정에 맞춰 신청을 검토하고 중진공·기보 자금 조달 가능성을 살핍니다.</p></article>
+        <article><span>'27년 7–8월</span><h2>세부 일정 조율 중</h2><p>후속 실행 항목과 일정은 협의 후 확정합니다.</p></article>
+      </section>
       <section class="rm-details" aria-label="시기별 실행 계획"><h2>시기별 실행 계획</h2>
         <div class="rm-phase-grid">${detail}</div></section></div>`;
   };
