@@ -1791,8 +1791,10 @@ function init(D){
           {label:'자금 조달 계획표',url:N},{label:'9월 정기 미팅 안건',url:N}]},
       ] : ROOM_LINKS),
       {g:'', items:ROOM_BASE},
-    ].flatMap(x => x.items.map(it => ({...it, kind:(ROOM_KINDS.find(([, re]) =>
-      re.test(`${x.g} ${it.label}`)) || [ROOM_OTHER])[0]})));
+    ].flatMap(x => x.items.map(it => ({...it,
+      kind:CLIENT === 'bowlgames' && /kick[\s-]*off|킥[\s-]*오프/i.test(it.label)
+        ? ROOM_OTHER : (ROOM_KINDS.find(([, re]) =>
+          re.test(`${x.g} ${it.label}`)) || [ROOM_OTHER])[0]})));
     return [...ROOM_KINDS.map(k => k[0]), ROOM_OTHER]
       .map(g => ({g, items:all.filter(it => it.kind === g)})).filter(x => x.items.length);
   })();
