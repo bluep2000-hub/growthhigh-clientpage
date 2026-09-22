@@ -808,7 +808,6 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rm-page{--rm-ink:#1c2b42}
 .rm-intro{margin-bottom:18px}
 .rm-intro h1{font-size:clamp(26px,2.5vw,36px);font-weight:700;line-height:1.2;letter-spacing:-.03em}
-.rm-eyebrow{display:block;margin-bottom:8px;color:#258b79;font-size:13px;font-weight:700;letter-spacing:.06em}
 .rm-scroll{overflow-x:auto;scrollbar-color:#a9b5c3 transparent;scrollbar-width:thin;overscroll-behavior-x:contain}
 .rm-grid{min-width:1120px}
 .rm-head,.rm-row{display:grid;grid-template-columns:160px repeat(12,minmax(80px,1fr));align-items:center}
@@ -835,20 +834,22 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rm-summary p{color:var(--tx-2);font-size:13px;line-height:1.5}
 .rm-details{margin-top:32px}.rm-details h2{font-size:19px;margin-bottom:14px;letter-spacing:-.02em}
 .rm-phase-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.rm-detail{scroll-margin-top:24px;min-width:0;padding:18px 20px;display:flex;flex-direction:column;
+.rm-detail{scroll-margin-top:24px;min-width:0;padding:20px 22px;display:flex;flex-direction:column;
   border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-.rm-detail-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-.rm-detail .rm-period{font-size:13px;color:#258b79;font-weight:700;font-variant-numeric:tabular-nums}
-.rm-detail h3{font-size:17px;color:var(--tx);letter-spacing:-.02em}
+.rm-detail-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px;
+  padding-bottom:12px;border-bottom:1px solid var(--line)}
+.rm-detail .rm-period{font-size:14px;color:#258b79;font-weight:700;font-variant-numeric:tabular-nums}
+.rm-detail h3{font-size:18px;color:var(--tx);letter-spacing:-.02em}
 .rm-detail-body{flex:1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
-  grid-template-rows:1fr auto;gap:18px;color:var(--tx-2)}
-.rm-detail-body h4{font-size:13px;color:var(--tx);margin-bottom:6px}
-.rm-detail-body ul{padding-left:18px}.rm-detail-body li{margin:5px 0;line-height:1.5;font-size:14px}
-.rm-detail-body .rm-note{grid-column:1/-1;font-size:12px;color:var(--tx-3);border-top:1px solid var(--line);padding-top:8px}
+  grid-template-rows:1fr auto;gap:20px;color:var(--tx-2)}
+.rm-detail-body h4{font-size:14px;color:var(--tx);margin-bottom:8px}
+.rm-detail-body ul{padding-left:20px}.rm-detail-body li{margin:6px 0;line-height:1.6;font-size:15px}
+.rm-detail-body .rm-note{grid-column:1/-1;font-size:13px;line-height:1.5;color:var(--tx-2);
+  border-top:1px solid var(--line);padding-top:10px}
 [data-theme="dark"] .rm-month{background:#344153;color:#e0e9f2}
 [data-theme="dark"] .rm-label{color:#e2edf2}[data-theme="dark"] .rm-label small{color:#aebfce}
 [data-theme="dark"] .rm-summary article{background:#283545}
-[data-theme="dark"] .rm-summary span,[data-theme="dark"] .rm-detail .rm-period,[data-theme="dark"] .rm-eyebrow{color:#78cab9}
+[data-theme="dark"] .rm-summary span,[data-theme="dark"] .rm-detail .rm-period{color:#78cab9}
 @media(max-width:760px){.rm-phase-grid{grid-template-columns:1fr}.rm-detail-body{grid-template-columns:1fr;grid-template-rows:auto}}
 @media print{.rm-scroll{overflow:visible}.rm-grid{min-width:0}
   .rm-head,.rm-row{grid-template-columns:125px repeat(12,minmax(0,1fr))}
@@ -6601,7 +6602,7 @@ function init(D){
       <h2>${esc(headings.map(p=>p.title).join(' · '))}</h2>
       <p>${esc(phases.map(p=>p.tasks?.[0]).filter(Boolean).join(' · '))}</p></article>` : '';
     return `<div class="rm-page"><header class="rm-intro"><div>
-      <span class="rm-eyebrow">PHASE 2 · 컨설팅 자문</span><h1>12개월 실행 타임테이블</h1>
+      <h1>12개월 실행 타임테이블</h1>
       </div></header>
       <section class="rm-shell" aria-label="12개월 컨설팅 로드맵"><div class="rm-board">
         <div class="rm-scroll" data-rm-scroll tabindex="0" aria-label="월별 실행 계획, 좌우로 스크롤 가능">
