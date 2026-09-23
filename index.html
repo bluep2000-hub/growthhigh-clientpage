@@ -1673,7 +1673,8 @@ function init(D){
   });
   const events = Array.isArray(D.events) ? D.events : [];
   const recommend = Array.isArray(D.recommend) ? D.recommend : [];
-  const roadmap = D.roadmap && Array.isArray(D.roadmap.phases) && D.roadmap.phases.length
+  const roadmap = D.roadmap && ((Array.isArray(D.roadmap.phases) && D.roadmap.phases.length)
+    || (Array.isArray(D.roadmap.tracks) && D.roadmap.tracks.length))
     ? D.roadmap : null;
   let recommendUnavailable = D.recommend_unavailable === true;
   let recCatalog = null, recSelected = [], recBusy = false;
@@ -6567,6 +6568,17 @@ function init(D){
 
   /* A — 본문 화면이 없다. 사이드바의 「데이터룸」이 그 자리에서 펴진다 */
   if(roadmap) V.roadmap=()=>{
+    if(Array.isArray(roadmap.tracks)) {
+      const palette={green:'#2da88e',navy:'#17233e',blue:'#34537f',amber:'#e6a429',muted:'#bcc5d0',teal:'#21806f'};
+      const months=Array.from({length:12},(_,i)=>new Date(2026,8+i,1));
+      return `<div class="rm-page"><header class="rm-intro"><h1>컨설팅 자문 12개월 실행 타임테이블</h1></header>
+        <section class="rm-scroll" tabindex="0" aria-label="예정 실행 일정, 좌우로 스크롤 가능"><div class="rm-grid">
+        <div class="rm-head"><div class="rm-corner"></div>${months.map((d,i)=>`<div class="rm-month">${i===0||d.getMonth()===0?`'${String(d.getFullYear()).slice(2)}.`:''}${pad2(d.getMonth()+1)}</div>`).join('')}</div>
+        ${roadmap.tracks.map(t=>`<div class="rm-row"><div class="rm-label"><strong>${esc(t.title)}</strong><small>${esc(t.subtitle)}</small></div>
+          <div class="rm-lane">${t.segments.map(s=>`<span class="rm-bar" style="--rm-col:${s.start+1};--rm-span:${s.span};--rm-color:${palette[s.color]||palette.muted};color:${['muted','amber'].includes(s.color)?'#253345':'#fff'}">${esc(s.label)}</span>`).join('')}</div></div>`).join('')}
+        </div></section><section class="rm-summary" aria-label="시기별 중점 실행">${(roadmap.summaries||[]).map(s=>`<article><span>${esc(s.period)}</span><h2>${esc(s.title)}</h2><p style="color:var(--tx-2);font-size:14px;line-height:1.6">${esc(s.description)}</p></article>`).join('')}</section>
+        <p style="margin-top:16px;color:var(--tx-2);font-size:13px">예정 일정이며, 실제 진행 상황과 공고 일정에 따라 조정될 수 있습니다.</p></div>`;
+    }
     const months = Array.from({length:12},(_,i)=>{
       const year = 2026 + Math.floor((8+i)/12), month = (8+i)%12+1;
       return {year,month,key:`${year}-${pad2(month)}`};

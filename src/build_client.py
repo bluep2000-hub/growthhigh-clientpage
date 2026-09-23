@@ -440,8 +440,75 @@ def fetch_material_links(nt: Notion, page_id: str) -> list[dict]:
     return [{"group": "주요 자료", "items": items}] if items else []
 
 
+def fetch_track_roadmap(nt: Notion, page_id: str) -> dict:
+    """고객 원본의 월별 막대 표를 읽는다. 색상은 진행 상태가 아닌 시안 구분이다."""
+    blocks = nt.children(page_id)
+    active = False
+    table = None
+    for block in blocks:
+        kind = block.get("type")
+        if kind.startswith("heading_"):
+            title = "".join(x.get("plain_text", "") for x in block[kind].get("rich_text", []))
+            active = title.strip() == "컨설팅 타임테이블"
+        elif active and kind == "table":
+            table = block
+            break
+    if not table:
+        raise ClientFailure("컨설팅 타임테이블 표를 찾지 못했습니다")
+    rows = nt.children(table["id"])
+    def cells(row):
+        return ["".join(x.get("plain_text", "") for x in c).strip()
+                for c in row.get("table_row", {}).get("cells", [])]
+    if not rows or cells(rows[0]) != ["분야", "목적", "시작월", "종료월", "실행 항목", "표시색"]:
+        raise ClientFailure("컨설팅 타임테이블 열 구성이 바뀌었습니다")
+    tracks = []
+    colors = {"green", "navy", "blue", "amber", "muted", "teal"}
+    for row in rows[1:]:
+        values = cells(row)
+        if len(values) != 6:
+            raise ClientFailure("컨설팅 타임테이블 항목 누락")
+        title, subtitle, first, last, label, color = values
+        try:
+            begin = datetime.strptime(first, "%Y-%m")
+            end = datetime.strptime(last, "%Y-%m")
+        except ValueError as error:
+            raise ClientFailure("타임테이블 월 형식 오류") from error
+        start = (begin.year - 2026) * 12 + begin.month - 9
+        finish = (end.year - 2026) * 12 + end.month - 9
+        if not title or not label or color not in colors or not 0 <= start <= finish < 12:
+            raise ClientFailure("타임테이블 범위 또는 표시값 오류")
+        track = next((t for t in tracks if t["title"] == title), None)
+        if track is None:
+            track = {"title": title, "subtitle": subtitle, "segments": []}
+            tracks.append(track)
+        if any(start < s["start"] + s["span"] and finish >= s["start"] for s in track["segments"]):
+            raise ClientFailure("동일 분야의 일정 막대가 겹칩니다")
+        track["segments"].append({"start": start, "span": finish-start+1, "label": label, "color": color})
+    if not tracks:
+        raise ClientFailure("타임테이블이 비어 있습니다")
+    summaries = []
+    summary_section = False
+    for block in blocks:
+        kind = block.get("type")
+        if kind.startswith("heading_"):
+            summary_section = "".join(x.get("plain_text", "") for x in block[kind].get("rich_text", [])).strip() == "타임테이블 요약"
+        elif summary_section and kind == "table":
+            summary_rows = nt.children(block["id"])
+            if not summary_rows or cells(summary_rows[0]) != ["시기", "중점 실행", "설명"]:
+                raise ClientFailure("타임테이블 요약 열 구성 오류")
+            for summary in summary_rows[1:]:
+                values = cells(summary)
+                if len(values) != 3:
+                    raise ClientFailure("타임테이블 요약 항목 누락")
+                summaries.append(dict(zip(("period", "title", "description"), values)))
+            break
+    return {"start": "2026-09", "months": 12, "tracks": tracks, "phases": [], "summaries": summaries}
+
+
 def fetch_roadmap(nt: Notion, slug: str) -> dict | None:
     """제안서의 월별 계획만 읽는다. 3개년 목표나 다른 자료는 섞지 않는다."""
+    if slug == "dameungyeol":
+        return fetch_track_roadmap(nt, "3e4815d712b980a6b30ecee6560aeefc")
     page_id = ROADMAP_SOURCE_PAGES.get(slug)
     if not page_id:
         return None

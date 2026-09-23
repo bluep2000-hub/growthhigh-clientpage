@@ -16,6 +16,25 @@ def row(*values):
 
 
 class RoadmapTests(unittest.TestCase):
+    def test_tracks_group_segments_and_preserve_year_boundary(self):
+        rows = [row("분야", "목적", "시작월", "종료월", "실행 항목", "표시색"),
+                row("업무", "목적", "2026-09", "2026-10", "준비", "green"),
+                row("업무", "목적", "2026-12", "2027-02", "실행", "navy")]
+        class Notion:
+            def children(self, block_id):
+                return rows if block_id == "tracks" else [
+                    heading("heading_2", "컨설팅 타임테이블"),
+                    {"type": "table", "id": "tracks"}]
+        result = builder.fetch_track_roadmap(Notion(), "source")
+        self.assertEqual(len(result["tracks"]), 1)
+        self.assertEqual([(s["start"], s["span"]) for s in result["tracks"][0]["segments"]], [(0, 2), (3, 3)])
+        rows[2] = row("업무", "목적", "2026-10", "2027-02", "겹침", "navy")
+        with self.assertRaisesRegex(builder.ClientFailure, "겹칩니다"):
+            builder.fetch_track_roadmap(Notion(), "source")
+        rows[2] = row("업무", "목적", "2027-09", "2027-10", "범위 밖", "navy")
+        with self.assertRaisesRegex(builder.ClientFailure, "범위"):
+            builder.fetch_track_roadmap(Notion(), "source")
+
     def test_reads_only_monthly_plan_and_treats_checkmarks_as_expected_outputs(self):
         blocks = [heading("heading_1", "기업진단"),
                   heading("heading_1", "진행 시나리오"),
