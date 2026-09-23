@@ -47,10 +47,22 @@ describe("비공개 고객 데이터와 기존 화면 연결",()=>{
   });
   it("미인증 고객은 화면·본문·이미지 모두 받을 수 없다",async()=>{
     const {sqlite,db} = privateDb();
-    try { for(const path of ['/whiffkorea/api/customer','/whiffkorea/page/','/whiffkorea/page/logo/whiffkorea.png']) {
+    try { for(const path of ['/whiffkorea/api/customer','/whiffkorea/page/logo/whiffkorea.png']) {
       const response = await worker.fetch(new Request('https://private.test'+path),{PRIVATE_DB:db});
       expect(response.status).toBe(401); expect(await response.text()).not.toContain('가상 고객');
     }} finally {sqlite.close();}
+  });
+  it("미인증 고객의 깊은 링크는 고객 비밀번호 화면으로 보낸다",async()=>{
+    const {sqlite,db}=privateDb();
+    try {
+      for (const slug of ['dameungyeol','bowlgames','whiffkorea']) {
+        const response=await worker.fetch(new Request(`https://private.test/${slug}/page/`),{PRIVATE_DB:db});
+        expect(response.status).toBe(302);
+        expect(response.headers.get('location')).toBe(`/${slug}/`);
+        expect(response.headers.get('cache-control')).toBe('no-store');
+        expect(await response.text()).not.toContain('가상 고객');
+      }
+    } finally {sqlite.close();}
   });
   it("담당자 세션이 끝난 깊은 링크는 오류 JSON 대신 로그인 화면으로 돌린다",async()=>{
     const {sqlite,db}=privateDb();
