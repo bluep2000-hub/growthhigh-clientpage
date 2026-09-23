@@ -3311,7 +3311,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
 
     # 보울게임즈 추천은 비공개 DB의 실시간 목록이 원본이다. 이 빌드 결과에는
     # 고객 API가 최신 목록을 붙이므로 옛 Firestore 재생목록을 섞지 않는다.
-    recommend = [] if slug == "bowlgames" else fetch_recommend(name, include_expired)
+    recommend = [] if slug in {"bowlgames", "dameungyeol"} else fetch_recommend(name, include_expired)
     log(f"  추천 지원사업 {len(recommend)}건")
 
     talks = build_talks(nt, client, name, skip_imap, dry_run, known_names, talks_days)
@@ -3350,7 +3350,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     missing: list[str] = []
     if not notice:
         missing.append("공지 없음")
-    if not recommend and slug != "bowlgames":
+    if not recommend and slug not in {"bowlgames", "dameungyeol"}:
         missing.append("추천 0건")
     if not events:
         missing.append("일정 0건")

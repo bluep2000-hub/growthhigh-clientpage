@@ -9,7 +9,7 @@ const origin = "https://private.test";
 const programs = [
   { file: "review-active.html", title: "검수용 지원사업",
     deadline_iso: "2099-12-31T15:00:00+09:00",
-    summary: "신청 조건과 지원 내용을 비교하는 요약", meta: { "대상": "게임 개발사",
+    industries: ["제조업"], summary: "신청 조건과 지원 내용을 비교하는 요약", meta: { "대상": "게임 개발사",
       "지원": "최대 1억 원", "마감": "12.31 15시" } },
   { file: "review-sooner.html", title: "먼저 마감되는 지원사업", deadline_iso: "2099-11-30" },
   { file: "review-closed.html", title: "마감된 사업",
@@ -46,6 +46,19 @@ describe("보울게임즈 추천 지원사업 실시간 관리", () => {
       : catalogAvailable ? Response.json({ programs }) : new Response("", { status: 503 })));
   });
   afterEach(() => { fixture.sqlite.close(); vi.unstubAllGlobals(); });
+
+  it("담은결 제조업 분류와 추천 저장은 보울게임즈 선택 목록과 분리된다", async () => {
+    await setCustomerPassword(env, "dameungyeol", "test-password");
+    const catalog = await call("/recommendations/catalog", "GET", undefined, staff, "dameungyeol");
+    expect(catalog.status).toBe(200);
+    expect((await catalog.json()).programs[0].industries).toEqual(["제조업"]);
+    expect((await call("/recommendations", "PUT", {slug:"dameungyeol",program:"review-active"}, undefined, "dameungyeol")).status).toBe(401);
+    expect((await call("/recommendations", "PUT", {slug:"bowlgames",program:"review-active"}, staff, "dameungyeol")).status).toBe(403);
+    expect((await call("/recommendations", "PUT", {slug:"dameungyeol",program:"review-active"}, staff, "dameungyeol")).status).toBe(200);
+    expect((await (await call("/recommendations/share", "GET", undefined, undefined, "dameungyeol")).json()).items).toHaveLength(1);
+    expect((await (await call("/recommendations/share")).json()).items).toHaveLength(0);
+    expect((await call("/recommendations", "DELETE", {slug:"dameungyeol",program:"review-active"}, staff, "dameungyeol")).status).toBe(200);
+  });
 
   it("인증 없는 편집과 다른 기업의 변경을 거절하고 저장하지 않는다", async () => {
     expect((await call("/recommendations", "PUT", { slug: "bowlgames", program: "review-active" })).status).toBe(401);

@@ -41,6 +41,7 @@ export async function policyCatalog(fetcher = fetch) {
       const deadline = deadlineInfo(p.deadline_iso);
       const program = {
         slug: p.file.slice(0, -5), title: String(p.title || ""),
+        industries: Array.isArray(p.industries) ? p.industries.filter(x => typeof x === "string") : [],
         summary: String(p.summary || ""), audience: String(p.meta?.["대상"] || ""),
         amount: String(p.meta?.["지원"] || p.meta?.["상금"] || ""),
         deadline_note: String(p.meta?.["마감"] || p.deadline_display || ""),

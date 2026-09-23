@@ -85,7 +85,7 @@ export default {
     const route = scopedPath(url);
     if (route === null) return json({ error: "not_found" }, 404);
     const { slug, path } = route;
-    if (slug === "bowlgames" && path === "/recommendations/share" && request.method === "GET") {
+    if (["bowlgames", "dameungyeol"].includes(slug) && path === "/recommendations/share" && request.method === "GET") {
       try {
         const items = await selectedPrograms(env, slug);
         return Response.json({ items }, { headers: { "cache-control": "no-store",
@@ -93,7 +93,7 @@ export default {
           "x-content-type-options": "nosniff" } });
       } catch { return json({ error: "recommendations_unavailable" }, 503); }
     }
-    if (slug === "bowlgames" && (path === "/recommendations/catalog"
+    if (["bowlgames", "dameungyeol"].includes(slug) && (path === "/recommendations/catalog"
         || path === "/recommendations")) {
       try {
         if (path === "/recommendations/catalog" && request.method !== "GET"
@@ -163,7 +163,7 @@ export default {
         if (path === "/api/customer") {
           const latest = await store.latest(slug);
           if (!latest) return json({error:"data_not_ready"},503);
-          if (slug !== "bowlgames") return json(latest.payload);
+          if (!["bowlgames", "dameungyeol"].includes(slug)) return json(latest.payload);
           try {
             const selected = await selectedPrograms(env, slug);
             const catalog = selected.length ? await policyCatalog() : [];
