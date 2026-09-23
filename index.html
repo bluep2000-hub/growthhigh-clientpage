@@ -1771,8 +1771,9 @@ function init(D){
   const N = 'https://www.notion.so/';
   const ROOM_DEMO = SAMPLE && !ROOM_LINKS.length;
   /* 묶음은 노션 그룹 이름이 아니라 자료의 종류로 가른다 — 그룹 이름과 자료 이름에
-     든 낱말을 본다. 위에서부터 먼저 걸린 것이 이긴다. 보울게임즈의 남은 자료는 「컨설팅 자문」 */
-  const ROOM_OTHER = CLIENT === 'bowlgames' ? '컨설팅 자문' : '기타';
+     든 낱말을 본다. 위에서부터 먼저 걸린 것이 이긴다. 운영 고객의 일반 자문 자료는 「컨설팅 자문」 */
+  const ROOM_CONSULTING = ['bowlgames','dameungyeol'].includes(CLIENT);
+  const ROOM_OTHER = ROOM_CONSULTING ? '컨설팅 자문' : '기타';
   const ROOM_KINDS = [
     ['연구노트', /연구\s*노트/],
     ['R&D 기획', /R\s*&\s*D|RND|연구개발|과제|선행기술/i],
@@ -1797,7 +1798,7 @@ function init(D){
       ] : ROOM_LINKS),
       {g:'', items:ROOM_BASE},
     ].flatMap(x => x.items.map(it => ({...it,
-      kind:CLIENT === 'bowlgames' && /kick[\s-]*off|킥[\s-]*오프/i.test(it.label)
+      kind:ROOM_CONSULTING && /kick[\s-]*off|킥[\s-]*오프|기획\s*미팅|\d+차\s*자료/i.test(it.label)
         ? ROOM_OTHER : (ROOM_KINDS.find(([, re]) =>
           re.test(`${x.g} ${it.label}`)) || [ROOM_OTHER])[0]})));
     return [...ROOM_KINDS.map(k => k[0]), ROOM_OTHER]
