@@ -6850,7 +6850,7 @@ function init(D){
       </tr>${open?`<tr class="tkb" data-tkb="${i}"><td colspan="3">
        ${t.body_html
          /* body_html 은 build_client.py 가 이스케이프해 조립한 HTML 이다 */
-         ?`<div class="tkbd doc${CLIENT==='bowlgames'&&t.channel==='메일'?' mail':''}">${t.body_html}</div>`
+         ?`<div class="tkbd doc${t.channel==='메일'?' mail':''}">${t.body_html}</div>`
          :`<div class="tkbd">${esc(t.body)}</div>`}</td></tr>`:''}`;}).join('')}
      </tbody></table></div>`;
   }
