@@ -1780,14 +1780,26 @@ def cal_matches(summary: str, company_name: str) -> bool:
     """
     접두어 표기가 섞여 있다 — 「[위프코리아]」와 「[위프]」가 같이 쓰인다.
     기업명이 접두어로 시작하거나 접두어가 기업명으로 시작하면 같은 곳으로 본다.
-    접두어가 없는 일정(사내 일정)은 가져오지 않는다.
+    [문의]N2 기업명, [정기미팅]기업명 형식도 기업명이 정확할 때만 읽는다.
     """
     for p in cal_prefixes(summary):
         if len(p) < CAL_MIN_PREFIX:
             continue
         if company_name.startswith(p) or p.startswith(company_name):
             return True
-    return False
+    prefixes = cal_prefixes(summary)
+    if not prefixes or not company_name:
+        return False
+    body = LEAD_BRACKETS_RE.sub("", summary).strip()
+    return bool(re.match(r"^(?:N\d+\s*)?" + re.escape(company_name) +
+                         r"(?=$|\s|[-–—:：])", body, re.I))
+
+
+def cal_cancelled(ev) -> bool:
+    summary = str(ev.get("SUMMARY") or "")
+    return (str(ev.get("STATUS") or "").upper() == "CANCELLED" or
+            any(p.strip().lower() in {"취소", "cancelled", "canceled"}
+                for p in cal_prefixes(summary)))
 
 
 def cal_when(ev) -> tuple[date, str | None] | None:
@@ -1834,6 +1846,8 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 
     out = []
     for ev in occurrences:
+        if cal_cancelled(ev):
+            continue
         summary = str(ev.get("SUMMARY") or "")
         if not cal_matches(summary, company_name):
             continue
