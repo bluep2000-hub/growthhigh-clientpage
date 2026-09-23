@@ -10,6 +10,31 @@ import build_client as builder  # noqa: E402
 
 
 class MailFallbackTests(unittest.TestCase):
+    def test_mail_table_keeps_empty_cell_and_row_relationship(self):
+        raw = ('<p>안내드립니다.</p><table><tr><td>구분</td><td>상세 내용</td></tr>'
+               '<tr><td>일시</td><td>일정 검토 후 확정<br>다음 안내 예정</td></tr>'
+               '<tr><td>장소</td><td></td></tr><tr><td>준비</td><td>자료 준비</td></tr></table>')
+        blocks = builder.mail_body_blocks(builder.clean_body(raw, True))
+        table = next(b['table'] for b in blocks if b['type'] == 'table')
+        cells = table['children']
+        self.assertEqual(table['table_width'], 2)
+        self.assertEqual(cells[1]['table_row']['cells'][0][0]['text']['content'], '일시')
+        self.assertEqual(cells[2]['table_row']['cells'][1], [])
+        self.assertEqual(cells[3]['table_row']['cells'][1][0]['text']['content'], '자료 준비')
+
+    def test_layout_table_is_not_promoted_to_data_table(self):
+        body = builder.clean_body('<table><tr><td>안녕하세요.</td></tr></table>', True)
+        self.assertFalse(any(b['type'] == 'table' for b in builder.mail_body_blocks(body)))
+
+    def test_mail_table_preserves_merged_row_labels(self):
+        raw = ('<table><tr><td>구분</td><td>상세 내용</td></tr>'
+               '<tr><td rowspan="2">일시</td><td>첫 안내</td></tr>'
+               '<tr><td>추가 안내</td></tr></table>')
+        table = builder.mail_body_blocks(builder.clean_body(raw, True))[0]['table']
+        rows = table['children']
+        self.assertEqual(rows[2]['table_row']['cells'][0][0]['text']['content'], '일시')
+        self.assertEqual(rows[2]['table_row']['cells'][1][0]['text']['content'], '추가 안내')
+
     def test_html_mail_keeps_paragraph_and_list_breaks(self):
         body = builder.clean_body("<p>안녕하세요.</p><p>확인 사항:</p><ul><li>첫째</li><li>둘째</li></ul>", True)
         self.assertEqual(body, "안녕하세요.\n확인 사항:\n첫째\n둘째")

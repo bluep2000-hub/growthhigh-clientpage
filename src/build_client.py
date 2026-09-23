@@ -2182,9 +2182,87 @@ def tidy(lines: list[str]) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
+def mail_tables_to_text(text: str) -> str:
+    """열 머리글이 있는 단순 데이터 표만 보존한다. 메일 배치용 표는 제외한다."""
+    def convert(match):
+        source = match.group(0)
+        rows, spans = [], {}
+        for row in re.findall(r"<tr\b[^>]*>(.*?)</tr\s*>", source, re.I | re.S):
+            cells, column = [], 0
+            def carry():
+                nonlocal column
+                while column in spans:
+                    value, remaining = spans[column]
+                    cells.append(value)
+                    if remaining == 1:
+                        del spans[column]
+                    else:
+                        spans[column] = (value, remaining - 1)
+                    column += 1
+            for attrs, content in re.findall(r"<t[dh]\b([^>]*)>(.*?)</t[dh]\s*>", row, re.I | re.S):
+                carry()
+                value = re.sub(r"\s+", " ", TAG_RE.sub("", BR_RE.sub(" ", content))).strip()
+                value = value.replace("|", "&amp;#124;")
+                span = re.search(r'rowspan\s*=\s*[\"\x27]?(\d+)', attrs, re.I)
+                if span and 1 < int(span[1]) <= 100:
+                    spans[column] = (value, int(span[1]) - 1)
+                cells.append(value); column += 1
+            carry()
+            rows.append(cells)
+        if (len(rows) < 2 or len(rows[0]) < 2 or
+                any(len(r) != len(rows[0]) for r in rows) or
+                re.search(r"colspan\s*=", source, re.I)):
+            return source
+        if not (re.search(r"<th\b", source, re.I) or
+                [html_unescape(c).replace(" ", "").strip() for c in rows[0][:2]] == ["구분", "상세내용"]):
+            return source
+        lines = ["| " + " | ".join(r) + " |" for r in rows]
+        lines.insert(1, "| " + " | ".join(["---"] * len(rows[0])) + " |")
+        return "\n" + "\n".join(lines) + "\n"
+    return re.sub(r"<table\b[^>]*>(?:(?!<table\b).)*?</table\s*>",
+                  convert, text, flags=re.I | re.S)
+
+
+def mail_body_blocks(body: str) -> list[dict]:
+    """메일의 단순 표를 Notion 표로 저장하고 나머지 원문 개행은 유지한다."""
+    lines = body.split("\n")
+    blocks, paragraph = [], []
+    def runs(value):
+        return [{"type": "text", "text": {"content": value[i:i + 900]}}
+                for i in range(0, len(value), 900)]
+    def flush():
+        value = "\n".join(paragraph).strip()
+        for i in range(0, len(value), 1900):
+            blocks.append({"object": "block", "type": "paragraph", "paragraph": {
+                "rich_text": runs(value[i:i + 1900])}})
+        paragraph.clear()
+    i = 0
+    while i < len(lines):
+        if (i + 1 < len(lines) and lines[i].startswith("| ") and
+                re.fullmatch(r"\|(?:\s*---\s*\|){2,}", lines[i + 1])):
+            width = len(lines[i].split("|")) - 2
+            grid = [lines[i]]
+            j = i + 2
+            while j < len(lines) and lines[j].startswith("| ") and len(lines[j].split("|")) - 2 == width:
+                grid.append(lines[j]); j += 1
+            if len(grid) > 1:
+                flush()
+                blocks.append({"object": "block", "type": "table", "table": {
+                    "table_width": width, "has_column_header": True, "has_row_header": False,
+                    "children": [{"object": "block", "type": "table_row", "table_row": {
+                        "cells": [runs(html_unescape(c.strip())) for c in row.split("|")[1:-1]]}} for row in grid]}})
+                i = j
+                continue
+        paragraph.append(lines[i]); i += 1
+    flush()
+    return blocks
+
+
 def clean_body(text: str, is_html: bool) -> str:
     """인용문·서명을 걷어내고 사람이 읽을 만한 본문만 남긴다."""
     if is_html:
+        text = re.sub(r"<(script|style)\b[^>]*>.*?</\1\s*>", "", text, flags=re.I | re.S)
+        text = mail_tables_to_text(text)
         text = BR_RE.sub("\n", text)             # 줄바꿈 태그는 개행으로 살린다
         text = TAG_RE.sub("", text)
         text = html_unescape(text)
@@ -2608,9 +2686,9 @@ def read_body(M: imaplib.IMAP4_SSL, seq: str) -> tuple[str, list[str]]:
                 continue                         # 서명·본문에 박힌 그림
             attachments.append(decode_mime(filename) if filename else f"(이름없음).{sub}")
             continue
-        # text/plain 우선, 없으면 text/html
+        # HTML 우선: plain 대체본문에서는 표의 열 경계가 이미 사라질 수 있다.
         if kind == "text" and (text_part is None or
-                               (sub == "plain" and text_part[2] != "plain")):
+                               (sub == "html" and text_part[2] != "html")):
             text_part = (part_no, node, sub)
 
     if text_part is None:
@@ -2724,12 +2802,7 @@ def sync_mails_to_board(nt: Notion, company_name: str,
             props["일자"] = {"date": {"start": key[0]}}
 
         body = (mail.get("body") or "").strip()
-        children = [
-            {"object": "block", "type": "paragraph", "paragraph": {
-                "rich_text": [{"type": "text", "text": {"content": body[i:i + 1900]}}],
-            }}
-            for i in range(0, len(body), 1900)
-        ]
+        children = mail_body_blocks(body)
         payload = {"parent": {"database_id": TALKS_DB_ID}, "properties": props}
         if children:
             payload["children"] = children
