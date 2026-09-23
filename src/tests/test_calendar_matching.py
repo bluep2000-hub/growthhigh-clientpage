@@ -1,5 +1,7 @@
 import sys
 import unittest
+from unittest.mock import patch
+from datetime import date
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import build_client as b
@@ -16,7 +18,19 @@ class CalendarMatchingTests(unittest.TestCase):
                       '담은결 관련 사내회의', '[문의]N2 다른회사 - 담당자']:
             self.assertFalse(b.cal_matches(title, '담은결'), title)
 
-    def test_cancelled_event_is_excluded(self):
+    def test_cancelled_event_is_identified(self):
         self.assertTrue(b.cal_cancelled({'SUMMARY': '[취소][정기미팅]담은결-담당자'}))
         self.assertTrue(b.cal_cancelled({'STATUS': 'CANCELLED'}))
         self.assertFalse(b.cal_cancelled({'SUMMARY': '[문의]N2 담은결 - 담당자'}))
+
+    def test_cancelled_event_is_returned_with_visible_status(self):
+        raw = ('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:cancel-test\r\n'
+               'DTSTART:20260923T100000\r\nSUMMARY:[취소][정기미팅]담은결-담당자\r\n'
+               'STATUS:CANCELLED\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n').encode()
+        with patch.dict(b.os.environ, {'CALENDAR_ICS_URL': 'https://example.com/test.ics'}), \
+                patch.object(b.requests, 'get') as get:
+            get.return_value.content = raw
+            events = b.fetch_calendar('담은결', date(2026, 9, 23))
+        self.assertEqual(len(events), 1)
+        self.assertTrue(events[0]['cancelled'])
+        self.assertTrue(events[0]['title'].startswith('[취소] '))

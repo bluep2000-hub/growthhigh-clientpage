@@ -6126,10 +6126,10 @@ function init(D){
   function eventItem(e){
     const k = kindOf(e);
     /* 지난 건은 D-day 대신 상태를 쓴다 — 진행은 「종료」, 마감은 「마감」 */
-    const left = e.past ? (e.kind==='meeting' ? '지남' : '종료') : (e.dday || '');
+    const left = e.cancelled ? '취소' : e.past ? (e.kind==='meeting' ? '지남' : '종료') : (e.dday || '');
     /* 7일 이내만 강조. D-DAY 도 임박으로 본다 */
     const n = /^D-(\d+)$/.exec(e.dday || '');
-    const soon = !e.past && (e.dday === 'D-DAY' || (n && +n[1] <= 7));
+    const soon = !e.cancelled && !e.past && (e.dday === 'D-DAY' || (n && +n[1] <= 7));
     /* D-day 는 왼쪽 열에 이미 있다. 여기서는 날짜와 단계만 */
     /* 미팅은 시각이 있다. 종일 일정이면 time 이 없어 날짜만 나온다 */
     const when = [String(e.date||'').slice(5).replace('-','/'), e.time]

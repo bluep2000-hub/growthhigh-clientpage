@@ -1846,8 +1846,7 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
 
     out = []
     for ev in occurrences:
-        if cal_cancelled(ev):
-            continue
+        cancelled = cal_cancelled(ev)
         summary = str(ev.get("SUMMARY") or "")
         if not cal_matches(summary, company_name):
             continue
@@ -1869,7 +1868,8 @@ def fetch_calendar(company_name: str, today: date) -> list[dict]:
         out.append({
             "date": d.isoformat(),
             "time": hhmm,
-            "title": title or summary,
+            "title": ("[취소] " if cancelled else "") + (title or summary),
+            "cancelled": cancelled,
             "kind": "meeting",
             "meta": meta,
             "dday": dday(d, today),
