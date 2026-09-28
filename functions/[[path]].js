@@ -20,6 +20,7 @@ export async function onRequest({ request, env, next }) {
   const staticPath = incoming.pathname === "/"
     || /^\/[^/]+\/?$/.test(incoming.pathname)
     || /^\/[^/]+\/index\.html$/.test(incoming.pathname)
+    || /^\/c\/[^/]+\.json$/.test(incoming.pathname)
     || /^\/c\/[^/]+\.enc$/.test(incoming.pathname);
   return response.status === 404 && staticPath && ["GET", "HEAD"].includes(request.method)
     ? next() : response;

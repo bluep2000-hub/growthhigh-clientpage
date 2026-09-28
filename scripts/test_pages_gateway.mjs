@@ -5,7 +5,8 @@ import { onRequest } from "../functions/[[path]].js";
 const root = new URL("../", import.meta.url);
 const present = (path) => access(new URL(path, root)).then(() => true, () => false);
 
-for (const path of ["pages-dist/index.html", "pages-dist/zeroback/index.html",
+for (const path of ["pages-dist/index.html", "pages-dist/beauty/index.html",
+  "pages-dist/c/sample.json", "pages-dist/zeroback/index.html",
   "pages-dist/assets/growthhigh-logo.png", "pages-dist/404.html", "pages-dist/_routes.json"])
   assert.equal(await present(path), true, `${path} must be deployed`);
 for (const path of ["pages-dist/whiffkorea/index.html", "pages-dist/c/whiffkorea.enc",
@@ -44,6 +45,8 @@ assert.equal((await onRequest({ request: bad, env, next: () => new Response("sta
 env.PRIVATE_WORKER.fetch = () => Response.json({error:"not_found"},{status:404});
 assert.equal(await (await onRequest({request:new Request("https://client.growthhigh.co.kr/zeroback/"),env,
   next:() => new Response("static")})).text(), "static");
+assert.equal(await (await onRequest({request:new Request("https://client.growthhigh.co.kr/c/sample.json"),env,
+  next:() => new Response("sample-data")})).text(), "sample-data");
 
 const missingDraft = await onRequest({request:new Request(
   "https://client.growthhigh.co.kr/bowlgames/notice/doc/draft?slug=bowlgames"),env,
