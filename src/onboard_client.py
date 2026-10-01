@@ -9,8 +9,11 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import build_client as b
+from client_mapping import register_client
+from transcribe_drive import TALKS_DIR, inbox_path
 
 
 def material_for(name, company):
@@ -21,6 +24,14 @@ def material_for(name, company):
 def heading(text):
     return {"object": "block", "type": "heading_2", "heading_2": {
         "rich_text": [{"type": "text", "text": {"content": text}}]}}
+
+
+def timetable_blocks():
+    columns = ["분야", "목적", "시작월", "종료월", "실행 항목", "표시색"]
+    return [heading("컨설팅 타임테이블"), {"object": "block", "type": "table", "table": {
+        "table_width": len(columns), "has_column_header": True,
+        "children": [{"object": "block", "type": "table_row", "table_row": {
+            "cells": [[{"type": "text", "text": {"content": value}}] for value in columns]}}]}}]
 
 
 def page_state(nt, company, slug):
@@ -51,7 +62,7 @@ def page_state(nt, company, slug):
 def initial_blocks(company_id, materials):
     blocks = [heading("기업 정보"), {"object": "block", "type": "link_to_page",
                                      "link_to_page": {"type": "page_id", "page_id": company_id}},
-              heading("🔗 주요 자료")]
+              heading("📁 데이터룸 · 주요 자료")]
     for row in materials:
         if not row.get("public_url"):
             continue
@@ -61,6 +72,7 @@ def initial_blocks(company_id, materials):
                        "bulleted_list_item": {"rich_text": [{"type": "text", "text": {
                            "content": name, "link": {"url": url}}}]}})
     blocks.append({"object": "block", "type": "divider", "divider": {}})
+    blocks.extend(timetable_blocks())
     return blocks
 
 
@@ -126,8 +138,68 @@ def option_exists(nt, company):
     return any(option["name"] == company for option in options)
 
 
+def ensure_timetable(nt, page_id):
+    children = nt.children(page_id)
+    for i, block in enumerate(children):
+        if block["type"] != "heading_2":
+            continue
+        title = "".join(r.get("plain_text", "") for r in block["heading_2"]["rich_text"])
+        if title == "컨설팅 타임테이블":
+            if i + 1 < len(children) and children[i + 1]["type"] == "table":
+                print("    컨설팅 타임테이블: 기존 빈칸 재사용")
+                return
+            raise ValueError("컨설팅 타임테이블 제목 아래 표가 없습니다")
+    nt.patch(f"/blocks/{page_id}/children", {"children": timetable_blocks()})
+    print("    컨설팅 타임테이블: 빈칸 생성")
+
+
+def ensure_room(nt, page_id):
+    headings = ["".join(r.get("plain_text", "") for r in block["heading_2"]["rich_text"])
+                for block in nt.children(page_id) if block["type"] == "heading_2"]
+    if not any("주요 자료" in title for title in headings):
+        nt.patch(f"/blocks/{page_id}/children", {"children": [heading("📁 데이터룸 · 주요 자료")]})
+        print("    데이터룸: 빈칸 생성")
+    else:
+        print("    데이터룸: 기존 자료칸 재사용")
+
+
+def ensure_recording_folder(company, slug):
+    if company in (".", "..") or any(char in company for char in '\\/:*?"<>|'):
+        raise ValueError("고객사 이름을 안전한 녹음 폴더명으로 쓸 수 없습니다")
+    root = Path(os.environ.get("TALKS_DIR") or TALKS_DIR)
+    try:
+        inbox = inbox_path(root)
+        folder = inbox / company
+        folder.mkdir(exist_ok=True)
+        if not folder.is_dir():
+            raise ValueError("고객사 녹음 접수 폴더가 아닙니다")
+        register_client(company, slug)
+    except OSError as error:
+        raise ValueError("녹음 접수 폴더를 만들거나 연결하지 못했습니다") from error
+    print(f"    녹음 접수함: {folder}")
+
+
+def inspect_scaffold(nt, page_id, company):
+    children = nt.children(page_id)
+    headings = [(i, "".join(r.get("plain_text", "") for r in block["heading_2"]["rich_text"]))
+                for i, block in enumerate(children) if block["type"] == "heading_2"]
+    timetable = any(title == "컨설팅 타임테이블" and i + 1 < len(children)
+                    and children[i + 1]["type"] == "table" for i, title in headings)
+    room = any("주요 자료" in title for _, title in headings)
+    try:
+        root = Path(os.environ.get("TALKS_DIR") or TALKS_DIR)
+        folder = inbox_path(root) / company
+        recording = "있음" if folder.is_dir() else "미생성"
+    except (ValueError, OSError):
+        recording = "접수함 위치 확인 필요"
+    print(f"제작 뼈대: 타임테이블 {'있음' if timetable else '미생성'} / "
+          f"데이터룸 {'있음' if room else '미생성'} / 녹음 폴더 {recording}")
+
+
 def prepare(nt, company, slug, company_page, page, materials):
     page_id = ensure_page(nt, company, slug, company_page, page, materials)
+    ensure_room(nt, page_id)
+    ensure_timetable(nt, page_id)
     ensure_view(nt, page_id, "고객사 프로젝트", b.PROJECT_DB_ID, {
         "property": "고객사 정보", "relation": {"contains": company_page["id"]}})
     if option_exists(nt, company):
@@ -136,6 +208,7 @@ def prepare(nt, company, slug, company_page, page, materials):
             {"property": "고객 공개", "checkbox": {"equals": True}}]})
     else:
         print("    고객 공개 소통: 분류 미등록, 메일 단계 뒤 연결")
+    ensure_recording_folder(company, slug)
     return page_id
 
 
@@ -215,6 +288,7 @@ def main():
                     {"property": "고객 공개", "checkbox": {"equals": True}}]}}) if has_option else []
                 links = b.fetch_material_links(nt, page["id"])
                 print(f"연결 결과: 프로젝트 {len(projects)}건 / 고객 공개 소통 {len(talks)}건 / 자료 {sum(len(x['items']) for x in links)}건")
+                inspect_scaffold(nt, page["id"], args.company)
             return 0
         if args.step == "prepare":
             prepare(nt, args.company, args.slug, company_page, page, materials)

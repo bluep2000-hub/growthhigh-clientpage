@@ -16,6 +16,22 @@ def row(*values):
 
 
 class RoadmapTests(unittest.TestCase):
+    def test_new_client_has_empty_timetable_then_uses_its_own_months(self):
+        rows = [row("분야", "목적", "시작월", "종료월", "실행 항목", "표시색")]
+
+        class Notion:
+            def children(self, block_id):
+                return rows if block_id == "tracks" else [
+                    heading("heading_2", "컨설팅 타임테이블"),
+                    {"type": "table", "id": "tracks"}]
+
+        empty = builder.fetch_roadmap(Notion(), "welldoneproduct", "client-page")
+        self.assertEqual((empty["start"], empty["tracks"]), (None, []))
+        rows.append(row("자문", "준비", "2026-11", "2027-01", "실행", "blue"))
+        filled = builder.fetch_roadmap(Notion(), "welldoneproduct", "client-page")
+        self.assertEqual((filled["start"], filled["tracks"][0]["segments"][0]["span"]),
+                         ("2026-11", 3))
+
     def test_tracks_group_segments_and_preserve_year_boundary(self):
         rows = [row("분야", "목적", "시작월", "종료월", "실행 항목", "표시색"),
                 row("업무", "목적", "2026-09", "2026-10", "준비", "green"),

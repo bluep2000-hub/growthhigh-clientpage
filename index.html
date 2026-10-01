@@ -1673,9 +1673,7 @@ function init(D){
   });
   const events = Array.isArray(D.events) ? D.events : [];
   const recommend = Array.isArray(D.recommend) ? D.recommend : [];
-  const roadmap = D.roadmap && ((Array.isArray(D.roadmap.phases) && D.roadmap.phases.length)
-    || (Array.isArray(D.roadmap.tracks) && D.roadmap.tracks.length))
-    ? D.roadmap : null;
+  const roadmap = D.roadmap && Array.isArray(D.roadmap.phases) ? D.roadmap : null;
   let recommendUnavailable = D.recommend_unavailable === true;
   let recCatalog = null, recSelected = [], recBusy = false;
   /* 공백뿐인 본문은 없는 것으로 본다 — 아래 검사가 모두 이 값을 쓴다.
@@ -1772,7 +1770,7 @@ function init(D){
   const ROOM_DEMO = SAMPLE && !ROOM_LINKS.length;
   /* 묶음은 노션 그룹 이름이 아니라 자료의 종류로 가른다 — 그룹 이름과 자료 이름에
      든 낱말을 본다. 위에서부터 먼저 걸린 것이 이긴다. 운영 고객의 일반 자문 자료는 「컨설팅 자문」 */
-  const ROOM_CONSULTING = ['bowlgames','dameungyeol'].includes(CLIENT);
+  const ROOM_CONSULTING = !SAMPLE;
   const ROOM_OTHER = ROOM_CONSULTING ? '컨설팅 자문' : '기타';
   const ROOM_KINDS = [
     ['연구노트', /연구\s*노트/],
@@ -6540,8 +6538,8 @@ function init(D){
     title="${esc(it.label)}">${esc(it.label)}</a>`;
   /* 고정 단추는 담당자 편집 모드에서만 그린다. 클라이언트는 고정된 결과만 본다 */
   const drPin = it => { const on = drPins.includes(it.url);
-    if(!ED.on()) return CLIENT==='bowlgames' && on ? '<span class="dr-pin on" title="즐겨찾기" aria-label="즐겨찾기">📌</span>' : '';
-    if(!['whiffkorea','bowlgames'].includes(CLIENT)) return '';
+    if(!ED.on()) return on ? '<span class="dr-pin on" title="즐겨찾기" aria-label="즐겨찾기">📌</span>' : '';
+    if(SAMPLE) return '';
     return `<button type="button" class="dr-pin${on?' on':''}" data-drpin="${esc(it.url)}"
       aria-label="즐겨찾기에 고정" aria-pressed="${on}" title="${on?'고정 해제':'즐겨찾기에 고정'}">📌</button>`; };
 
@@ -6569,9 +6567,12 @@ function init(D){
 
   /* A — 본문 화면이 없다. 사이드바의 「데이터룸」이 그 자리에서 펴진다 */
   if(roadmap) V.roadmap=()=>{
+    if(!roadmap.phases.length && !(roadmap.tracks||[]).length)
+      return '<div class="vh"><h1>컨설팅 타임테이블</h1></div>'+emptyBox('확정된 컨설팅 일정이 없습니다.');
     if(Array.isArray(roadmap.tracks)) {
       const palette={green:'#2da88e',navy:'#17233e',blue:'#34537f',amber:'#e6a429',muted:'#bcc5d0',teal:'#21806f'};
-      const months=Array.from({length:12},(_,i)=>new Date(2026,8+i,1));
+      const [year,month]=roadmap.start.split('-').map(Number);
+      const months=Array.from({length:12},(_,i)=>new Date(year,month-1+i,1));
       return `<div class="rm-page"><header class="rm-intro"><h1>컨설팅 자문 12개월 실행 타임테이블</h1></header>
         <section class="rm-scroll" tabindex="0" aria-label="예정 실행 일정, 좌우로 스크롤 가능"><div class="rm-grid">
         <div class="rm-head"><div class="rm-corner"></div>${months.map((d,i)=>`<div class="rm-month">${i===0||d.getMonth()===0?`'${String(d.getFullYear()).slice(2)}.`:''}${pad2(d.getMonth()+1)}</div>`).join('')}</div>
@@ -6644,7 +6645,7 @@ function init(D){
         <p>담당자가 📌 로 고정한 자료는 사이드바 맨 아래 「즐겨찾기」에 모두에게 보입니다(편집 모드에서만 고정).${ROOM_DEMO
           ? ' 노션 「추가 링크」가 비어 있어 <b>예시 항목</b>을 보여 줍니다.' : ''}</p></section>` : ''}
       <div class="vh"><h1>데이터룸</h1><span class="n">${ROOM.reduce((s,x)=>s+x.items.length,0)}건</span>
-        ${CLIENT==='bowlgames' ? editSwitch() : ''}</div>
+        ${CLIENT==='whiffkorea' ? '' : editSwitch()}</div>
       ${roomRebuildUi()}
       <div class="chips">${[{g:'전체', n:ROOM.reduce((s,x)=>s+x.items.length,0), k:'all'},
         ...ROOM.map((x,i)=>({g:`${ROOM_IC[x.g] || '📁'} ${x.g}`, n:x.items.length, k:String(i)}))]

@@ -992,9 +992,6 @@ async function route(request, env) {
     requireEditor(request, env);
     const body = await readJson(request);
     const slug = requireText(body.slug, "slug");
-    if (!["whiffkorea", "bowlgames"].includes(slug)) {
-      throw unprocessable("기존 소통 이력 이전 확인 전에는 자료 고정을 사용할 수 없습니다");
-    }
     const link = requireText(body.url, "url");
     const pinned = requireBoolean(body.pinned, "pinned");
 
@@ -1002,10 +999,11 @@ async function route(request, env) {
     const client = await findClient(nt, slug);
     const props = client.properties || {};
     const text = (name) => (props[name]?.rich_text || []).map((r) => r.plain_text || "").join("");
+    if (text("슬러그") !== slug) throw notFound("고객사를 찾지 못했습니다");
     const known = [props[ROOM_DRIVE]?.url, props[ROOM_BIZPLAN]?.url, GUIDEBOOK_URL,
       ...text(ROOM_LINKS).split("\n").map((l) => l.split("|").slice(1).join("|").trim())];
-    // 보울게임즈 「주요 자료」는 페이지 본문에서 수집되어 비공개 스냅샷에 들어 있다.
-    if (slug === "bowlgames") {
+    // 페이지 본문 「주요 자료」는 비공개 스냅샷에서 이 기업의 링크만 확인한다.
+    if (!known.includes(link) && env.PRIVATE_DB) {
       const latest = await createPrivateStore(env).latest(slug);
       known.push(...(latest?.payload?.company?.extra_links || []).flatMap(group =>
         (group.items || []).map(item => item.url)));

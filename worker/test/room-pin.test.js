@@ -30,14 +30,13 @@ const share = (pins = "", slug = "whiffkorea") => ({
 });
 
 describe("PUT /room/pin", () => {
-  it("소통 이력 이전을 검증하지 않은 기업은 저장·재빌드를 막는다", async () => {
+  it("등록되지 않은 기업은 자료를 고정하지 않는다", async () => {
     const { calls } = installNotion({ share: share() });
     const res = await call({ slug: "studiolb", url: NOTE, pinned: true });
 
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(404);
     expect(writes(calls)).toHaveLength(0);
     expect(dispatches(calls)).toHaveLength(0);
-    expect(calls).toHaveLength(0);
   });
 
   it("담당자 인증이 없으면 거절한다", async () => {
@@ -72,15 +71,15 @@ describe("PUT /room/pin", () => {
     expect(dispatches(calls)).toHaveLength(1);
   });
 
-  it("보울게임즈 주요 자료의 게시 링크를 고정한다", async () => {
-    const publicLink = "https://yuncommon.notion.site/bowlgames-material";
-    const { calls } = installNotion({ share: share("", "bowlgames") });
+  it.each(["bowlgames", "welldoneproduct"])("%s 주요 자료의 게시 링크를 고정한다", async slug => {
+    const publicLink = `https://yuncommon.notion.site/${slug}-material`;
+    const { calls } = installNotion({ share: share("", slug) });
     const env = { ...ENV, PRIVATE_DB: { prepare: () => ({ bind: () => ({ first: async () => ({
       payload: JSON.stringify({ company: { extra_links: [{ group: "주요 자료", items: [
         { label: "1차 자료", url: publicLink },
       ] }] } }),
     }) }) }) } };
-    const res = await call({ slug: "bowlgames", url: publicLink, pinned: true }, good, env);
+    const res = await call({ slug, url: publicLink, pinned: true }, good, env);
     expect(res.status).toBe(200);
     expect(writes(calls)).toHaveLength(1);
     expect(dispatches(calls)).toHaveLength(1);

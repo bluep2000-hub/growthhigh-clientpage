@@ -139,6 +139,15 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def inbox_path(folder: Path) -> Path:
+    candidates = [folder / INBOX_NAME, folder / f"{INBOX_NAME} (1)"]
+    found = [path for path in candidates if path.is_dir()]
+    if len(found) != 1:
+        raise SourceLayoutError("녹음 접수함을 하나로 확정할 수 없습니다: "
+                                + ", ".join(str(path) for path in candidates))
+    return found[0]
+
+
 def discover_sources(folder: Path) -> list[AudioSource]:
     """PM이 고객사별 접수함에 넣은 녹음만 찾는다.
 
@@ -146,11 +155,7 @@ def discover_sources(folder: Path) -> list[AudioSource]:
     어느 폴더를 고객사로 볼지 모호하다. 둘 다 추측하지 않고 전체 회차를 멈춘다.
     루트의 기존 녹음은 PM 접수를 거치지 않았으므로 처리 대상에 넣지 않는다.
     """
-    inbox = folder / INBOX_NAME
-    if not inbox.is_dir():
-        raise SourceLayoutError(
-            f"{INBOX_NAME} 폴더를 못 찾았다. Google Drive 동기화를 확인해라."
-        )
+    inbox = inbox_path(folder)
 
     found: list[AudioSource] = []
     invalid: list[str] = []
@@ -173,7 +178,7 @@ def discover_sources(folder: Path) -> list[AudioSource]:
         sample = "\n".join(f"  {name}" for name in invalid[:8])
         raise SourceLayoutError(
             "고객사 폴더를 확정할 수 없는 녹음이 있다. "
-            f"{INBOX_NAME}/{{고객사}} 바로 아래로 옮겨라:\n{sample}"
+            f"{inbox.name}/{{고객사}} 바로 아래로 옮겨라:\n{sample}"
         )
     return found
 

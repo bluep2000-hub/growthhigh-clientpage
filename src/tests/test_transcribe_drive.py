@@ -45,6 +45,17 @@ class RecordingInboxTests(unittest.TestCase):
         )
         self.assertIn("_위프코리아_통화", plans[0].stem)
 
+    def test_only_existing_duplicate_named_inbox_is_used(self):
+        (self.root / "수집대기").rmdir()
+        self.audio("수집대기 (1)/보울게임즈/통화.m4a")
+        plans = transcriber.plan_sources(self.root, {}, set())
+        self.assertEqual(plans[0].source.relative_path, "수집대기 (1)/보울게임즈/통화.m4a")
+
+    def test_two_inboxes_are_not_guessed(self):
+        (self.root / "수집대기 (1)").mkdir()
+        with self.assertRaisesRegex(transcriber.SourceLayoutError, "하나로 확정"):
+            transcriber.inbox_path(self.root)
+
     def test_bowlgames_inbox_routes_to_bowlgames_page(self):
         self.audio("수집대기/보울게임즈/260903_N1_보울게임즈_윤현교매니저.m4a")
 

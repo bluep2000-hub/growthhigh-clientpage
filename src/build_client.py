@@ -440,7 +440,8 @@ def fetch_material_links(nt: Notion, page_id: str) -> list[dict]:
     return [{"group": "주요 자료", "items": items}] if items else []
 
 
-def fetch_track_roadmap(nt: Notion, page_id: str) -> dict:
+def fetch_track_roadmap(nt: Notion, page_id: str, *, allow_empty=False,
+                        start_month="2026-09") -> dict | None:
     """고객 원본의 월별 막대 표를 읽는다. 색상은 진행 상태가 아닌 시안 구분이다."""
     blocks = nt.children(page_id)
     active = False
@@ -454,6 +455,8 @@ def fetch_track_roadmap(nt: Notion, page_id: str) -> dict:
             table = block
             break
     if not table:
+        if allow_empty:
+            return None
         raise ClientFailure("컨설팅 타임테이블 표를 찾지 못했습니다")
     rows = nt.children(table["id"])
     def cells(row):
@@ -461,20 +464,25 @@ def fetch_track_roadmap(nt: Notion, page_id: str) -> dict:
                 for c in row.get("table_row", {}).get("cells", [])]
     if not rows or cells(rows[0]) != ["분야", "목적", "시작월", "종료월", "실행 항목", "표시색"]:
         raise ClientFailure("컨설팅 타임테이블 열 구성이 바뀌었습니다")
-    tracks = []
-    colors = {"green", "navy", "blue", "amber", "muted", "teal"}
+    if len(rows) == 1 and allow_empty:
+        return {"start": None, "months": 12, "tracks": [], "phases": [], "summaries": []}
+    parsed = []
     for row in rows[1:]:
         values = cells(row)
         if len(values) != 6:
             raise ClientFailure("컨설팅 타임테이블 항목 누락")
-        title, subtitle, first, last, label, color = values
         try:
-            begin = datetime.strptime(first, "%Y-%m")
-            end = datetime.strptime(last, "%Y-%m")
+            begin, end = (datetime.strptime(value, "%Y-%m") for value in values[2:4])
         except ValueError as error:
             raise ClientFailure("타임테이블 월 형식 오류") from error
-        start = (begin.year - 2026) * 12 + begin.month - 9
-        finish = (end.year - 2026) * 12 + end.month - 9
+        parsed.append((values, begin, end))
+    origin = datetime.strptime(start_month, "%Y-%m") if start_month else min(p[1] for p in parsed)
+    tracks = []
+    colors = {"green", "navy", "blue", "amber", "muted", "teal"}
+    for values, begin, end in parsed:
+        title, subtitle, first, last, label, color = values
+        start = (begin.year - origin.year) * 12 + begin.month - origin.month
+        finish = (end.year - origin.year) * 12 + end.month - origin.month
         if not title or not label or color not in colors or not 0 <= start <= finish < 12:
             raise ClientFailure("타임테이블 범위 또는 표시값 오류")
         track = next((t for t in tracks if t["title"] == title), None)
@@ -502,16 +510,18 @@ def fetch_track_roadmap(nt: Notion, page_id: str) -> dict:
                     raise ClientFailure("타임테이블 요약 항목 누락")
                 summaries.append(dict(zip(("period", "title", "description"), values)))
             break
-    return {"start": "2026-09", "months": 12, "tracks": tracks, "phases": [], "summaries": summaries}
+    return {"start": origin.strftime("%Y-%m"), "months": 12,
+            "tracks": tracks, "phases": [], "summaries": summaries}
 
 
-def fetch_roadmap(nt: Notion, slug: str) -> dict | None:
+def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None) -> dict | None:
     """제안서의 월별 계획만 읽는다. 3개년 목표나 다른 자료는 섞지 않는다."""
     if slug == "dameungyeol":
         return fetch_track_roadmap(nt, "3e4815d712b980a6b30ecee6560aeefc")
     page_id = ROADMAP_SOURCE_PAGES.get(slug)
     if not page_id:
-        return None
+        return (fetch_track_roadmap(nt, client_page_id, allow_empty=True, start_month=None)
+                if client_page_id else None)
 
     def rich_text(block: dict) -> str:
         body = block.get(block.get("type")) or {}
@@ -3498,7 +3508,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
             "pinned_links": client.get("pinned_links") or [],
         },
         "notice": notice,
-        "roadmap": fetch_roadmap(nt, slug),
+        "roadmap": fetch_roadmap(nt, slug, client["page_id"]),
         # 값이 없으면 null 이다. 화면이 조달현황 메뉴·카드를 통째로 뺀다
         "perf": perf,
         "progress": progress,
