@@ -2360,28 +2360,28 @@ def scan_folder(M: imaplib.IMAP4_SSL, folder: str,
     if start > 1:
         # 기간을 풀어도 이 창 밖은 애초에 보이지 않는다. 조용히 지나가지 않는다.
         warn(f"폴더 {exists}통 중 뒤쪽 {TALKS_SCAN_MAX}통만 훑습니다: {folder}")
-    typ, data = M.fetch(f"{start}:{exists}", HEADER_SPEC)
-    if typ != "OK":
-        warn(f"메일 헤더를 읽지 못했습니다: {folder}")
-        return [], exists
-
     cutoff = talks_window(talks_days)
     mails, undated = [], 0
-    for item in data:
-        if not isinstance(item, tuple):
-            continue
-        mail = parse_header(item[1])
-        if not mail:
-            continue
-        try:
-            mail["seq"] = item[0].split()[0].decode()
-        except Exception:                        # noqa: BLE001
-            continue
-        if not mail["date"]:
-            undated += 1
-            continue
-        if not cutoff or mail["date"] >= cutoff:
-            mails.append(mail)
+    for first in range(start, exists + 1, 300):
+        typ, data = M.fetch(f"{first}:{min(first + 299, exists)}", HEADER_SPEC)
+        if typ != "OK":
+            warn(f"메일 헤더를 읽지 못했습니다: {folder}")
+            return [], exists
+        for item in data:
+            if not isinstance(item, tuple):
+                continue
+            mail = parse_header(item[1])
+            if not mail:
+                continue
+            try:
+                mail["seq"] = item[0].split()[0].decode()
+            except Exception:                        # noqa: BLE001
+                continue
+            if not mail["date"]:
+                undated += 1
+                continue
+            if not cutoff or mail["date"] >= cutoff:
+                mails.append(mail)
     if undated:
         warn(f"날짜를 읽을 수 없는 메일 {undated}건 — 제외했습니다")
 
@@ -2774,6 +2774,13 @@ def sync_mails_to_notion(nt: Notion, client_page_id: str, mails: list[dict]) -> 
     log(f"  소통 DB: {added}건 추가(공개) · {skipped}건 중복 건너뜀")
 
 
+def missing_company_option(error: ClientFailure, company_name: str) -> bool:
+    message = str(error)
+    return ("multi_select option" in message and
+            "not found for property" in message and
+            "기업명" in message and company_name in message)
+
+
 def sync_mails_to_board(nt: Notion, company_name: str,
                         mails: list[dict]) -> None:
     """메일을 커뮤니케이션보드에 기본 공개로 옮긴다.
@@ -2789,8 +2796,13 @@ def sync_mails_to_board(nt: Notion, company_name: str,
             ]},
         })
     except ClientFailure as e:
-        warn(f"커뮤니케이션보드 기존 메일 조회 실패 — 쓰기 생략: {e}")
-        return
+        # 첫 고객 메일이 들어오기 전에는 기업명 선택지가 아직 없어서 조회가 400이다.
+        # 이 경우 기존 행은 없으므로 첫 메일을 만들며 선택지도 함께 등록한다.
+        if missing_company_option(e, company_name):
+            rows = []
+        else:
+            warn(f"커뮤니케이션보드 기존 메일 조회 실패 — 쓰기 생략: {e}")
+            return
 
     seen = set()
     for row in rows:
@@ -3055,6 +3067,8 @@ def read_talks(nt: Notion, company_name: str) -> list[dict]:
             talk_query_payload(company_name, TALKS_OUTPUT_MAX),
         )
     except ClientFailure as e:
+        if missing_company_option(e, company_name):
+            return []
         warn(f"소통 DB 조회 실패 — talks=[]: {e}")
         return []
 

@@ -1,6 +1,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SRC = Path(__file__).resolve().parents[1]
@@ -10,6 +11,26 @@ import build_client as builder  # noqa: E402
 
 
 class MailFallbackTests(unittest.TestCase):
+    def test_full_history_scans_headers_in_bounded_batches(self):
+        class Mailbox:
+            def __init__(self):
+                self.ranges = []
+
+            def select(self, *_args, **_kwargs):
+                return "OK", [b"601"]
+
+            def fetch(self, span, _spec):
+                self.ranges.append(span)
+                first = span.split(":")[0]
+                return "OK", [(f"{first} (BODY[HEADER])".encode(), b"header")]
+
+        box = Mailbox()
+        with patch.object(builder, "TALKS_SCAN_MAX", 601), \
+             patch.object(builder, "parse_header", return_value={"date": "2026-10-01"}):
+            mails, count = builder.scan_folder(box, "Inbox.test", 0)
+        self.assertEqual(box.ranges, ["1:300", "301:600", "601:601"])
+        self.assertEqual((len(mails), count), (3, 601))
+
     def test_mail_table_keeps_empty_cell_and_row_relationship(self):
         raw = ('<p>안내드립니다.</p><table><tr><td>구분</td><td>상세 내용</td></tr>'
                '<tr><td>일시</td><td>일정 검토 후 확정<br>다음 안내 예정</td></tr>'
@@ -103,6 +124,26 @@ class MailFallbackTests(unittest.TestCase):
         self.assertFalse(props["주요사항 확인"]["checkbox"])
         self.assertEqual(props["기업명"]["multi_select"], [{"name": "보울게임즈"}])
         self.assertEqual(props["소통형태"]["multi_select"], [{"name": "메일"}])
+
+    def test_first_mail_creates_new_company_option(self):
+        class FakeNotion:
+            def __init__(self):
+                self.created = []
+
+            def query_all(self, *_):
+                raise builder.ClientFailure('multi_select option \\"새고객\\" not found for property \\"기업명\\"')
+
+            def post(self, path, body):
+                self.created.append((path, body))
+                return {}
+
+        notion = FakeNotion()
+        builder.sync_mails_to_board(notion, "새고객", [{
+            "date": "2026-10-01", "title": "[새고객] 안내", "body": "안내 내용",
+        }])
+        self.assertEqual(len(notion.created), 1)
+        self.assertEqual(notion.created[0][1]["properties"]["기업명"]["multi_select"],
+                         [{"name": "새고객"}])
 
 
 if __name__ == "__main__":
