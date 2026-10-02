@@ -818,12 +818,12 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rm-row{min-height:42px;margin-bottom:3px}
 .rm-label{position:sticky;left:0;z-index:2;display:flex;flex-direction:column;justify-content:center;
   padding-right:8px;background:var(--panel);color:var(--rm-ink);line-height:1.25}
-.rm-label strong{font-size:13px;font-weight:700}.rm-label small{font-size:11px;color:#657487;margin-top:2px}
+.rm-label strong{font-size:13px;font-weight:700;white-space:pre-line}.rm-label small{font-size:11px;color:#657487;margin-top:2px}
 .rm-lane{grid-column:2/-1;display:grid;grid-template-columns:repeat(12,minmax(80px,1fr));align-items:center}
 .rm-bar{grid-column:var(--rm-col)/span var(--rm-span);min-width:0;min-height:34px;margin:0 2px;
   display:flex;align-items:center;justify-content:center;padding:4px 5px;border:0;border-radius:5px;
   color:#fff;background:var(--rm-color);font-size:11px;font-weight:650;line-height:1.2;text-align:center;
-  white-space:normal;text-wrap:balance}
+  white-space:pre-line;text-wrap:balance}
 .rm-bar:hover{filter:brightness(1.06)}.rm-bar:focus-visible{outline:2px solid var(--tx);outline-offset:2px}
 .rm-row.pending{--rm-color:#bdc8d5}.rm-row.pending .rm-bar{color:#263e4c}
 .rm-row.pending .rm-label strong{color:#667785}
