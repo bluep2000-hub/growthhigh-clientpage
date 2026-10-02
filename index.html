@@ -6578,7 +6578,7 @@ function init(D){
         <div class="rm-head"><div class="rm-corner"></div>${months.map((d,i)=>`<div class="rm-month">${i===0||d.getMonth()===0?`'${String(d.getFullYear()).slice(2)}.`:''}${pad2(d.getMonth()+1)}</div>`).join('')}</div>
         ${roadmap.tracks.map(t=>`<div class="rm-row"><div class="rm-label"><strong>${esc(t.title)}</strong><small>${esc(t.subtitle)}</small></div>
           <div class="rm-lane">${t.segments.map(s=>`<span class="rm-bar" style="--rm-col:${s.start+1};--rm-span:${s.span};--rm-color:${palette[s.color]||palette.muted};color:${['muted','amber'].includes(s.color)?'#253345':'#fff'}">${esc(s.label)}</span>`).join('')}</div></div>`).join('')}
-        </div></section><section class="rm-summary" aria-label="시기별 중점 실행">${(roadmap.summaries||[]).map(s=>`<article><span>${esc(s.period)}</span><h2>${esc(s.title)}</h2><p style="color:var(--tx-2);font-size:14px;line-height:1.6">${esc(s.description)}</p></article>`).join('')}</section>
+        </div></section><section class="rm-summary" aria-label="시기별 중점 실행">${(roadmap.summaries||[]).map(s=>`<article><span>${esc(s.period)}</span><h2>${esc(s.title)}</h2><p style="color:var(--tx-2);font-size:14px;line-height:1.6;white-space:pre-line">${esc(s.description)}</p></article>`).join('')}</section>
         <p style="margin-top:16px;color:var(--tx-2);font-size:13px">예정 일정이며, 실제 진행 상황과 공고 일정에 따라 조정될 수 있습니다.</p></div>`;
     }
     const months = Array.from({length:12},(_,i)=>{
