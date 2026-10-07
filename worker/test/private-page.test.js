@@ -11,6 +11,19 @@ const data = () => ({generated_at:"2026-09-19T12:00:00+09:00",company:{name:"가
   perf:null,progress:[],recommend:[],talks:[],actions:[],actions_done:0,events:[],kpi:{}});
 
 describe("비공개 고객 데이터와 기존 화면 연결",()=>{
+  it("2nd 자료의 13개월 계획을 마지막 달까지 표시한다",async()=>{
+    const html=await customerPage(false,'tribotkorea').text();
+    const start=html.indexOf('  if(roadmap) V.roadmap=()=>{');
+    const source=html.slice(start,html.indexOf("  if(REVIEW_ROOM === 'B')",start));
+    const context={roadmap:{start:'2025-06',months:13,phases:[],source_date:'2025-06-25',
+      tracks:[{title:'정책자금',subtitle:'검토',segments:[{start:12,span:1,color:'green',label:'준비'}]}]},
+      V:{},esc:s=>s,pad2:n=>String(n).padStart(2,'0')};
+    const result=runInNewContext(source+'\nV.roadmap()',context);
+    expect(result.match(/class="rm-month"/g)).toHaveLength(13);
+    expect(result).toContain('--rm-col:13;--rm-span:1');
+    expect(result).toContain('--rm-months:13');
+    expect(result).toContain('2025-06-25 제안자료 기준 계획');
+  });
   it("기존 저장본의 프로젝트 일정도 화면과 다음 일정에서 제외한다",async()=>{
     const html=await customerPage(false,'sywells').text();
     const source=html.match(/  const events = [^\n]+/)[0];

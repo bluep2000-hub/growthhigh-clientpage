@@ -18,7 +18,7 @@ from transcribe_drive import TALKS_DIR, inbox_path
 
 def material_for(name, company):
     return (name == f"{company} 사전진단리포트" or
-            bool(re.fullmatch(rf"\d{{4}}-\d{{2}}-\d{{2}} {re.escape(company)} - .+", name)))
+            bool(re.fullmatch(b.material_title_pattern(company), name)))
 
 
 def heading(text):
@@ -34,9 +34,11 @@ def timetable_blocks():
             "cells": [[{"type": "text", "text": {"content": value}}] for value in columns]}}]}}]
 
 
-def page_state(nt, company, slug):
+def page_state(nt, company, slug, company_page_id=None):
     companies = nt.query_all(b.COMPANY_DB_ID, {"filter": {
         "property": "기업명", "title": {"equals": company}}})
+    if company_page_id:
+        companies = [row for row in companies if row["id"].replace("-", "") == company_page_id.replace("-", "")]
     if len(companies) != 1:
         raise ValueError(f"기업 DB에서 정확히 일치하는 행이 {len(companies)}건입니다")
     company_page = companies[0]
@@ -45,6 +47,12 @@ def page_state(nt, company, slug):
              b.p_multi(row.get("properties", {}), "페이지 유형") and
              (company_page["id"] in b.p_relation(row.get("properties", {}), "기업 DB") or
               b.p_text(row.get("properties", {}), "페이지명") == f"{company} 클라이언트페이지")]
+    exact = [row for row in pages if b.p_text(row["properties"], "페이지명") == f"{company} 클라이언트페이지"]
+    if exact:
+        pages = exact
+        if any(b.p_relation(row["properties"], "기업 DB") and company_page["id"] not in
+               b.p_relation(row["properties"], "기업 DB") for row in pages):
+            raise ValueError("이름이 일치하는 클라이언트페이지의 기업 연결이 다릅니다")
     if len(pages) > 1:
         raise ValueError("이 기업의 클라이언트페이지가 중복 등록돼 있습니다")
     if any(b.p_text(row.get("properties", {}), "슬러그") == slug and
@@ -201,7 +209,9 @@ def prepare(nt, company, slug, company_page, page, materials):
     ensure_room(nt, page_id)
     ensure_timetable(nt, page_id)
     ensure_view(nt, page_id, "고객사 프로젝트", b.PROJECT_DB_ID, {
-        "property": "고객사 정보", "relation": {"contains": company_page["id"]}})
+        "and": [{"property": "고객사 정보", "relation": {"contains": company_page["id"]}},
+                {"or": [{"property": "프로젝트명", "title": {"contains": company}},
+                        {"property": "프로젝트명", "title": {"does_not_contain": "["}}]}]})
     if option_exists(nt, company):
         ensure_view(nt, page_id, "고객 공개 소통", b.TALKS_DB_ID, {"and": [
             {"property": "기업명", "multi_select": {"contains": company}},
@@ -212,7 +222,9 @@ def prepare(nt, company, slug, company_page, page, materials):
     return page_id
 
 
-def mail(nt, company, known, page_id):
+def mail(nt, company, known, page_id, approved_ids):
+    if not approved_ids or any(not mid.strip() for mid in approved_ids):
+        raise ValueError("검토 후 공개할 메일의 Message-ID를 지정하세요")
     b.WARNINGS.clear()
     # ponytail: 최초 이력은 폴더당 5천 통까지만 훑는다. 넘으면 IMAP 구간 조회로 바꾼다.
     b.TALKS_SCAN_MAX = 5000
@@ -224,6 +236,12 @@ def mail(nt, company, known, page_id):
         raise ValueError("메일 수집이 일부만 끝났습니다")
     if not all(os.environ.get(k) for k in ("IMAP_HOST", "IMAP_USER", "IMAP_PASS")):
         raise ValueError("IMAP 설정이 없어 메일 단계를 완료할 수 없습니다")
+    approved_ids = set(approved_ids)
+    found_ids = {m.get("message_id") for m in mails}
+    if not approved_ids <= found_ids:
+        raise ValueError("승인한 Message-ID 중 이번 수집에서 찾지 못한 메일이 있습니다")
+    mails = [m for m in mails if m.get("message_id") in approved_ids]
+    print(f"    검토 승인 {len(mails)}건만 반영")
     b.sync_mails_to_notion(nt, page_id, mails)
     b.sync_mails_to_board(nt, company, mails)
     if b.WARNINGS:
@@ -234,10 +252,9 @@ def mail(nt, company, known, page_id):
     board_rows = nt.query_all(b.TALKS_DB_ID, {"filter": {"and": [
         {"property": "기업명", "multi_select": {"contains": company}},
         {"property": "소통형태", "multi_select": {"contains": "메일"}}]}})
-    board_keys = {((b.p_date(row.get("properties", {}), "일자").get("start") or "")[:10],
-                   b.p_text(row.get("properties", {}), "상세내용")) for row in board_rows}
+    board_keys = b.mail_board_saved_keys(board_rows)
     if any(m.get("message_id") not in old_ids or
-           ((m.get("date") or "")[:10], m.get("title") or "") not in board_keys
+           b.mail_board_key(m) not in board_keys
            for m in mails):
         raise ValueError("메일 원본 DB 또는 커뮤니케이션보드에서 동기화 결과가 누락됐습니다")
     if option_exists(nt, company):
@@ -265,7 +282,9 @@ def main():
     ap = argparse.ArgumentParser(description="고객사별 최초 제작 단계")
     ap.add_argument("--company", required=True)
     ap.add_argument("--slug", required=True)
+    ap.add_argument("--company-page-id", help="중복 기업명일 때 조사로 확인한 기업 원본 ID")
     ap.add_argument("--step", choices=("inspect", "prepare", "mail", "build"), default="inspect")
+    ap.add_argument("--approved-message-id", action="append", default=[])
     args = ap.parse_args()
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", args.slug):
         ap.error("영문 주소는 소문자·숫자·하이픈만 쓸 수 있습니다")
@@ -274,7 +293,7 @@ def main():
         ap.error("NOTION_TOKEN이 없습니다")
     nt = b.Notion(os.environ["NOTION_TOKEN"])
     try:
-        company_page, page, materials, known = page_state(nt, args.company, args.slug)
+        company_page, page, materials, known = page_state(nt, args.company, args.slug, args.company_page_id)
         print(f"기업 원본: 확인 / 클라이언트페이지: {'기존' if page else '미생성'}")
         print(f"자료 후보: 게시 {sum(bool(x.get('public_url')) for x in materials)}건 / 비공개 {sum(not x.get('public_url') for x in materials)}건")
         has_option = option_exists(nt, args.company)
@@ -296,7 +315,7 @@ def main():
         if not page:
             raise ValueError("Notion 페이지부터 생성하세요: --step prepare")
         if args.step == "mail":
-            mail(nt, args.company, known, page["id"])
+            mail(nt, args.company, known, page["id"], args.approved_message_id)
         elif args.step == "build":
             build(args.slug)
         return 0

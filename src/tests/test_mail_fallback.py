@@ -96,6 +96,8 @@ class MailFallbackTests(unittest.TestCase):
                 self.created = []
 
             def query_all(self, database_id, body):
+                if database_id == builder.MAIL_TALKS_DB_ID:
+                    return []
                 self.database_id = database_id
                 self.query = body
                 return [{"properties": {
@@ -103,6 +105,8 @@ class MailFallbackTests(unittest.TestCase):
                     "상세내용": {"type": "title", "title": [
                         {"plain_text": "[보울게임즈] 이미 있는 메일"},
                     ]},
+                    "URL": {"url": "https://app.notion.com/p/source#mail-v1-" + builder.mail_board_key(
+                        {**mail, "title": "[보울게임즈] 이미 있는 메일"})},
                 }}]
 
             def post(self, path, body):
@@ -130,8 +134,10 @@ class MailFallbackTests(unittest.TestCase):
             def __init__(self):
                 self.created = []
 
-            def query_all(self, *_):
-                raise builder.ClientFailure('multi_select option \\"새고객\\" not found for property \\"기업명\\"')
+            def query_all(self, database_id, _body):
+                if database_id == builder.TALKS_DB_ID:
+                    raise builder.ClientFailure('multi_select option \\"새고객\\" not found for property \\"기업명\\"')
+                return []
 
             def post(self, path, body):
                 self.created.append((path, body))
@@ -144,6 +150,108 @@ class MailFallbackTests(unittest.TestCase):
         self.assertEqual(len(notion.created), 1)
         self.assertEqual(notion.created[0][1]["properties"]["기업명"]["multi_select"],
                          [{"name": "새고객"}])
+
+    def test_mail_variants_survive_partial_replay_and_pm_edits(self):
+        import copy
+
+        base = {"date": "2026-01-19", "title": "[고객] 자료 안내"}
+        mails = [{**base, "body": text, "message_id": str(i)}
+                 for i, text in enumerate(("첫 안내 내용", "추가 자료 요청", "고객 회신 내용"))]
+
+        class FakeNotion:
+            def __init__(self, source_mails, legacy_mail, edited_body=None):
+                self.sources = [{"id": f"source-{i}", "properties": {
+                    "일자": {"date": {"start": m["date"]}},
+                    "제목": {"title": [{"plain_text": m["title"]}]},
+                    "요약": {"rich_text": [{"plain_text": m["body"]}]},
+                }} for i, m in enumerate(source_mails)]
+                self.rows = [{"id": "legacy", "properties": {
+                    "일자": {"date": {"start": legacy_mail["date"]}},
+                    "상세내용": {"title": [{"plain_text": legacy_mail["title"]}]},
+                    "고객 공개": {"checkbox": False},
+                }}]
+                self.bodies = {"legacy": builder.mail_body_blocks(edited_body or legacy_mail["body"])}
+                self.created = 0
+                self.fail_next = False
+
+            def query_all(self, database_id, _body):
+                return self.sources if database_id == builder.MAIL_TALKS_DB_ID else self.rows
+
+            def children(self, block_id):
+                return self.bodies[block_id]
+
+            def patch(self, path, payload):
+                row = next(r for r in self.rows if r["id"] == path.rsplit("/", 1)[-1])
+                row["properties"].update(payload["properties"])
+
+            def post(self, _path, payload):
+                if self.fail_next:
+                    self.fail_next = False
+                    raise builder.ClientFailure("임시 저장 실패")
+                self.created += 1
+                row_id = f"created-{self.created}"
+                props = copy.deepcopy(payload["properties"])
+                for run in props["상세내용"]["title"]:
+                    run["plain_text"] = run["text"]["content"]
+                self.rows.append({"id": row_id, "properties": props})
+                self.bodies[row_id] = copy.deepcopy(payload.get("children") or [])
+                return {"id": row_id}
+
+        builder.WARNINGS.clear()
+        notion = FakeNotion(mails, mails[0])
+        original = copy.deepcopy(notion.bodies["legacy"])
+        notion.fail_next = True
+        builder.sync_mails_to_board(notion, "고객", mails + [{**mails[2], "message_id": "other-recipient"}])
+        self.assertEqual(notion.created, 1)
+        self.assertTrue(builder.WARNINGS)
+        builder.WARNINGS.clear()
+
+        # 부분 재수집도 원본 전체를 읽고 빠졌던 다른 본문만 복구한다.
+        builder.sync_mails_to_board(notion, "고객", [mails[1]])
+        self.assertEqual(notion.created, 2)
+        self.assertEqual(builder.mail_board_saved_keys(notion.rows),
+                         {builder.mail_board_key(m) for m in mails})
+        self.assertEqual(notion.bodies["legacy"], original)
+        self.assertFalse(notion.rows[0]["properties"]["고객 공개"]["checkbox"])
+        notion.bodies["legacy"] = builder.mail_body_blocks("담당자가 수정한 본문")
+        builder.sync_mails_to_board(notion, "고객", mails)
+        self.assertEqual(notion.created, 2)
+        self.assertEqual(notion.bodies["legacy"], builder.mail_body_blocks("담당자가 수정한 본문"))
+
+        # 아직 식별자를 못 붙인 PM 편집 행: 원본 하나는 연결, 여러 본문이면 경고.
+        edited = FakeNotion([mails[0]], mails[0], "PM 편집 내용")
+        builder.sync_mails_to_board(edited, "고객", [mails[0]])
+        self.assertEqual(edited.created, 0)
+        self.assertEqual(builder.mail_board_saved_keys(edited.rows), {builder.mail_board_key(mails[0])})
+        ambiguous = FakeNotion(mails, mails[0], "PM 편집 내용")
+        builder.sync_mails_to_board(ambiguous, "고객", [mails[1]])
+        self.assertEqual(ambiguous.created, 0)
+        self.assertFalse(builder.mail_board_saved_keys(ambiguous.rows))
+        self.assertTrue(builder.WARNINGS)
+        builder.WARNINGS.clear()
+
+    def test_onboarding_verification_rejects_missing_same_title_body(self):
+        import os
+        import onboard_client as onboard
+
+        mails = [{"date": "2026-01-19", "title": "[고객] 안내",
+                  "body": body, "message_id": str(i)}
+                 for i, body in enumerate(("첫 본문", "서로 다른 두 번째 본문"))]
+
+        class FakeNotion:
+            def query_all(self, database_id, _query):
+                if database_id == builder.MAIL_TALKS_DB_ID:
+                    return [{"properties": {"Message-ID": {"rich_text": [
+                        {"plain_text": m["message_id"]}]}}} for m in mails]
+                return [{"properties": {"URL": {"url": "https://app.notion.com/p/source#mail-v1-" +
+                                                builder.mail_board_key(mails[0])}}}]
+
+        with patch.dict(os.environ, {"IMAP_HOST": "test", "IMAP_USER": "test", "IMAP_PASS": "test"}), \
+             patch.object(builder, "fetch_mails", return_value=mails), \
+             patch.object(builder, "sync_mails_to_notion"), \
+             patch.object(builder, "sync_mails_to_board"):
+            with self.assertRaisesRegex(ValueError, "누락"):
+                onboard.mail(FakeNotion(), "고객", {"고객"}, "client", ["0", "1"])
 
 
 if __name__ == "__main__":

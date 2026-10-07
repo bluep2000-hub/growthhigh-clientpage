@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import worker from "../src/index.js";
+import {findTalkForClient} from "../src/notion.js";
 import {
   dispatches, ENV, installNotion, OTHER_TALK_PAGE, TALK_DB, TALK_PAGE, talk, writes,
 } from "./helpers.js";
@@ -31,6 +32,20 @@ const request = (major, extra = {}) => ({
 
 describe("PUT /talk/major", () => {
   beforeEach(() => installNotion());
+
+  it("두 번째 페이지의 오래된 소통도 기업·공개 상태를 확인한다",async()=>{
+    const target=talk(TALK_PAGE,false,"위프코리아",true);
+    const queries=[];
+    const nt={get:async()=>({properties:{"기업명":{title:[{plain_text:"위프코리아"}]}}}),
+      post:async(_path,body)=>{queries.push(body);return body.start_cursor
+        ? {results:[target],has_more:false}
+        : {results:Array.from({length:100},(_,i)=>talk(`old-${i}`,false,"위프코리아",true)),has_more:true,next_cursor:'next'};}};
+    const client={properties:{"기업 DB":{relation:[{id:'company'}]}}};
+    expect(await findTalkForClient(nt,client,keyFor(TALK_PAGE))).toBe(target);
+    expect(queries[1].start_cursor).toBe('next');
+    target.properties['고객 공개'].checkbox=false;
+    await expect(findTalkForClient(nt,client,keyFor(TALK_PAGE))).rejects.toThrow('고객 공개');
+  });
 
   it("담당자 인증이 없으면 거절한다", async () => {
     const { calls } = installNotion();

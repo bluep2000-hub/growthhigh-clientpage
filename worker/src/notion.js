@@ -182,28 +182,34 @@ export async function talkKey(pageId) {
  */
 export async function findTalkForClient(nt, client, key) {
   const companyName = await companyNameForClient(nt, client);
-  const rows = await nt.post(`/databases/${TALKS_DB_ID}/query`, {
+  const query = {
     page_size: TALKS_OUTPUT_MAX,
     filter: { and: [
       { property: TALK_COMPANY, multi_select: { contains: companyName } },
       { property: TALK_PUBLIC, checkbox: { equals: true } },
     ] },
     sorts: [{ property: "일자", direction: "descending" }],
-  });
+  };
 
   let found = null;
-  for (const page of rows.results || []) {
-    if (await talkKey(page.id) !== key) continue;
-    const companies = page.properties?.[TALK_COMPANY]?.multi_select || [];
-    if (!companies.some((item) => item.name === companyName)) {
-      throw foreign("그 기업의 소통 내역이 아닙니다");
+  let cursor;
+  do {
+    const rows = await nt.post(`/databases/${TALKS_DB_ID}/query`,
+      { ...query, ...(cursor ? { start_cursor: cursor } : {}) });
+    for (const page of rows.results || []) {
+      if (await talkKey(page.id) !== key) continue;
+      const companies = page.properties?.[TALK_COMPANY]?.multi_select || [];
+      if (!companies.some((item) => item.name === companyName)) {
+        throw foreign("그 기업의 소통 내역이 아닙니다");
+      }
+      if (page.properties?.[TALK_PUBLIC]?.checkbox !== true) {
+        throw foreign("고객 공개가 아닌 소통 내역입니다");
+      }
+      if (found) throw upstream("소통 식별 키가 겹쳤습니다");
+      found = page;
     }
-    if (page.properties?.[TALK_PUBLIC]?.checkbox !== true) {
-      throw foreign("고객 공개가 아닌 소통 내역입니다");
-    }
-    if (found) throw upstream("소통 식별 키가 겹쳤습니다");
-    found = page;
-  }
+    cursor = rows.has_more ? rows.next_cursor : null;
+  } while (cursor);
   if (!found) throw notFound("그 기업의 소통 내역에서 찾지 못했습니다");
   return found;
 }

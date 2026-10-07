@@ -11,8 +11,19 @@ import build_client as builder  # noqa: E402
 
 
 class PrivateProjectionTests(unittest.TestCase):
+    def test_wrong_company_relation_does_not_publish_foreign_project(self):
+        titles=["[동선컴퍼니]메인비즈","[글로벌녹돈]이노비즈","[주식회사 동선컴퍼니]경영자문","말머리 없는 프로젝트"]
+        class Notion:
+            def query_all(self,*args):
+                return [{"properties":{"프로젝트명":{"title":[{"plain_text":title}]},
+                    "프로젝트 상태":{"select":{"name":"(프로젝트완료)최종종료"}}}} for title in titles]
+        # setUp의 수집 대역 대신 실제 파서를 검증한다.
+        actual = self.fetch_projects(Notion(),"active-company","동선컴퍼니")
+        self.assertEqual({r["title"] for r in actual},{"메인비즈","경영자문","말머리 없는 프로젝트"})
+
     def setUp(self):
         self.build_events = builder.build_events
+        self.fetch_projects = builder.fetch_projects
         self.client = {
             "slug": "bowlgames",
             "page_id": "client-page",

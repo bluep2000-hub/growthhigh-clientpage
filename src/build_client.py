@@ -514,6 +514,10 @@ def fetch_track_roadmap(nt: Notion, page_id: str, *, allow_empty=False,
             "tracks": tracks, "phases": [], "summaries": summaries}
 
 
+def material_title_pattern(company_name: str, suffix: str = r".+") -> str:
+    return rf"(\d{{4}}-\d{{2}}-\d{{2}})\s+(?:(?:\(주\)|㈜|주식회사)\s*)?{re.escape(company_name)}\s*-\s*{suffix}"
+
+
 def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None,
                   company_name: str | None = None) -> dict | None:
     """제안서의 월별 계획만 읽는다. 3개년 목표나 다른 자료는 섞지 않는다."""
@@ -529,9 +533,9 @@ def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None,
     # ponytail: 기존 자료 제목 규칙만 지원. 형식이 늘어나면 명시적 원본 관계로 전환한다.
     candidates = []
     for page in nt.query_all(SHARE_DB_ID, {"filter": {
-            "property": "페이지명", "title": {"contains": f" {company_name} - 2nd 자료"}}}):
+            "property": "페이지명", "title": {"contains": company_name}}}):
         title = p_text(page.get("properties", {}), "페이지명")
-        match = re.fullmatch(rf"(\d{{4}}-\d{{2}}-\d{{2}}) {re.escape(company_name)} - 2nd 자료", title)
+        match = re.fullmatch(material_title_pattern(company_name, r"2nd\s*자료"), title)
         if match and page.get("public_url"):
             candidates.append((datetime.strptime(match[1], "%Y-%m-%d"), page["id"]))
     if not candidates:
@@ -542,7 +546,7 @@ def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None,
         raise ClientFailure("최신 2nd 자료가 중복되어 타임테이블 원본을 선택할 수 없습니다")
     plan = fetch_monthly_roadmap(nt, sources[0], allow_missing=True)
     if not plan:
-        return own
+        return fetch_schedule_roadmap(nt, sources[0], latest.strftime("%Y-%m-%d")) or own
     colors = ("green", "navy", "blue", "amber", "teal", "muted")
     plan["tracks"] = [{"title": phase["title"], "subtitle": phase["period"], "segments": [{
         "start": phase["start"], "span": phase["span"], "label": phase["title"],
@@ -553,6 +557,66 @@ def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None,
                                   ("예상 성과 / 산출물", phase["outputs"]),
                                   ("비고", phase["notes"])) if values)} for phase in plan["phases"]]
     return plan
+
+
+def fetch_schedule_roadmap(nt: Notion, page_id: str, source_date: str) -> dict | None:
+    """구형 2nd 자료의 진행일정 DB. 명시된 월만 표시하고 계획 금액을 실적으로 바꾸지 않는다."""
+    active, schedule_id = False, None
+    for block in nt.children(page_id):
+        kind = block.get("type") or ""
+        if kind.startswith("heading_"):
+            active = "".join(r.get("plain_text", "") for r in block[kind].get("rich_text", [])).strip() == "진행일정"
+        elif active and kind == "child_database":
+            schedule_id = block["id"]
+            break
+    if not schedule_id:
+        return None
+    meta = nt.get(f"/databases/{schedule_id}")
+    expected = {"주요항목": "multi_select", "일정": "multi_select", "상세내용": "title"}
+    if any(meta.get("properties", {}).get(k, {}).get("type") != v for k, v in expected.items()):
+        return None
+    entries = []
+    for row in nt.query_all(schedule_id):
+        props = row.get("properties", {})
+        title = " · ".join(p_multi(props, "주요항목"))
+        periods = p_multi(props, "일정")
+        if not title:
+            continue
+        months = set()
+        for period in periods:
+            hit = re.fullmatch(r"(\d{4})년\s*(\d{1,2})월", period)
+            if hit:
+                year, month = map(int, hit.groups())
+                try:
+                    datetime(year, month, 1)
+                except ValueError as error:
+                    raise ClientFailure("진행일정 월 형식 오류") from error
+                months.add(year * 12 + month - 1)
+            elif period != "연중상시검토":
+                raise ClientFailure("진행일정 시기 표기를 읽을 수 없습니다")
+        entries.append((title, periods, sorted(months), p_text(props, "상세내용")))
+    dated = [month for _, _, months, _ in entries for month in months]
+    if not dated:
+        return None
+    origin = min(dated)
+    count = max(12, max(dated) - origin + 1)
+    if count > 24:
+        raise ClientFailure("진행일정이 24개월 표시 범위를 넘습니다")
+    colors = ("green", "navy", "blue", "amber", "teal", "muted")
+    tracks, summaries = [], []
+    for i, (title, periods, months, description) in enumerate(sorted(entries, key=lambda e: min(e[2], default=origin+12))):
+        segments = []
+        for month in months:
+            start = month - origin
+            if segments and segments[-1]["start"] + segments[-1]["span"] == start:
+                segments[-1]["span"] += 1
+            else:
+                segments.append({"start": start, "span": 1, "label": title, "color": colors[i % len(colors)]})
+        period = " · ".join(periods)
+        tracks.append({"title": title, "subtitle": description or period, "segments": segments})
+        summaries.append({"period": period, "title": title, "description": description})
+    return {"start": f"{origin // 12:04d}-{origin % 12 + 1:02d}", "months": count,
+            "tracks": tracks, "phases": [], "summaries": summaries, "source_date": source_date}
 
 
 def fetch_monthly_roadmap(nt: Notion, page_id: str, *, start_month=None,
@@ -590,7 +654,8 @@ def fetch_monthly_roadmap(nt: Notion, page_id: str, *, start_month=None,
         return ["".join(part.get("plain_text", "") for part in cell).strip()
                 for cell in (row.get("table_row") or {}).get("cells") or []]
 
-    if cells(rows[0])[:3] != ["시기", "실행 항목", "주요 성과 / 산출물"]:
+    aliases = {"주요 실행 항목": "실행 항목", "자금조달": "주요 성과 / 산출물"}
+    if [aliases.get(value, value) for value in cells(rows[0])[:3]] != ["시기", "실행 항목", "주요 성과 / 산출물"]:
         raise ClientFailure("진행 시나리오 표의 열 구성이 바뀌었습니다")
 
     def lines(value: str) -> list[str]:
@@ -604,7 +669,7 @@ def fetch_monthly_roadmap(nt: Notion, page_id: str, *, start_month=None,
         if len(values) < 4:
             raise ClientFailure("진행 시나리오 표의 항목이 누락되었습니다")
         period, action, output, note = values[:4]
-        match = re.fullmatch(r"'?([0-9]{2})년\s*([0-9]{1,2})(?:\s*[~～–-]\s*([0-9]{1,2}))?월", period)
+        match = re.fullmatch(r"['‘’]?([0-9]{2})년\s*([0-9]{1,2})(?:\s*[~～–-]\s*([0-9]{1,2}))?월", period)
         if not match:
             raise ClientFailure(f"진행 시나리오 시기를 읽을 수 없습니다: {period}")
         year, begin_month = 2000 + int(match[1]), int(match[2])
@@ -801,7 +866,7 @@ def notice_info(notice: dict | None) -> list[dict]:
     return out
 
 
-def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
+def fetch_projects(nt: Notion, company_page_id: str, company_name: str | None = None) -> list[dict]:
     rows = nt.query_all(PROJECT_DB_ID, {
         "filter": {"property": "고객사 정보",
                    "relation": {"contains": company_page_id}},
@@ -811,6 +876,13 @@ def fetch_projects(nt: Notion, company_page_id: str) -> list[dict]:
     for row in rows:
         props = row.get("properties", {})
         raw_title = p_text(props, "프로젝트명")
+        if company_name:
+            prefix = PREFIX_RE.match(raw_title)
+            owners = re.findall(r"\[([^\]]+)\]", prefix[0]) if prefix else []
+            normalize = lambda value: re.sub(r"^(?:\(주\)|㈜|주식회사)\s*", "", value.strip()).replace(" ", "")
+            if owners and normalize(company_name) not in {normalize(owner) for owner in owners}:
+                log("  다른 기업 말머리인 프로젝트는 고객 연결에서 제외")
+                continue
         types = p_multi(props, "프로젝트 유형")
 
         if EXCLUDED_TYPE in types:
@@ -1954,8 +2026,7 @@ TALKS_FOLDER_PREFIX = "Inbox.고객사."
 TALKS_SHARED_FOLDER = "Inbox.그로스하이"
 TALKS_DAYS = 90                 # 기본 수집 기간. --talks-days 로 바꾼다 (0 = 제한 없음)
 TALKS_FETCH_MAX = 250           # 폴더에서 읽어올 최근 메일 수
-# JSON 에 담을 수. 노션 page_size 상한이 100 이고 페이지네이션을 하지 않으므로
-# 이 값을 더 올릴 수 없다. 넘치면 「일자」 내림차순의 앞 100건 — 최신이 남는다.
+# 노션 조회 한 페이지 크기. 전체 공개 소통은 query_all로 끝까지 읽는다.
 TALKS_OUTPUT_MAX = 100
 OWN_MAIL_DOMAIN = "growthhigh.co.kr"
 
@@ -2811,12 +2882,42 @@ def missing_company_option(error: ClientFailure, company_name: str) -> bool:
             "기업명" in message and company_name in message)
 
 
+MAIL_BOARD_MARKER = re.compile(r"#mail-v1-([0-9a-f]{64})$")
+
+
+def mail_board_key(mail: dict, *, blocks=None, nt=None) -> str:
+    """날짜·제목·저장 본문이 같으면 수신자와 Message-ID가 달라도 한 소통이다."""
+    if blocks is None:
+        blocks = mail_body_blocks((mail.get("body") or "").strip())
+    def text(runs):
+        return "".join(r.get("plain_text", r.get("text", {}).get("content", "")) for r in runs)
+    content = []
+    for block in blocks:
+        kind = block.get("type")
+        body = block.get(kind) or {}
+        if kind == "table":
+            rows = body.get("children")
+            if rows is None:
+                rows = nt.children(block["id"])
+            content.append([kind, [[text(cell) for cell in row["table_row"]["cells"]]
+                                    for row in rows if row.get("type") == "table_row"]])
+        else:
+            content.append([kind, text(body.get("rich_text") or [])])
+    value = [(mail.get("date") or "")[:10], mail.get("title") or "", content]
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def mail_board_saved_keys(rows: list[dict]) -> set[str]:
+    return {match[1] for row in rows
+            if (match := MAIL_BOARD_MARKER.search(p_url(row.get("properties", {}), "URL") or ""))}
+
+
 def sync_mails_to_board(nt: Notion, company_name: str,
                         mails: list[dict]) -> None:
     """메일을 커뮤니케이션보드에 기본 공개로 옮긴다.
 
-    PM이 `고객 공개`를 해제하면 고객 페이지에서 빠진다. 보드에 Message-ID 속성이
-    없으므로 같은 기업의 날짜+제목으로 재실행 중복을 막는다.
+    기존 URL 칸의 원본 링크에 본문 식별자를 보관한다. PM의 본문·공개 설정은
+    유지하고, 동일 날짜·제목의 다른 본문은 각각 남긴다.
     """
     try:
         rows = nt.query_all(TALKS_DB_ID, {
@@ -2834,28 +2935,75 @@ def sync_mails_to_board(nt: Notion, company_name: str,
             warn(f"커뮤니케이션보드 기존 메일 조회 실패 — 쓰기 생략: {e}")
             return
 
-    seen = set()
+    wanted = {mail_board_key(mail): mail for mail in mails}
+    try:
+        originals = nt.query_all(MAIL_TALKS_DB_ID, {"filter": {
+            "property": "제목", "title": {"contains": company_name}}})
+    except ClientFailure:
+        warn("메일 원본 식별자 조회 실패 — 커뮤니케이션보드 쓰기 생략")
+        return
+    sources, groups = {}, collections.defaultdict(set)
+    def group(mail):
+        return ((mail.get("date") or "")[:10], mail.get("title") or "")
+    wanted_groups = {group(mail) for mail in mails}
+    for original in originals:
+        props = original.get("properties", {})
+        source = {"date": p_date(props, "일자").get("start"),
+                  "title": p_text(props, "제목"), "body": p_text(props, "요약")}
+        key = mail_board_key(source)
+        sources[key] = original["id"]
+        groups[group(source)].add(key)
+    for key, mail in wanted.items():
+        groups[group(mail)].add(key)
+    seen = mail_board_saved_keys(rows)
+    blocked = set()
     for row in rows:
         props = row.get("properties", {})
-        date_value = p_date(props, "일자").get("start") or ""
-        seen.add((date_value[:10], p_text(props, "상세내용")))
+        url = p_url(props, "URL") or ""
+        if MAIL_BOARD_MARKER.search(url):
+            continue
+        legacy = {"date": p_date(props, "일자").get("start"),
+                  "title": p_text(props, "상세내용")}
+        identity = group(legacy)
+        if identity not in wanted_groups:
+            continue
+        try:
+            key = mail_board_key(legacy, blocks=nt.children(row["id"]), nt=nt)
+            candidates = groups[identity]
+            if key not in candidates:
+                # PM 편집 본문을 덮어쓰지 않는다. 원본이 하나일 때만 연결한다.
+                if len(candidates) != 1 or not candidates <= sources.keys():
+                    raise ClientFailure("기존 메일 원본을 구분할 수 없음")
+                key = next(iter(candidates))
+            if url:
+                raise ClientFailure("기존 URL을 유지해야 함")
+            source_id = sources.get(key, MAIL_TALKS_DB_ID).replace("-", "")
+            nt.patch(f"/pages/{row['id']}", {"properties": {"URL": {
+                "url": f"https://app.notion.com/p/{source_id}#mail-v1-{key}"}}})
+            seen.add(key)
+        except ClientFailure:
+            blocked.add(identity)
+            warn("기존 보드 메일 원본 식별 실패 — 본문·URL을 유지하고 해당 묶음은 수동 확인 필요")
 
     added = skipped = 0
-    for mail in mails:
-        key = ((mail.get("date") or "")[:10], mail.get("title") or "")
+    for key, mail in wanted.items():
+        date_value, title = group(mail)
+        if group(mail) in blocked:
+            continue
         if key in seen:
             skipped += 1
             continue
 
         props = {
-            "상세내용": {"title": [{"text": {"content": key[1][:2000]}}]},
+            "상세내용": {"title": [{"text": {"content": title[:2000]}}]},
             "기업명": {"multi_select": [{"name": company_name}]},
             "소통형태": {"multi_select": [{"name": "메일"}]},
             "고객 공개": {"checkbox": True},
             "주요사항 확인": {"checkbox": False},
+            "URL": {"url": f"https://app.notion.com/p/{sources.get(key, MAIL_TALKS_DB_ID).replace('-', '')}#mail-v1-{key}"},
         }
-        if key[0]:
-            props["일자"] = {"date": {"start": key[0]}}
+        if date_value:
+            props["일자"] = {"date": {"start": date_value}}
 
         body = (mail.get("body") or "").strip()
         children = mail_body_blocks(body)
@@ -3092,8 +3240,8 @@ def public_talk(talk: dict) -> dict:
 def read_talks(nt: Notion, company_name: str) -> list[dict]:
     """커뮤니케이션보드에서 그 기업의 공개 체크된 기록만 읽는다."""
     try:
-        res = nt.post(
-            f"/databases/{TALKS_DB_ID}/query",
+        pages = nt.query_all(
+            TALKS_DB_ID,
             talk_query_payload(company_name, TALKS_OUTPUT_MAX),
         )
     except ClientFailure as e:
@@ -3103,7 +3251,7 @@ def read_talks(nt: Notion, company_name: str) -> list[dict]:
         return []
 
     out = []
-    for pg in res.get("results", []):
+    for pg in pages:
         source = parse_public_talk(pg, company_name)
         if source is None or not source.page_id:
             warn("소통 DB가 다른 기업 또는 비공개 항목을 돌려줘서 건너뜁니다")
@@ -3413,7 +3561,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     name = company.get("name") or client["page_name"]
     log(f"  기업명: {name}")
 
-    progress = fetch_projects(nt, client["company_page_id"])
+    progress = fetch_projects(nt, client["company_page_id"], name)
     log(f"  프로젝트 {len(progress)}건")
 
     # 저장소가 먼저다. 거기 공지가 있으면 노션은 아예 읽지 않는다.

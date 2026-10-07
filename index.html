@@ -809,8 +809,8 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rm-intro{margin-bottom:18px}
 .rm-intro h1{font-size:clamp(26px,2.5vw,36px);font-weight:700;line-height:1.2;letter-spacing:-.03em}
 .rm-scroll{overflow-x:auto;scrollbar-color:#a9b5c3 transparent;scrollbar-width:thin;overscroll-behavior-x:contain}
-.rm-grid{min-width:1120px}
-.rm-head,.rm-row{display:grid;grid-template-columns:160px repeat(12,minmax(80px,1fr));align-items:center}
+.rm-grid{min-width:calc(160px + var(--rm-months,12)*80px)}
+.rm-head,.rm-row{display:grid;grid-template-columns:160px repeat(var(--rm-months,12),minmax(80px,1fr));align-items:center}
 .rm-head{margin-bottom:8px;font-variant-numeric:tabular-nums}
 .rm-head .rm-corner{position:sticky;left:0;z-index:3;background:var(--panel)}
 .rm-month{margin:0 2px;padding:10px 0;border-radius:5px;background:#e9eef6;
@@ -819,7 +819,7 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 .rm-label{position:sticky;left:0;z-index:2;display:flex;flex-direction:column;justify-content:center;
   padding-right:8px;background:var(--panel);color:var(--rm-ink);line-height:1.25}
 .rm-label strong{font-size:13px;font-weight:700;white-space:pre-line}.rm-label small{font-size:11px;color:#657487;margin-top:2px}
-.rm-lane{grid-column:2/-1;display:grid;grid-template-columns:repeat(12,minmax(80px,1fr));align-items:center}
+.rm-lane{grid-column:2/-1;display:grid;grid-template-columns:repeat(var(--rm-months,12),minmax(80px,1fr));align-items:center}
 .rm-bar{grid-column:var(--rm-col)/span var(--rm-span);min-width:0;min-height:34px;margin:0 2px;
   display:flex;align-items:center;justify-content:center;padding:4px 5px;border:0;border-radius:5px;
   color:#fff;background:var(--rm-color);font-size:11px;font-weight:650;line-height:1.2;text-align:center;
@@ -855,8 +855,8 @@ tbody tr.gone{opacity:.55}          /* 마감이 지난 추천 사업 */
 [data-theme="dark"] .rm-detail .rm-period{color:#78cab9}
 @media(max-width:760px){.rm-phase-grid{grid-template-columns:1fr}.rm-detail-body{grid-template-columns:1fr}}
 @media print{.rm-scroll{overflow:visible}.rm-grid{min-width:0}
-  .rm-head,.rm-row{grid-template-columns:125px repeat(12,minmax(0,1fr))}
-  .rm-lane{grid-template-columns:repeat(12,minmax(0,1fr))}.rm-bar{font-size:8px;padding:2px}}
+  .rm-head,.rm-row{grid-template-columns:125px repeat(var(--rm-months,12),minmax(0,1fr))}
+  .rm-lane{grid-template-columns:repeat(var(--rm-months,12),minmax(0,1fr))}.rm-bar{font-size:8px;padding:2px}}
 /* 노션 사이드바처럼 — 아이콘이 붙은 줄이 쌓이고, 올려 두면 아이콘 자리에 ▸ 가 뜬다.
    누르면 그 아래로 한 칸 들여 펴진다. 세로줄·건수는 두지 않는다 */
 .rv-room .nv .g{opacity:1;width:16px;font-size:13px}   /* 이모지는 흐리게 두면 탁해진다 */
@@ -6578,9 +6578,11 @@ function init(D){
     if(Array.isArray(roadmap.tracks)) {
       const palette={green:'#2da88e',navy:'#17233e',blue:'#34537f',amber:'#e6a429',muted:'#bcc5d0',teal:'#21806f'};
       const [year,month]=roadmap.start.split('-').map(Number);
-      const months=Array.from({length:12},(_,i)=>new Date(year,month-1+i,1));
-      return `<div class="rm-page"><header class="rm-intro"><h1>컨설팅 자문 12개월 실행 타임테이블</h1></header>
-        <section class="rm-scroll" tabindex="0" aria-label="예정 실행 일정, 좌우로 스크롤 가능"><div class="rm-grid">
+      const monthCount=Number.isInteger(roadmap.months)&&roadmap.months>=1&&roadmap.months<=24?roadmap.months:12;
+      const months=Array.from({length:monthCount},(_,i)=>new Date(year,month-1+i,1));
+      return `<div class="rm-page"><header class="rm-intro"><h1>컨설팅 자문 ${monthCount}개월 실행 타임테이블</h1></header>
+        ${roadmap.source_date?`<p style="color:var(--tx-2)">${esc(roadmap.source_date)} 제안자료 기준 계획입니다.</p>`:''}
+        <section class="rm-scroll" tabindex="0" aria-label="예정 실행 일정, 좌우로 스크롤 가능"><div class="rm-grid" style="--rm-months:${monthCount}">
         <div class="rm-head"><div class="rm-corner"></div>${months.map((d,i)=>`<div class="rm-month">${i===0||d.getMonth()===0?`'${String(d.getFullYear()).slice(2)}.`:''}${pad2(d.getMonth()+1)}</div>`).join('')}</div>
         ${roadmap.tracks.map(t=>`<div class="rm-row"><div class="rm-label"><strong>${esc(t.title)}</strong><small>${esc(t.subtitle)}</small></div>
           <div class="rm-lane">${t.segments.map(s=>`<span class="rm-bar" style="--rm-col:${s.start+1};--rm-span:${s.span};--rm-color:${palette[s.color]||palette.muted};color:${['muted','amber'].includes(s.color)?'#253345':'#fff'}">${esc(s.label)}</span>`).join('')}</div></div>`).join('')}

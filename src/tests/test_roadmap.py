@@ -16,6 +16,34 @@ def row(*values):
 
 
 class RoadmapTests(unittest.TestCase):
+    def test_legacy_schedule_keeps_years_gaps_and_undated_items(self):
+        def entry(title, periods, description):
+            return {"properties":{"주요항목":{"multi_select":[{"name":title}]},
+                "일정":{"multi_select":[{"name":x} for x in periods]},
+                "상세내용":{"title":[{"plain_text":description}]}}}
+        rows=[entry("정부지원",["2025년 12월","2026년 02월"],"계획 금액"),
+              entry("상시 검토",["연중상시검토"],"월 미확정")]
+        class Notion:
+            def children(self,pid):
+                return [heading("heading_1","진행일정"),{"type":"child_database","id":"schedule"}]
+            def get(self,path):
+                return {"properties":{k:{"type":v} for k,v in
+                    {"주요항목":"multi_select","일정":"multi_select","상세내용":"title"}.items()}}
+            def query_all(self,pid):
+                self.asserted=pid
+                return rows
+        result=builder.fetch_schedule_roadmap(Notion(),"published-material","2025-09-04")
+        self.assertEqual(result["start"],"2025-12")
+        self.assertEqual([(x["start"],x["span"]) for x in result["tracks"][0]["segments"]],[(0,1),(2,1)])
+        self.assertEqual(result["tracks"][1]["segments"],[])
+        self.assertEqual(result["source_date"],"2025-09-04")
+        self.assertEqual(result["summaries"][0]["description"],"계획 금액")
+        rows[0]["properties"]["일정"]["multi_select"]=[{"name":"2025년 12월"},{"name":"2026년 12월"}]
+        self.assertEqual(builder.fetch_schedule_roadmap(Notion(),"published-material","2025-09-04")["months"],13)
+        rows[0]["properties"]["일정"]["multi_select"]=[{"name":"2026년 13월"}]
+        with self.assertRaisesRegex(builder.ClientFailure,"월 형식"):
+            builder.fetch_schedule_roadmap(Notion(),"published-material","2025-09-04")
+
     def test_latest_published_exact_company_second_material_and_manual_override(self):
         def material(pid, company, day, published=True):
             return {"id": pid, "public_url": "https://example.test" if published else None,
@@ -26,8 +54,8 @@ class RoadmapTests(unittest.TestCase):
                    material("foreign", "서윤웰스테스트", "2027-03-01"),
                    material("internal", "서윤웰스", "2027-04-01", False)]
         own_rows = [row("분야", "목적", "시작월", "종료월", "실행 항목", "표시색")]
-        monthly_rows = [row("시기", "실행 항목", "주요 성과 / 산출물", "비고"),
-                        row("'27년 11~12월", "(준비)\n• 자료 검토", "✅ 신청서", "• 검토 후 신청"),
+        monthly_rows = [row("시기", "주요 실행 항목", "자금조달 ", "비고"),
+                        row("‘27년 11~12월", "(준비)\n• 자료 검토", "✅ 신청서", "• 검토 후 신청"),
                         row("'28년 1~6월", "(조달)\n• 사전 상담", "✅ 정책자금 (3~5억원)", "")]
 
         class Notion:
