@@ -11,6 +11,13 @@ const data = () => ({generated_at:"2026-09-19T12:00:00+09:00",company:{name:"가
   perf:null,progress:[],recommend:[],talks:[],actions:[],actions_done:0,events:[],kpi:{}});
 
 describe("비공개 고객 데이터와 기존 화면 연결",()=>{
+  it("기존 저장본의 프로젝트 일정도 화면과 다음 일정에서 제외한다",async()=>{
+    const html=await customerPage(false,'sywells').text();
+    const source=html.match(/  const events = [^\n]+/)[0];
+    const meeting={kind:'meeting',title:'정기 미팅'};
+    expect(runInNewContext(source+'\nevents',{D:{events:[{kind:'project',title:'메인비즈'},meeting]}}))
+      .toEqual([meeting]);
+  });
   it("등록 고객의 자료 반영 버튼은 담당자 편집 때만 표시한다", async()=>{
     for(const slug of ['bowlgames','dameungyeol','whiffkorea','welldoneproduct','sayuzone','sywells']) {
       const html=await customerPage(true,slug).text();

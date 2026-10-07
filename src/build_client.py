@@ -1770,45 +1770,22 @@ MAX_CAL_EVENTS = 10
 CAL_HORIZON_DAYS = 90
 
 
-def build_events(progress: list[dict], company_name: str,
-                 include_expired: bool) -> list[dict]:
+def build_events(company_name: str, include_expired: bool) -> list[dict]:
     """
-    일정은 미팅과 프로젝트 종료 예정일 둘로만 만든다.
+    일정은 캘린더 미팅만 만든다. 프로젝트 종료 예정일은 넣지 않는다.
     추천 사업 마감일은 넣지 않는다 — 「추천 지원사업」 화면에 D-day 와 함께
     이미 나오는 정보이고, 공고가 일정 카드를 채우면 미팅이 뒤로 밀린다.
     """
     today = today_kst()
-    events: list[dict] = []
-
-    # 원천 1 — 프로젝트 종료 예정일. 이미 끝난 건(ok·no)은 뺀다.
-    for r in progress:
-        end = r.get("end") or ""
-        if not DATE_RE.match(end):          # 「상시」·빈 값은 일정에 올리지 않는다
-            continue
-        if r.get("badge") in ("ok", "no"):
-            continue
-        d = date.fromisoformat(end)
-        events.append({
-            "date": end,
-            "title": r["title"],
-            "kind": "project",
-            "meta": r.get("stage_label") or "",
-            "dday": dday(d, today),
-            "past": d < today,
-        })
-
-    # 원천 2 (선택) — 캘린더
-    events.extend(fetch_calendar(company_name, today))
+    events = fetch_calendar(company_name, today)
 
     if not include_expired:
         events = [e for e in events if not e["past"]]
 
-    # 동명 프로젝트가 있다. (제목, 날짜) 짝으로 중복을 본다.
-    # 12건 상한에서 미팅이 잘려 나가지 않도록 종류를 먼저 본다.
-    rank = {"meeting": 0, "project": 1}
+    # 같은 제목·날짜의 미팅은 한 번만 표시한다.
     seen = set()
     uniq = []
-    for e in sorted(events, key=lambda x: (rank.get(x["kind"], 9), x["date"], x["title"])):
+    for e in sorted(events, key=lambda x: (x["date"], x["title"])):
         k = (e["kind"], e["title"], e["date"])
         if k in seen:
             continue
@@ -3484,7 +3461,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     if actions or actions_done:
         log(f"  할 일 {len(actions)}건 진행 · {actions_done}건 완료")
 
-    events = build_events(progress, name, include_expired)
+    events = build_events(name, include_expired)
     log(f"  일정 {len(events)}건")
 
     perf, perf_dropped = build_perf(progress)

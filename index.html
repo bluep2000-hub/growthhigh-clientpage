@@ -1671,7 +1671,7 @@ function init(D){
     if(r.cat === 'cert' && !r.valid)
       r.valid = CERT_VALID[String(r.title||'').trim()] || null;
   });
-  const events = Array.isArray(D.events) ? D.events : [];
+  const events = (Array.isArray(D.events) ? D.events : []).filter(e=>e.kind!=='project');
   const recommend = Array.isArray(D.recommend) ? D.recommend : [];
   const roadmap = D.roadmap && Array.isArray(D.roadmap.phases) ? D.roadmap : null;
   let recommendUnavailable = D.recommend_unavailable === true;
@@ -6042,7 +6042,7 @@ function init(D){
      </div>`;
   }
 
-  /* 일정 — 구글 캘린더의 미팅, progress 의 종료 예정일, recommend 의 마감일.
+  /* 일정 — 구글 캘린더의 미팅. 프로젝트 종료 예정일과 추천 마감일은 제외한다.
      이벤트가 없어도 달력은 그대로 둔다. */
   const KIND = { meeting:{label:'미팅', dot:'var(--ok)'},
                  project:{label:'진행', dot:'var(--accent)'} };
@@ -6119,7 +6119,7 @@ function init(D){
 
   /* 오른쪽 목록은 5건까지만 — 달력 2개월이 200px 남짓인데 목록이 12건이면
      카드 오른쪽만 길어져 아래 표가 밀린다. 달력 점은 자르지 않는다.
-     우리가 진행 중인 건(project)이 남의 마감 공고에 밀리지 않도록 먼저 놓는다. */
+     전체 미팅은 달력에 표시한다. */
   const EVENT_SHOWN_MAX = 5;
   /* 미팅이 남의 마감 공고에 밀리면 안 된다 */
   const KIND_ORDER = { meeting:0, project:1 };

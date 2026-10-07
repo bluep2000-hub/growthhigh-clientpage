@@ -12,6 +12,7 @@ import build_client as builder  # noqa: E402
 
 class PrivateProjectionTests(unittest.TestCase):
     def setUp(self):
+        self.build_events = builder.build_events
         self.client = {
             "slug": "bowlgames",
             "page_id": "client-page",
@@ -65,6 +66,18 @@ class PrivateProjectionTests(unittest.TestCase):
                 object(), self.client, False, False, True, {"보울게임즈"},
                 private_assets={},
             )
+
+    def test_project_deadline_stays_in_progress_but_not_schedule_or_next_event(self):
+        project = {"title": "메인비즈", "end": "2099-01-01", "badge": "run", "cat": "cert"}
+        meeting = {"title": "정기 미팅", "date": "2099-01-02", "kind": "meeting", "past": False}
+        with patch.object(builder, "fetch_projects", return_value=[project]), \
+                patch.object(builder, "build_events", side_effect=self.build_events), \
+                patch.object(builder, "fetch_calendar", return_value=[meeting]):
+            payload = builder.build_one(object(), self.client, False, True, True,
+                {"보울게임즈"}, private_assets={})["payload"]
+        self.assertEqual(payload["progress"], [project])
+        self.assertEqual(payload["events"], [meeting])
+        self.assertEqual(payload["kpi"]["next"], meeting)
 
 
 if __name__ == "__main__":
