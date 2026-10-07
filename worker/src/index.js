@@ -981,7 +981,7 @@ async function route(request, env) {
     requireEditor(request, env);
     const body = await readJson(request);
     const slug = requireText(body.slug, "slug");
-    if (slug !== "whiffkorea") {
+    if (slug !== "whiffkorea" && !env.PRIVATE_DB) {
       throw unprocessable("기존 소통 이력 이전 확인 전에는 자료 반영을 요청할 수 없습니다");
     }
     await findClient(createNotion(env), slug);

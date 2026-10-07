@@ -1977,7 +1977,13 @@ function init(D){
   function certLib(title){
     const t = String(title||'').replace(/\s+/g,'');
     const hit = CERT_KEY.find(([pat])=>t.includes(pat));
-    return hit ? CERT_LIB[hit[1]] : null;
+    if(!hit) return null;
+    const lib = CERT_LIB[hit[1]];
+    if(['메인비즈','이노비즈'].includes(hit[1]) && !/갱신|연장/.test(t)) return {
+      ...lib, facts: lib.facts.filter(([key])=>!['갱신','갱신 비용'].includes(key)).concat([
+        ['유효기간','3년'], ['신규 평가 비용',`${hit[1]==='메인비즈'?'55':'77'}만원 (VAT 포함)`]])
+    };
+    return lib;
   }
 
   /* 상태와 잔여 기간은 「인증 유효기간」 종료일과 오늘로 그때그때 센다.
@@ -6545,8 +6551,8 @@ function init(D){
 
   let roomRebuildBusy = false, roomRebuildMessage = '', roomRebuildCheck = false, roomRebuildNeedsAuth = false;
   function roomRebuildUi(){
-    if(CLIENT !== 'whiffkorea' || SAMPLE || !ED.can() || (!EDITQ && !ED.on() && !roomRebuildNeedsAuth)) return '';
-    return `<div class="dr-manage"><div class="dr-manage-top">${editSwitch(roomRebuildNeedsAuth)}
+    if(SAMPLE || !ED.can() || (!EDITQ && !ED.on() && !roomRebuildNeedsAuth)) return '';
+    return `<div class="dr-manage"><div class="dr-manage-top">
       ${ED.on() ? `<button type="button" class="edt-b" data-room-rebuild${roomRebuildBusy ? ' disabled' : ''}>
         ${roomRebuildBusy ? '요청 중…' : '자료 반영 요청'}</button>` : ''}</div>
       <p>노션에서 자료 링크를 등록한 뒤 담당자 인증을 하고 반영을 요청하세요.</p>
@@ -6645,7 +6651,7 @@ function init(D){
         <p>담당자가 📌 로 고정한 자료는 사이드바 맨 아래 「즐겨찾기」에 모두에게 보입니다(편집 모드에서만 고정).${ROOM_DEMO
           ? ' 노션 「추가 링크」가 비어 있어 <b>예시 항목</b>을 보여 줍니다.' : ''}</p></section>` : ''}
       <div class="vh"><h1>데이터룸</h1><span class="n">${ROOM.reduce((s,x)=>s+x.items.length,0)}건</span>
-        ${CLIENT==='whiffkorea' ? '' : editSwitch()}</div>
+        ${editSwitch(roomRebuildNeedsAuth)}</div>
       ${roomRebuildUi()}
       <div class="chips">${[{g:'전체', n:ROOM.reduce((s,x)=>s+x.items.length,0), k:'all'},
         ...ROOM.map((x,i)=>({g:`${ROOM_IC[x.g] || '📁'} ${x.g}`, n:x.items.length, k:String(i)}))]
@@ -6909,7 +6915,7 @@ function init(D){
 
   /* 추천 지원사업 — org 는 항상 null 이라 부제에는 마감일을 쓴다.
      검토서는 발행된 HTML 이라 새 탭으로 연다. */
-  const recManageUi = () => ['bowlgames','dameungyeol'].includes(CLIENT) && !SAMPLE && ED.on() ?
+  const recManageUi = () => !SAMPLE && ED.on() ?
     `<section class="card rec-manage"><h2>추천 사업 관리</h2>
       <p>사업 내용을 확인한 뒤 추천을 추가·취소할 수 있습니다. 즐겨찾기로 지정하면 고객페이지와 검토서 맨 위에 표시됩니다.</p>
       <input id="rec-search" type="search" placeholder="다른 사업도 사업명으로 검색" aria-label="추천할 사업 검색">
@@ -6917,7 +6923,7 @@ function init(D){
       <p id="rec-status" role="status" aria-live="polite"></p></section>` : '';
   V.open=()=>`<div class="vh"><h1>추천 지원사업</h1>
     ${recommend.length?`<span class="n">${recommend.length}건</span>`:''}
-    ${['bowlgames','dameungyeol'].includes(CLIENT)?editSwitch():''}</div>
+    ${editSwitch()}</div>
    ${recommendUnavailable?'<p class="empty">최신 추천 사업을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.</p>':''}
    ${recommend.length?`<div class="card"><table><thead><tr>
     <th style="width:12%">마감</th><th style="width:66%">사업명</th>
@@ -6930,7 +6936,7 @@ function init(D){
         ${[o.org, o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')
           ?`<div class="t-sub">${[o.org?esc(o.org):'', o.deadline?`${esc(o.deadline)} 마감`:''].filter(Boolean).join(' · ')}</div>`:''}</td>
     <td class="num">${o.amount?esc(o.amount):'—'}</td></tr>`).join('')}
-   </tbody></table></div>`:recommendUnavailable?'':emptyBox(['bowlgames','dameungyeol'].includes(CLIENT) && ED.on()
+   </tbody></table></div>`:recommendUnavailable?'':emptyBox(!SAMPLE && ED.on()
      ? '아직 고객에게 추천한 사업이 없습니다. 아래 지원사업에서 추가해 주세요.'
      : '등록된 내용이 없습니다.')}
    ${recManageUi()}`;
@@ -6943,9 +6949,12 @@ function init(D){
     const selected = recSelected.map(x=>({...x,item:recCatalog.find(p=>p.slug===x.slug)}))
       .sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned));
     const visibleCount = selected.filter(x=>x.item && !x.item.expired).length;
+    const industries = [...new Set([...(CO.tags||[]),...(CO.industry||[])])]
+      .filter(name=>recCatalog.some(p=>(p.industries||[]).includes(name)));
     const matches = recCatalog.filter(p=>!chosen.has(p.slug)
-      && (q ? p.title.toLowerCase().includes(q) : CLIENT==='dameungyeol'
-        ? (p.industries||[]).includes('제조업') : p.title.includes('게임')));
+      && (q ? p.title.toLowerCase().includes(q) : CLIENT==='bowlgames' ? p.title.includes('게임')
+        : CLIENT==='dameungyeol' ? (p.industries||[]).includes('제조업')
+        : !industries.length || industries.some(name=>(p.industries||[]).includes(name))));
     const choices = matches.filter(p=>!p.expired)
       .sort((a,b)=>(a.deadline||'9999-12-31').localeCompare(b.deadline||'9999-12-31'))
       .slice(0,15);
@@ -6969,7 +6978,7 @@ function init(D){
           : `<button type="button" data-rec-add="${esc(id)}"${recBusy?' disabled':''}>추천 추가</button>`}</div></li>`;
     }).join('')}</ul>` : '<p>해당 사업이 없습니다.</p>';
     box.innerHTML = `<h2>등록된 추천 ${selected.length}건 · 고객 표시 ${visibleCount}건</h2>${list(selected,'remove')}
-      <h2>${q?'검색 결과':CLIENT==='dameungyeol'?'신청 가능한 제조업 지원사업':'신청 가능한 게임 관련 사업'}</h2>${list(choices,'add')}
+      <h2>${q?'검색 결과':CLIENT==='dameungyeol'?'신청 가능한 제조업 지원사업':CLIENT==='bowlgames'?'신청 가능한 게임 관련 사업':'모집 중인 지원사업'}</h2>${list(choices,'add')}
       ${q&&closed.length?`<h2>마감된 사업 · 참고용</h2>${list(closed,'closed')}`:''}
       ${!q?'<p>다른 사업과 마감된 공고는 위 검색창에서 찾을 수 있습니다.</p>':''}`;
     box.querySelectorAll('[data-rec-add],[data-rec-remove],[data-rec-pin]').forEach(button=>button.onclick=async()=>{

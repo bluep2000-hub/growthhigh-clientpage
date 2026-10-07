@@ -83,8 +83,8 @@ ROADMAP_SOURCE_PAGES = {"bowlgames": "3d6815d712b980eeaf48f00488529ea3"}
 
 PLAYLIST_URL = ("https://firestore.googleapis.com/v1/projects/growthhigh-playlist"
                 "/databases/(default)/documents/playlists/{name}")
-POLICY_DATA_URL = "https://bluep2000-hub.github.io/growthhigh-policy/data-full.json"
-POLICY_BASE_URL = "https://bluep2000-hub.github.io/growthhigh-policy/"
+POLICY_DATA_URL = "https://curation.growthhigh.co.kr/data-full.json"
+POLICY_BASE_URL = "https://curation.growthhigh.co.kr/"
 
 # 마감이 지난 추천 사업·일정도 내보낼지. 운영 전환 시 False.
 INCLUDE_EXPIRED = False
@@ -514,14 +514,50 @@ def fetch_track_roadmap(nt: Notion, page_id: str, *, allow_empty=False,
             "tracks": tracks, "phases": [], "summaries": summaries}
 
 
-def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None) -> dict | None:
+def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None,
+                  company_name: str | None = None) -> dict | None:
     """제안서의 월별 계획만 읽는다. 3개년 목표나 다른 자료는 섞지 않는다."""
     if slug == "dameungyeol":
         return fetch_track_roadmap(nt, "3e4815d712b980a6b30ecee6560aeefc")
     page_id = ROADMAP_SOURCE_PAGES.get(slug)
-    if not page_id:
-        return (fetch_track_roadmap(nt, client_page_id, allow_empty=True, start_month=None)
-                if client_page_id else None)
+    if page_id:
+        return fetch_monthly_roadmap(nt, page_id, start_month="2026-09")
+    own = (fetch_track_roadmap(nt, client_page_id, allow_empty=True, start_month=None)
+           if client_page_id else None)
+    if (own and own["tracks"]) or not company_name:
+        return own
+    # ponytail: 기존 자료 제목 규칙만 지원. 형식이 늘어나면 명시적 원본 관계로 전환한다.
+    candidates = []
+    for page in nt.query_all(SHARE_DB_ID, {"filter": {
+            "property": "페이지명", "title": {"contains": f" {company_name} - 2nd 자료"}}}):
+        title = p_text(page.get("properties", {}), "페이지명")
+        match = re.fullmatch(rf"(\d{{4}}-\d{{2}}-\d{{2}}) {re.escape(company_name)} - 2nd 자료", title)
+        if match and page.get("public_url"):
+            candidates.append((datetime.strptime(match[1], "%Y-%m-%d"), page["id"]))
+    if not candidates:
+        return own
+    latest = max(day for day, _ in candidates)
+    sources = [pid for day, pid in candidates if day == latest]
+    if len(sources) != 1:
+        raise ClientFailure("최신 2nd 자료가 중복되어 타임테이블 원본을 선택할 수 없습니다")
+    plan = fetch_monthly_roadmap(nt, sources[0], allow_missing=True)
+    if not plan:
+        return own
+    colors = ("green", "navy", "blue", "amber", "teal", "muted")
+    plan["tracks"] = [{"title": phase["title"], "subtitle": phase["period"], "segments": [{
+        "start": phase["start"], "span": phase["span"], "label": phase["title"],
+        "color": colors[i % len(colors)]}]} for i, phase in enumerate(plan["phases"])]
+    plan["summaries"] = [{"period": phase["period"], "title": phase["title"],
+        "description": "\n\n".join(label + "\n" + "\n".join(values)
+            for label, values in (("실행 항목", phase["tasks"]),
+                                  ("예상 성과 / 산출물", phase["outputs"]),
+                                  ("비고", phase["notes"])) if values)} for phase in plan["phases"]]
+    return plan
+
+
+def fetch_monthly_roadmap(nt: Notion, page_id: str, *, start_month=None,
+                          allow_missing=False) -> dict | None:
+    """진행 시나리오의 주요 로드맵 표만 읽고, 원본 월을 그대로 사용한다."""
 
     def rich_text(block: dict) -> str:
         body = block.get(block.get("type")) or {}
@@ -542,6 +578,8 @@ def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None) -> d
             table = block
             break
     if not table:
+        if allow_missing:
+            return None
         raise ClientFailure("진행 시나리오의 주요 로드맵 표를 찾지 못했습니다")
 
     rows = nt.children(table["id"])
@@ -569,20 +607,25 @@ def fetch_roadmap(nt: Notion, slug: str, client_page_id: str | None = None) -> d
         match = re.fullmatch(r"'?([0-9]{2})년\s*([0-9]{1,2})(?:\s*[~～–-]\s*([0-9]{1,2}))?월", period)
         if not match:
             raise ClientFailure(f"진행 시나리오 시기를 읽을 수 없습니다: {period}")
-        year, start_month = 2000 + int(match[1]), int(match[2])
-        end_month = int(match[3] or start_month)
-        offset = (year - 2026) * 12 + start_month - 9
-        if not 0 <= offset < 12 or not start_month <= end_month <= 12 or offset + end_month - start_month >= 12:
-            raise ClientFailure(f"진행 시나리오 시기가 1년 범위를 벗어납니다: {period}")
+        year, begin_month = 2000 + int(match[1]), int(match[2])
+        end_month = int(match[3] or begin_month)
+        if not 1 <= begin_month <= end_month <= 12:
+            raise ClientFailure(f"진행 시나리오 월 범위 오류: {period}")
         tasks = lines(action)
         title = tasks.pop(0).strip("() ") if tasks and tasks[0].startswith("(") else period
-        phases.append({"period": period, "title": title, "start": offset,
-                       "span": end_month - start_month + 1,
+        phases.append({"period": period, "title": title, "start": year * 12 + begin_month - 1,
+                       "span": end_month - begin_month + 1,
                        "tasks": tasks, "outputs": lines(output), "notes": lines(note)})
 
     if not phases:
         raise ClientFailure("진행 시나리오에 표시할 계획이 없습니다")
-    return {"start": "2026-09", "months": 12, "phases": phases}
+    origin = datetime.strptime(start_month, "%Y-%m") if start_month else None
+    first = origin.year * 12 + origin.month - 1 if origin else min(p["start"] for p in phases)
+    for phase in phases:
+        phase["start"] -= first
+        if not 0 <= phase["start"] <= phase["start"] + phase["span"] - 1 < 12:
+            raise ClientFailure(f"진행 시나리오 시기가 1년 범위를 벗어납니다: {phase['period']}")
+    return {"start": f"{first // 12:04d}-{first % 12 + 1:02d}", "months": 12, "phases": phases}
 
 
 def fetch_clients(nt: Notion, only: str | None) -> tuple[list[dict], set[str]]:
@@ -3420,9 +3463,9 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
 
     logo, logo_emoji = fetch_logo(client.get("icon"), slug, dry_run)
 
-    # 보울게임즈 추천은 비공개 DB의 실시간 목록이 원본이다. 이 빌드 결과에는
+    # 비공개 고객 추천은 DB의 실시간 목록이 원본이다. 이 빌드 결과에는
     # 고객 API가 최신 목록을 붙이므로 옛 Firestore 재생목록을 섞지 않는다.
-    recommend = [] if slug in {"bowlgames", "dameungyeol"} else fetch_recommend(name, include_expired)
+    recommend = [] if private_assets is not None or slug in {"bowlgames", "dameungyeol"} else fetch_recommend(name, include_expired)
     log(f"  추천 지원사업 {len(recommend)}건")
 
     talks = build_talks(nt, client, name, skip_imap, dry_run, known_names, talks_days)
@@ -3461,7 +3504,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
     missing: list[str] = []
     if not notice:
         missing.append("공지 없음")
-    if not recommend and slug not in {"bowlgames", "dameungyeol"}:
+    if not recommend and private_assets is None and slug not in {"bowlgames", "dameungyeol"}:
         missing.append("추천 0건")
     if not events:
         missing.append("일정 0건")
@@ -3508,7 +3551,7 @@ def build_one(nt: Notion, client: dict, include_expired: bool, dry_run: bool,
             "pinned_links": client.get("pinned_links") or [],
         },
         "notice": notice,
-        "roadmap": fetch_roadmap(nt, slug, client["page_id"]),
+        "roadmap": fetch_roadmap(nt, slug, client["page_id"], name),
         # 값이 없으면 null 이다. 화면이 조달현황 메뉴·카드를 통째로 뺀다
         "perf": perf,
         "progress": progress,

@@ -1,5 +1,6 @@
 import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
+import {runInNewContext} from "node:vm";
 import worker from "../src/private-index.js";
 import {customerPage} from "../src/private-page.js";
 import {privateDb} from "./private-db.js";
@@ -10,6 +11,23 @@ const data = () => ({generated_at:"2026-09-19T12:00:00+09:00",company:{name:"가
   perf:null,progress:[],recommend:[],talks:[],actions:[],actions_done:0,events:[],kpi:{}});
 
 describe("비공개 고객 데이터와 기존 화면 연결",()=>{
+  it("등록 고객의 자료 반영 버튼은 담당자 편집 때만 표시한다", async()=>{
+    for(const slug of ['bowlgames','dameungyeol','whiffkorea','welldoneproduct','sayuzone','sywells']) {
+      const html=await customerPage(true,slug).text();
+      const start=html.indexOf('  function roomRebuildUi(){');
+      const source=html.slice(start,html.indexOf('  function roomRebuildStatus()',start));
+      const context={CLIENT:slug,SAMPLE:false,EDITQ:true,ED:{can:()=>true,on:()=>true},
+        roomRebuildNeedsAuth:false,roomRebuildBusy:false,roomRebuildCheck:false,roomRebuildMessage:'',esc:s=>s};
+      const ui=()=>runInNewContext(source+'\nroomRebuildUi()',context);
+      expect(ui()).toContain('data-room-rebuild');
+      context.ED.on=()=>false;
+      expect(ui()).not.toContain('data-room-rebuild');
+      context.ED.can=()=>false;
+      expect(ui()).toBe('');
+      context.ED={can:()=>true,on:()=>true};context.SAMPLE=true;
+      expect(ui()).toBe('');
+    }
+  });
   it("운영 설정은 Pages 내부 연결용 workers.dev 출처만 허용한다",()=>{
     const config=readFileSync(new URL("../wrangler.private.toml",import.meta.url),"utf8");
     expect(config).not.toContain("routes =");

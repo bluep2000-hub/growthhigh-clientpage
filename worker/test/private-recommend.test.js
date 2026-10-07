@@ -47,6 +47,25 @@ describe("보울게임즈 추천 지원사업 실시간 관리", () => {
   });
   afterEach(() => { fixture.sqlite.close(); vi.unstubAllGlobals(); });
 
+  it.each(["sywells", "sayuzone", "welldoneproduct", "whiffkorea"])("%s도 추천 검색·저장·고객 표시가 같은 경로로 연결된다", async slug => {
+    await setCustomerPassword(env, slug, "test-password");
+    await createPrivateStore(env).save({ slug, buildKey: "new-client", startedAt: 100, payload });
+    const token = sessionCookie("customer", await customerLogin(new Request(origin), env,
+      { slug, password: "test-password" })).split(";")[0];
+    expect((await call("/recommendations/catalog", "GET", undefined, staff, slug)).status).toBe(200);
+    const input = { slug, program: "review-active" };
+    expect((await call("/recommendations", "PUT", input, undefined, slug)).status).toBe(401);
+    expect((await call("/recommendations", "PUT", {...input, slug:"bowlgames"}, staff, slug)).status).toBe(403);
+    expect((await call("/recommendations", "PUT", input, staff, slug)).status).toBe(200);
+    expect((await (await call("/api/customer", "GET", undefined, token, slug)).json()).recommend)
+      .toMatchObject([{ slug: "review-active", title: "검수용 지원사업" }]);
+    expect((await (await call("/recommendations/share", "GET", undefined, undefined, slug)).json()).items)
+      .toMatchObject([{ slug:"review-active" }]);
+    expect((await (await call("/recommendations/share")).json()).items).toEqual([]);
+    expect((await call("/recommendations", "DELETE", input, staff, slug)).status).toBe(200);
+    expect((await call("/recommendations/share", "GET", undefined, undefined, "not-registered")).status).toBe(404);
+  });
+
   it("담은결 제조업 분류와 추천 저장은 보울게임즈 선택 목록과 분리된다", async () => {
     await setCustomerPassword(env, "dameungyeol", "test-password");
     const catalog = await call("/recommendations/catalog", "GET", undefined, staff, "dameungyeol");

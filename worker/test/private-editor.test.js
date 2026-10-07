@@ -4,6 +4,7 @@ vi.mock("../src/store.js", () => import("./fake-store.js"));
 
 import { editorRequest } from "../src/private-editor.js";
 import { reset, seed } from "./fake-store.js";
+import { installNotion, dispatches, writes, run } from "./helpers.js";
 
 const section = [{ id: "s1", title: "진행 사항", items: [
   { id: "i1", type: "bullet", html: "가짜 검수 내용", items: [] },
@@ -21,6 +22,29 @@ const request = (path, method = "GET") => new Request(`https://private.test${pat
 
 describe("Google 권한 뒤 기존 편집기 연결", () => {
   beforeEach(() => reset());
+
+  it("비공개 고객은 노션 등록과 기업 범위를 확인한 뒤 자료 갱신 대기열에 넣는다", async()=>{
+    for(const slug of ['bowlgames','dameungyeol','whiffkorea','welldoneproduct','sayuzone','sywells']) {
+      const {calls}=installNotion({share:{results:[{id:'client-page',properties:{
+        '슬러그':{rich_text:[run(slug)]}}}]}});
+      const jobs=[];
+      const response=await editorRequest(request('/room/rebuild','POST'),
+        {...environment(jobs),NOTION_TOKEN:'fake'}, {slug},slug);
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({slug,rebuild:'sent'});
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0].values[0]).toBe(slug);
+      expect(dispatches(calls)).toHaveLength(0);
+      expect(writes(calls)).toHaveLength(0);
+      await expect(editorRequest(request('/room/rebuild','POST'),environment(jobs),
+        {slug:'other-customer'},slug)).rejects.toMatchObject({status:403});
+    }
+    installNotion({share:{results:[]}});
+    const jobs=[];
+    const absent=await editorRequest(request('/room/rebuild','POST'),
+      {...environment(jobs),NOTION_TOKEN:'fake'},{slug:'absent'},'absent');
+    expect(absent.status).toBe(404);expect(jobs).toHaveLength(0);
+  });
 
   it("위프코리아 공지 초안만 읽고 다른 기업은 거절한다", async () => {
     seed({ id: "notice-1", slug: "whiffkorea", date: "2026-09-19", title: "9월 공지", sections: section });

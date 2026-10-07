@@ -15,8 +15,20 @@ const args = [wrangler,"d1","execute","growthhigh-clientpage-private","--config"
 const literal = value => typeof value === "number" ? String(value) : "'"+String(value).replaceAll("'","''")+"'";
 const requested = process.argv.find(value => value.startsWith("--client="))?.slice(9);
 
+async function runD1(command, options = {}) {
+  const execute = () => run(process.execPath,[...args,...command],{cwd,timeout:120000,...options});
+  try { return await execute(); }
+  catch (error) {
+    let code;
+    try { code = JSON.parse(error.stdout).error?.code; } catch { /* JSON 이외의 실패는 재시도하지 않는다. */ }
+    if (code !== 7403) throw error;
+    // 운영에서 첫 요청만 7403으로 실패하는 경우. 동일한 멱등 SQL을 한 번만 재시도한다.
+    return execute();
+  }
+}
+
 async function d1(sql, options = {}) {
-  const {stdout} = await run(process.execPath,[...args,"--command",sql],{cwd,timeout:120000,...options});
+  const {stdout} = await runD1(["--command",sql],options);
   return JSON.parse(stdout)[0]?.results || [];
 }
 
@@ -63,7 +75,7 @@ async function buildOne(slug) {
     try {
       stage = "save";
       await writeFile(file,sql,{mode:0o600});
-      await run(process.execPath,[...args,"--file",file],{cwd,maxBuffer:2000000,timeout:120000,windowsHide:true});
+      await runD1(["--file",file],{maxBuffer:2000000,windowsHide:true});
       const check = await d1(`SELECT count(*) AS n FROM customer_snapshots WHERE slug=${literal(slug)} AND ready=1 AND build_key=${literal(result.buildKey)}`);
       if (check[0]?.n !== 1) throw new Error("private_build_verification_failed");
       await finishRequestedBuild(slug, started, "completed");

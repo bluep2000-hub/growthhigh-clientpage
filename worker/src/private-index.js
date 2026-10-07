@@ -85,21 +85,23 @@ export default {
     const route = scopedPath(url);
     if (route === null) return json({ error: "not_found" }, 404);
     const { slug, path } = route;
-    if (["bowlgames", "dameungyeol"].includes(slug) && path === "/recommendations/share" && request.method === "GET") {
+    if (path === "/recommendations/share" && request.method === "GET") {
       try {
+        if (!await hasCustomerCredential(env, slug)) throw new ApiError(404, "not_found");
         const items = await selectedPrograms(env, slug);
         return Response.json({ items }, { headers: { "cache-control": "no-store",
           "access-control-allow-origin": "https://curation.growthhigh.co.kr",
           "x-content-type-options": "nosniff" } });
-      } catch { return json({ error: "recommendations_unavailable" }, 503); }
+      } catch (error) { return json({ error: error instanceof ApiError ? error.code : "recommendations_unavailable" },
+        error instanceof ApiError ? error.status : 503); }
     }
-    if (["bowlgames", "dameungyeol"].includes(slug) && (path === "/recommendations/catalog"
-        || path === "/recommendations")) {
+    if (path === "/recommendations/catalog" || path === "/recommendations") {
       try {
         if (path === "/recommendations/catalog" && request.method !== "GET"
             || path === "/recommendations" && !["PUT", "DELETE", "PATCH"].includes(request.method))
           throw new ApiError(405, "method_not_allowed");
         await requireStaff(request, env, slug);
+        if (!await hasCustomerCredential(env, slug)) throw new ApiError(404, "not_found");
         if (request.method === "GET") return json({
           selected: await selectedPrograms(env, slug), programs: await policyCatalog(),
         });
@@ -163,7 +165,6 @@ export default {
         if (path === "/api/customer") {
           const latest = await store.latest(slug);
           if (!latest) return json({error:"data_not_ready"},503);
-          if (!["bowlgames", "dameungyeol"].includes(slug)) return json(latest.payload);
           try {
             const selected = await selectedPrograms(env, slug);
             const catalog = selected.length ? await policyCatalog() : [];
