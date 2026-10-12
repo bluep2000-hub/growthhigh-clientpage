@@ -1,0 +1,20 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>개인정보처리방침 | 그로스하이</title><style>body{font-family:system-ui,sans-serif;color:#20252b;background:#fff;line-height:1.8;margin:0}main{max-width:780px;margin:auto;padding:32px 24px 64px}h1{font-size:1.8rem;line-height:1.4}h2{font-size:1.25rem;margin-top:32px}a{color:#1255a2}li{margin:8px 0}code{overflow-wrap:anywhere}nav{margin-bottom:32px}footer{margin-top:40px;border-top:1px solid #ccc;padding-top:20px}</style></head><body><main><nav><a href="/oauth/">그로스하이 앱 소개</a> · <a href="/oauth/privacy/">개인정보처리방침</a></nav><h1>고객페이지·녹음 자동화 개인정보처리방침</h1><p>시행일: 2026년 10월 8일</p><h2>서비스와 운영자</h2>
+<p>주식회사 그로스하이는 고객페이지의 담당자 로그인과 업무 통화·미팅 녹음의 보관, 전사, 요약 및 고객별 기록 정리를 운영합니다. Google 동의 화면의 앱 이름은 <code>clientpage-reader</code>입니다.</p>
+<p>이 방침은 해당 앱의 Google 로그인 및 Drive 연동과 연결된 녹음 처리에 적용됩니다. 일반 홈페이지의 모든 서비스에 대한 방침을 대신하지 않습니다.</p>
+<h2>처리하는 정보와 목적</h2>
+<ul><li>담당자 로그인: Google 계정 식별자와 이메일을 확인하여 등록된 담당자인지, 어느 고객사의 자료를 볼 수 있는지 판단합니다. Google 계정 비밀번호는 받지 않습니다.</li><li>Drive 연동: 운영자가 지정한 녹음 폴더의 파일 이름, 내용, 크기 등 파일 정보를 사용하여 녹음을 업로드하고 전송 결과를 확인합니다. 인증 갱신에 필요한 토큰은 서버에서 보관합니다.</li><li>녹음 처리: 사용자가 업무 기록용으로 이름을 붙여 올린 통화·미팅 녹음, 파일명에 들어 있는 날짜·고객사·기록 종류, 파일 지문, 전사문과 요약을 처리합니다. 녹음 내용에는 발화자의 음성, 이름, 연락처와 업무 내용이 포함될 수 있습니다.</li></ul>
+<p>Google 로그인은 계정 확인을 위한 기능이며, Drive 연동 권한은 별도 운영자 연결에서 요청합니다. Drive 연동의 OAuth 권한은 계정 파일 관리 범위이며, 특정 폴더만 처리하는 운영 설정과 권한 범위는 서로 다릅니다.</p>
+<h2>처리 경로와 열람 대상</h2>
+<p>녹음은 휴대폰에서 SFTP로 운영 서버에 전송되고, 고객사별 Google Drive 폴더로 보관됩니다. Google Gemini API에서 전사·요약을 만들고 Notion에 소통 기록을 저장합니다. 고객 공개용으로 라벨된 기록은 해당 고객사의 인증된 고객페이지에 반영됩니다. 내부 미팅은 고객 기록과 구분합니다.</p>
+<ul><li>Hostinger VPS: 녹음 수신, 원본·전사문·처리 장부 보관 및 자동 처리 실행.</li><li>Google Drive: 지정한 고객사별 폴더에 녹음 보관.</li><li>Google Gemini API: 녹음 전사와 내용 요약. API에 전달한 데이터의 처리는 <a href="https://ai.google.dev/gemini-api/terms">Gemini API 서비스 약관</a>의 적용도 받습니다.</li><li>Notion: 고객사별 업무 소통 기록 보관.</li><li>Cloudflare: 인증된 고객페이지와 해당 고객사의 표시 데이터 제공.</li></ul>
+<p>그로스하이는 고객사별 접근 권한을 적용합니다. 녹음을 올리는 담당자는 해당 파일이 지정한 고객사의 기록으로 처리·표시되는 것을 고려하여 업무용 파일만 선택해야 합니다. Google 앱을 운영 상태로 전환하는 것 자체가 녹음 파일이나 고객페이지를 일반 공개하는 것은 아닙니다.</p>
+<h2>보관과 삭제</h2>
+<p>현재 운영 서버와 Drive의 원본 녹음 및 전사문에는 자동 삭제 기한이 설정되어 있지 않으며, 관리자가 삭제하기 전까지 보관됩니다. Notion의 업무 기록도 별도 삭제 전까지 보관됩니다. 그로스하이에 자료 삭제를 요청할 수 있으며, 관리자가 관련 저장 위치를 확인하여 처리합니다. 보관·처리 목적과 별도 계약에 따른 유지 필요 여부는 요청자와 확인합니다.</p>
+<p>전사 처리 후 Gemini 파일 저장소의 임시 업로드 파일을 삭제하도록 요청합니다. 이는 운영 서버·Drive의 원본이나 Google 서비스 자체의 보관 정책까지 삭제한다는 뜻은 아닙니다.</p>
+<p>Google 계정에서 앱의 접근 권한을 철회하면 해당 연결을 통한 추가 접근이 중단됩니다. 권한 철회만으로 이미 저장한 녹음이나 Notion 기록이 자동 삭제되지는 않으므로, 저장 자료 삭제는 별도로 요청해주세요.</p>
+<h2>이용 제한과 보호</h2>
+<p>그로스하이는 Google API에서 얻은 사용자 데이터를 공개한 기능의 제공에 사용하고, 광고나 데이터 판매를 목적으로 사용하지 않습니다. 해당 정보의 이용과 이전에는 <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>의 Limited Use 요건을 적용합니다.</p>
+<p>SFTP·HTTPS로 전송을 보호하고 인증 파일의 접근을 제한합니다. 고객페이지는 인증된 사용자에게 해당 고객사의 자료를 제공합니다. 데이터 판매나 일반 공개를 위한 용도로 녹음·Google 계정 정보를 제공하지 않습니다.</p>
+<h2>문의 및 삭제 요청</h2>
+<p>운영자: 주식회사 그로스하이  <br>문의: official@growthhigh.co.kr  <br>홈페이지: https://growthhigh.co.kr/</p>
+<p>삭제 요청에는 대상 녹음의 날짜, 고객사와 파일명을 알려주세요. 비밀번호나 인증 토큰을 보내지 마세요.<br></p><footer>주식회사 그로스하이 · <a href="mailto:official@growthhigh.co.kr">official@growthhigh.co.kr</a></footer></main></body></html>

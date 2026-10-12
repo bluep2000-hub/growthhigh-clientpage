@@ -5,7 +5,7 @@ import { onRequest } from "../functions/[[path]].js";
 const root = new URL("../", import.meta.url);
 const present = (path) => access(new URL(path, root)).then(() => true, () => false);
 
-for (const path of ["pages-dist/index.html", "pages-dist/beauty/index.html",
+for (const path of ["pages-dist/index.html", "pages-dist/oauth/index.html", "pages-dist/oauth/privacy/index.html", "pages-dist/beauty/index.html",
   "pages-dist/c/sample.json", "pages-dist/zeroback/index.html",
   "pages-dist/assets/growthhigh-logo.png", "pages-dist/404.html", "pages-dist/_routes.json"])
   assert.equal(await present(path), true, `${path} must be deployed`);
@@ -15,8 +15,13 @@ for (const path of ["pages-dist/whiffkorea/index.html", "pages-dist/c/whiffkorea
 
 assert.deepEqual(JSON.parse(await readFile(new URL("pages-dist/_routes.json", root), "utf8")), {
   version: 1, include: ["/*"],
-  exclude: ["/assets/*", "/logo/*", "/_verify/*", "/favicon.ico", "/robots.txt"],
+  exclude: ["/assets/*", "/logo/*", "/_verify/*", "/oauth/*", "/favicon.ico", "/robots.txt"],
 });
+
+const privacy = await readFile(new URL("pages-dist/oauth/privacy/index.html", root), "utf8");
+assert.ok(privacy.includes("자동 삭제 기한이 설정되어 있지"));
+assert.ok(!privacy.includes("게시 전 검토 사항"));
+assert.ok(!privacy.includes("growthhigh-client`"));
 
 let forwarded;
 const env = { PRIVATE_WORKER: { fetch(request) {

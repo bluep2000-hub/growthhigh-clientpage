@@ -82,7 +82,7 @@ def pending_jobs(store: RecordingJobStore, folder: Path) -> list[dict]:
         state = job.get("state")
         if state in {"transcribed", "summarizing"}:
             return True
-        if state != "failed":
+        if state != "failed" or job.get("last_error_code") == "RebuildRequestError":
             return False
         name = str(job.get("transcript_name") or "")
         return bool(name and Path(name).name == name and (folder / name).is_file())

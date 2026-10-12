@@ -9,6 +9,8 @@ from dataclasses import dataclass
 import requests
 
 from summarize_transcript import MeetingSummary
+from recording_labels import validate_customer_job
+from client_mapping import recording_drive_folder_for
 from talk_source import (
     CHANNEL_PROP,
     COMMUNICATION_DB_ID,
@@ -23,7 +25,7 @@ from talk_source import (
 NOTION_API = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 SOURCE_URL_PROP = "URL"
-DRIVE_ROOT_URL = (
+LEGACY_DRIVE_ROOT_URL = (
     "https://drive.google.com/drive/folders/"
     "1Xh_QjqM8Jletd1NG6fep7khsDN_Vc-p_"
 )
@@ -42,10 +44,17 @@ class NotionDraft:
     created: bool
 
 
-def source_marker_url(job_id: str) -> str:
+def source_marker_url(job_id: str, company: str) -> str:
     if not re.fullmatch(r"[0-9a-f]{64}", job_id):
         raise NotionDraftError("녹음 식별자 형식이 올바르지 않다")
-    return f"{DRIVE_ROOT_URL}?recording_sha256={job_id}"
+    folder_id = recording_drive_folder_for(company)
+    return f"https://drive.google.com/drive/folders/{folder_id}?recording_sha256={job_id}"
+
+
+def source_markers(job: dict) -> list[str]:
+    marker = source_marker_url(str(job.get('id') or ''), str(job.get('company_name') or ''))
+    legacy = f"{LEGACY_DRIVE_ROOT_URL}?recording_sha256={job['id']}"
+    return list(dict.fromkeys((marker, legacy)))
 
 
 def _plain(prop: dict) -> str:
@@ -164,12 +173,13 @@ def markdown_blocks(markdown: str) -> list[dict]:
 def notion_channel(channel: str) -> str:
     if channel == "통화":
         return "유선"
-    if channel in {"대면미팅", "비대면미팅"}:
+    if channel in {"미팅", "대면미팅", "비대면미팅"}:
         return channel
     raise NotionDraftError(f"자동으로 확정할 수 없는 소통형태다: {channel}")
 
 
 def draft_properties(job: dict, summary: MeetingSummary) -> dict:
+    validate_customer_job(job)
     company = str(job.get("company_name") or "").strip()
     occurred = str(job.get("occurred_at") or "").strip()
     if not company or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", occurred):
@@ -179,7 +189,7 @@ def draft_properties(job: dict, summary: MeetingSummary) -> dict:
         COMPANY_PROP: {"multi_select": [{"name": company}]},
         DATE_PROP: {"date": {"start": occurred}},
         CHANNEL_PROP: {"multi_select": [{"name": notion_channel(str(job.get("channel") or ""))}]},
-        SOURCE_URL_PROP: {"url": source_marker_url(str(job.get("id") or ""))},
+        SOURCE_URL_PROP: {"url": source_marker_url(str(job.get("id") or ""), company)},
         PUBLIC_PROP: {"checkbox": True},
         MAJOR_PROP: {"checkbox": False},
     }
@@ -225,10 +235,11 @@ class NotionDraftClient:
             )
         raise NotionDraftError("Notion 요청에 실패했다")
 
-    def _find(self, marker: str) -> list[dict]:
+    def _find(self, markers: list[str]) -> list[dict]:
+        filters = [{"property": SOURCE_URL_PROP, "url": {"equals": marker}} for marker in markers]
         result = self._request("POST", f"/databases/{COMMUNICATION_DB_ID}/query", {
             "page_size": 10,
-            "filter": {"property": SOURCE_URL_PROP, "url": {"equals": marker}},
+            "filter": filters[0] if len(filters) == 1 else {"or": filters},
         })
         return list(result.get("results") or [])
 
@@ -238,21 +249,35 @@ class NotionDraftClient:
         if company not in _multi(props.get(COMPANY_PROP) or {}):
             raise NotionDraftError("같은 녹음 식별자가 다른 고객사 기록에 있다")
 
-    def create_or_get(self, job: dict, summary: MeetingSummary) -> NotionDraft:
-        marker = source_marker_url(str(job.get("id") or ""))
-        existing = self._find(marker)
+    def find_existing(self, job: dict) -> NotionDraft | None:
+        validate_customer_job(job)
+        markers = source_markers(job)
+        existing = self._find(markers)
         if len(existing) > 1:
             raise NotionDraftError("같은 녹음의 Notion 기록이 둘 이상이다")
         if existing:
             page = existing[0]
             self._validate_existing(page, str(job.get("company_name") or ""))
             props = page.get("properties") or {}
+            if ((props.get(DATE_PROP) or {}).get("date", {}).get("start") != job.get("occurred_at")
+                    or _multi(props.get(CHANNEL_PROP) or {}) != [notion_channel(job["channel"])]):
+                raise NotionDraftError("기존 녹음의 일자 또는 소통형태가 라벨과 다르다")
+            if (props.get(SOURCE_URL_PROP) or {}).get('url') == markers[-1] and markers[-1] != markers[0]:
+                self._request('PATCH', f"/pages/{page['id']}", {
+                    'properties': {SOURCE_URL_PROP: {'url': markers[0]}},
+                })
             return NotionDraft(
                 page_id=str(page.get("id") or ""),
                 url=str(page.get("url") or ""),
                 public=(props.get(PUBLIC_PROP) or {}).get("checkbox") is True,
                 created=False,
             )
+        return None
+
+    def create_or_get(self, job: dict, summary: MeetingSummary) -> NotionDraft:
+        existing = self.find_existing(job)
+        if existing:
+            return existing
 
         page = self._request("POST", "/pages", {
             "parent": {"database_id": COMMUNICATION_DB_ID},
@@ -267,6 +292,7 @@ class NotionDraftClient:
         )
 
     def is_public(self, job: dict) -> bool:
+        validate_customer_job(job)
         page_id = str(job.get("notion_page_id") or "").strip()
         if not page_id:
             raise NotionDraftError("Notion 초안 주소가 처리 장부에 없다")
@@ -274,7 +300,6 @@ class NotionDraftClient:
         company = str(job.get("company_name") or "")
         self._validate_existing(page, company)
         props = page.get("properties") or {}
-        expected_marker = source_marker_url(str(job.get("id") or ""))
-        if (props.get(SOURCE_URL_PROP) or {}).get("url") != expected_marker:
+        if (props.get(SOURCE_URL_PROP) or {}).get("url") not in source_markers(job):
             raise NotionDraftError("Notion 초안의 녹음 식별자가 바뀌었다")
         return (props.get(PUBLIC_PROP) or {}).get("checkbox") is True

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""고객 공개 회의록을 찾아 고객 페이지 재빌드를 요청한다."""
+"""고객 공개 녹음의 소통 내역을 실제 저장한 뒤 완료 처리한다."""
 
 from __future__ import annotations
 
@@ -22,8 +22,10 @@ ROOT = Path(__file__).resolve().parent.parent
 def pending_jobs(store: RecordingJobStore) -> list[dict]:
     return sorted(
         (job for job in store.all()
-         if job.get("state") == "needs_review"
-         and job.get("last_error_code") == "WAITING_PUBLIC_APPROVAL"),
+         if (job.get("state") == "needs_review"
+             and job.get("last_error_code") == "WAITING_PUBLIC_APPROVAL")
+         or job.get("state") == "building"
+         or (job.get("state") == "failed" and job.get("last_error_code") == "RebuildRequestError")),
         key=lambda job: (job.get("received_at") or "", job.get("id") or ""),
     )
 
@@ -73,16 +75,17 @@ def main() -> int:
                 print("  · 고객 공개가 해제되어 반영하지 않음")
                 continue
             store.mark_building(job_id)
-            rebuild.request(str(job.get("company_slug") or ""))
+            rebuild.refresh(str(job.get("company_slug") or ""),
+                            str(job.get("company_name") or ""), str(job.get("notion_page_id") or ""))
             store.mark_complete(job_id)
-            print(f"  → 재빌드 요청 완료: {job.get('company_name')}")
+            print(f"  → 고객 소통 저장 완료: {job.get('company_name')}")
             approved += 1
         except Exception as exc:
             store.mark_failed(job_id, exc)
             print(f"  ! 실패: {type(exc).__name__}: {str(exc)[:200]}")
             failed += 1
 
-    print(f"끝. 반영 요청 {approved}건, 공개 해제 {len(todo) - approved - failed}건, 실패 {failed}건.")
+    print(f"끝. 소통 저장 {approved}건, 공개 해제 {len(todo) - approved - failed}건, 실패 {failed}건.")
     return 1 if failed else 0
 
 

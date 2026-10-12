@@ -138,6 +138,8 @@ class RecordingJobStore:
                 raise RecordingJobError(
                     "같은 녹음이 다른 고객사 처리 장부에 이미 등록돼 있다"
                 )
+            if job.get("channel") != channel or job.get("occurred_at") != occurred_at:
+                raise RecordingJobError("같은 녹음의 유형 또는 일자가 바뀌었다")
             job.update({
                 "source_relative_path": source_relative_path,
                 "source_name": source_name,

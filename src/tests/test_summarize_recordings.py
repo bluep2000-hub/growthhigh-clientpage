@@ -8,6 +8,7 @@ SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC))
 
 from recording_jobs import RecordingJobStore  # noqa: E402
+from rebuild_client import RebuildRequestError
 from summarize_recordings import pending_jobs, read_summary, write_summary  # noqa: E402
 from summarize_transcript import MeetingSummary, SummaryNeedsReview  # noqa: E402
 
@@ -57,6 +58,8 @@ class SummarizeRecordingsTests(unittest.TestCase):
         transcript.write_text("전사 완료", encoding="utf-8")
         self.assertEqual(len(pending_jobs(self.store, self.root)), 1)
         self.store.mark_notion_writing(self.job["id"], "draft.json")
+        self.assertEqual(pending_jobs(self.store, self.root), [])
+        self.store.mark_failed(self.job["id"], RebuildRequestError("page unavailable"))
         self.assertEqual(pending_jobs(self.store, self.root), [])
 
     def test_summary_artifact_round_trips(self):

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from pathlib import Path
 
 
@@ -11,6 +13,22 @@ COMPANY_SLUGS = {
     "보울게임즈": "bowlgames",
 }
 MAPPING_FILE = Path(__file__).with_name("client_mapping.json")
+DRIVE_FOLDERS_FILE = Path(__file__).resolve().parents[1] / '.wrangler/recording-drive-folders.json'
+
+
+def recording_drive_folder_for(company: str) -> str:
+    client_slug_for(company)
+    path = Path(os.environ.get('RECORDING_DRIVE_FOLDERS_FILE') or DRIVE_FOLDERS_FILE)
+    folders = json.loads(path.read_text(encoding='utf-8'))
+    if (not isinstance(folders, dict)
+            or any(not isinstance(name, str) or not isinstance(value, str)
+                   or not re.fullmatch(r'[A-Za-z0-9_-]{10,200}', value)
+                   for name, value in folders.items())
+            or len(set(folders.values())) != len(folders)):
+        raise ValueError('고객 Drive 폴더 연결 형식이 올바르지 않습니다')
+    if company not in folders:
+        raise ValueError('고객 Drive 접수 폴더를 확인할 수 없습니다: ' + company)
+    return folders[company]
 
 
 class UnknownCompanyError(ValueError):

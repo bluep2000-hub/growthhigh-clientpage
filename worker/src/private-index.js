@@ -65,17 +65,29 @@ function routedRequest(request, path) {
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
-    if (url.pathname === "/ops/rebuild") {
+    if (["/ops/rebuild", "/ops/communications"].includes(url.pathname)) {
       try {
         if (request.method !== "POST") throw new ApiError(405, "method_not_allowed");
         if (!env.AUTOMATION_TOKEN) throw setupError();
         const given = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
         if (!given || await tokenHash(given) !== await tokenHash(env.AUTOMATION_TOKEN))
           throw new ApiError(401, "unauthorized");
-        const input = await body(request);
+        const communications = url.pathname === "/ops/communications";
+        const input = await body(request, communications ? 1024 * 1024 : 16384);
         requireSlug(input.slug);
         if (!await hasCustomerCredential(env, input.slug))
           throw new ApiError(404, "not_found");
+        if (communications) {
+          try {
+            const saved = await createPrivateStore(env).refreshCommunications(input);
+            return json({slug: input.slug, saved: true, buildKey: saved.buildKey});
+          } catch (error) {
+            if (error.message === "stale_snapshot") throw new ApiError(409, "stale_snapshot");
+            if (error.message === "customer_mismatch" || /^(invalid_|missing_|payload_)/.test(error.message))
+              throw unprocessable();
+            throw error;
+          }
+        }
         return json({ slug: input.slug, rebuild: await requestPrivateRebuild(env, input.slug) });
       } catch (error) {
         return json({ error: error instanceof ApiError ? error.code : "internal_error" },

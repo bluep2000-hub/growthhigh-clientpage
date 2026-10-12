@@ -28,28 +28,21 @@ class RecordingInboxTests(unittest.TestCase):
         path.write_bytes(content)
         return path
 
-    def test_customer_inbox_overrides_untrusted_original_filename(self):
-        self.audio("수집대기/위프코리아/[TA]블랙크러쉬.m4a")
+    def test_unlabelled_and_internal_audio_are_excluded(self):
+        for name in ['[TA]블랙크러쉬.m4a', '통화.m4a', '261008_내부_오전미팅.m4a', '261008_위프코리아_통화_1430.m4a.partial']:
+            self.audio('수집대기/위프코리아/' + name)
+        self.assertEqual(transcriber.plan_sources(self.root, {}, set()), [])
 
-        plans = transcriber.plan_sources(self.root, {}, set())
-
-        self.assertEqual(len(plans), 1)
-        self.assertEqual(plans[0].source.company, "위프코리아")
-        self.assertEqual(plans[0].source.channel, "통화")
-        self.assertEqual(plans[0].company, "위프코리아")
-        self.assertEqual(plans[0].client_slug, "whiffkorea")
-        self.assertEqual(plans[0].channel, "통화")
-        self.assertEqual(
-            plans[0].source.relative_path,
-            "수집대기/위프코리아/[TA]블랙크러쉬.m4a",
-        )
-        self.assertIn("_위프코리아_통화", plans[0].stem)
+    def test_customer_folder_must_match_label(self):
+        self.audio('수집대기/위프코리아/261008_보울게임즈_통화_1430.m4a')
+        with self.assertRaisesRegex(transcriber.SourceLayoutError, '라벨이 다릅니다'):
+            transcriber.plan_sources(self.root, {}, set())
 
     def test_only_existing_duplicate_named_inbox_is_used(self):
         (self.root / "수집대기").rmdir()
-        self.audio("수집대기 (1)/보울게임즈/통화.m4a")
+        self.audio("수집대기 (1)/보울게임즈/261008_보울게임즈_통화_1430.m4a")
         plans = transcriber.plan_sources(self.root, {}, set())
-        self.assertEqual(plans[0].source.relative_path, "수집대기 (1)/보울게임즈/통화.m4a")
+        self.assertEqual(plans[0].source.relative_path, "수집대기 (1)/보울게임즈/261008_보울게임즈_통화_1430.m4a")
 
     def test_two_inboxes_are_not_guessed(self):
         (self.root / "수집대기 (1)").mkdir()
@@ -57,47 +50,47 @@ class RecordingInboxTests(unittest.TestCase):
             transcriber.inbox_path(self.root)
 
     def test_bowlgames_inbox_routes_to_bowlgames_page(self):
-        self.audio("수집대기/보울게임즈/260903_N1_보울게임즈_윤현교매니저.m4a")
+        self.audio("수집대기/보울게임즈/260903_보울게임즈_통화_1430.m4a")
 
         plans = transcriber.plan_sources(self.root, {}, set())
 
         self.assertEqual(len(plans), 1)
         self.assertEqual(plans[0].company, "보울게임즈")
         self.assertEqual(plans[0].client_slug, "bowlgames")
-        self.assertEqual(plans[0].stem, "260903_보울게임즈_통화")
+        self.assertEqual(plans[0].stem, "260903_보울게임즈_통화_1430")
 
     def test_meeting_filename_uses_meeting_channel(self):
-        self.audio("수집대기/보울게임즈/26.09.22_보울게임즈_Kick-off 미팅.m4a")
+        self.audio("수집대기/보울게임즈/260922_보울게임즈_미팅_1600.m4a")
 
         plans = transcriber.plan_sources(self.root, {}, set())
 
         self.assertEqual(plans[0].channel, "미팅")
-        self.assertTrue(plans[0].stem.endswith("_보울게임즈_미팅"))
+        self.assertTrue(plans[0].stem.endswith("_보울게임즈_미팅_1600"))
 
     def test_audio_directly_under_inbox_fails_closed(self):
-        self.audio("수집대기/고객사미지정.m4a")
+        self.audio("수집대기/261008_위프코리아_통화_1430.m4a")
 
         with self.assertRaisesRegex(transcriber.SourceLayoutError, "고객사 폴더"):
             transcriber.plan_sources(self.root, {}, set())
 
     def test_duplicate_content_in_same_customer_is_planned_once(self):
-        self.audio("수집대기/위프코리아/첫번째.m4a", b"same-call")
-        self.audio("수집대기/위프코리아/두번째.m4a", b"same-call")
+        self.audio("수집대기/위프코리아/261008_위프코리아_통화_1430.m4a", b"same-call")
+        self.audio("수집대기/위프코리아/261008_위프코리아_통화_1530.m4a", b"same-call")
 
         plans = transcriber.plan_sources(self.root, {}, set())
 
         self.assertEqual(len(plans), 1)
 
     def test_duplicate_content_across_customers_fails_closed(self):
-        self.audio("수집대기/위프코리아/통화.m4a", b"same-call")
-        self.audio("수집대기/다른기업/통화.m4a", b"same-call")
+        self.audio("수집대기/위프코리아/261008_위프코리아_통화_1430.m4a", b"same-call")
+        self.audio("수집대기/다른기업/261008_다른기업_통화_1430.m4a", b"same-call")
 
         with patch.dict(client_mapping.COMPANY_SLUGS, {"다른기업": "other"}), \
                 self.assertRaisesRegex(transcriber.SourceLayoutError, "둘 이상의 고객사"):
             transcriber.plan_sources(self.root, {}, set())
 
     def test_processed_content_in_another_customer_fails_closed(self):
-        path = self.audio("수집대기/다른기업/통화.m4a", b"same-call")
+        path = self.audio("수집대기/다른기업/261008_다른기업_통화_1430.m4a", b"same-call")
         digest = transcriber.file_sha256(path)
         ledger = {
             f"sha256:{digest}": "260912_위프코리아_통화",
@@ -109,15 +102,15 @@ class RecordingInboxTests(unittest.TestCase):
             transcriber.plan_sources(self.root, ledger, set())
 
     def test_unregistered_customer_folder_fails_closed(self):
-        self.audio("수집대기/위프 코리아/통화.m4a")
+        self.audio("수집대기/위프 코리아/261008_위프 코리아_통화_1430.m4a")
 
         with self.assertRaisesRegex(transcriber.SourceLayoutError, "등록되지 않은 고객사"):
             transcriber.plan_sources(self.root, {}, set())
 
     def test_same_path_with_new_content_is_a_new_recording(self):
-        path = self.audio("수집대기/위프코리아/통화.m4a", b"new-call")
+        path = self.audio("수집대기/위프코리아/261008_위프코리아_통화_1430.m4a", b"new-call")
         ledger = {
-            "path:수집대기/위프코리아/통화.m4a": "old-content-digest",
+            "path:수집대기/위프코리아/261008_위프코리아_통화_1430.m4a": "old-content-digest",
         }
 
         plans = transcriber.plan_sources(self.root, ledger, set())
@@ -133,7 +126,7 @@ class RecordingInboxTests(unittest.TestCase):
         self.assertEqual(plans, [])
 
     def test_interrupted_job_keeps_its_original_transcript_name(self):
-        audio = self.audio("수집대기/위프코리아/통화.m4a", b"one-call")
+        audio = self.audio("수집대기/위프코리아/261008_위프코리아_통화_1430.m4a", b"one-call")
         digest = transcriber.file_sha256(audio)
         stem = "260901_위프코리아_통화"
 
@@ -147,7 +140,7 @@ class RecordingInboxTests(unittest.TestCase):
         self.assertEqual(plans[0].stem, stem)
 
     def test_recovers_transcript_saved_just_before_interruption(self):
-        audio = self.audio("수집대기/위프코리아/통화.m4a", b"one-call")
+        audio = self.audio("수집대기/위프코리아/261008_위프코리아_통화_1430.m4a", b"one-call")
         plan = transcriber.plan_sources(self.root, {}, set())[0]
         store = RecordingJobStore(self.root / "jobs.json")
         transcriber.ensure_job(store, plan)

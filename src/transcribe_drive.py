@@ -8,13 +8,8 @@ PM이 올린 오디오 파일을 찾아 Gemini 로 받아쓴 뒤 기존 루트 �
 YYMMDD_기업명_채널.txt 로 떨군다.
 요약은 하지 않는다 — 그건 talk-summary 스킬이 노션에 기록한다.
 
-새 접수함에서는 고객사 폴더가 기업을 결정한다. 녹음기가 붙인 파일명은 손보지
-않으며 이름이나 본문으로 고객사를 추측하지 않는다. 루트에 이미 있던 평면 녹음은
-접수된 파일이 아니므로 읽지 않는다. 기존 전사본과 처리 기록은 그대로 둔다.
-
-폴더는 구글 드라이브 데스크톱이 붙여 주는 로컬 경로로 읽는다.
-서비스 계정은 파일을 소유할 수 없어 API 로는 쓰기가 막히고,
-drive 권한은 제한된 범위라 OAuth 도 유료 심사를 요구한다.
+접수함의 파일명은 YYMMDD_등록고객사_통화/미팅 형식이다. 시간이나 순번의 수동 입력은 요구하지 않는다.
+라벨 없는 파일과 내부 미팅은 제외하고 고객사 폴더와 라벨이 다르면 중단한다.
 
     python src/transcribe_drive.py --dry-run
     python src/transcribe_drive.py
@@ -44,6 +39,8 @@ from google.genai import types
 
 from client_mapping import UnknownCompanyError, client_slug_for
 from recording_jobs import RecordingJobError, RecordingJobStore
+from recording_labels import parse_label
+from notion_talk_drafts import NotionDraftClient
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -91,42 +88,6 @@ class TranscriptionPlan:
 # 목록으로 주면 대화에 없는 회사 이름을 끌어다 쓰는 일이 생긴다.
 GLOSSARY = ["그로스하이", "박재현", "소공인 판로개척", "초기창업패키지"]
 
-CHANNEL_WORDS = {"통화": "통화", "미팅": "미팅", "회의": "미팅"}
-
-
-def parse_name(name: str) -> tuple[str | None, str | None, str | None]:
-    """녹음 파일 이름에서 날짜·고객사·채널을 뽑는다. 못 뽑은 자리는 None.
-
-    두 가지 이름을 안다.
-        260831_위프코리아_통화.m4a                          사람이 직접 붙인 이름
-        통화 녹음 [위프코리아]이상윤 차장님_260831_174908.m4a  녹음기가 붙인 이름
-
-    둘 다 아니면 알아낸 것만 돌려준다. 못 알아낸 자리는 넘겨짚지 않는다.
-    새 접수함의 고객사는 이 결과가 아니라 상위 폴더에서 확정한다.
-    """
-    stem = re.sub(r"\s*\(\d+\)$", "", Path(name).stem)
-
-    parts = [re.sub(r"\s+", " ", p.strip()) for p in stem.split("_")]
-    if (len(parts) == 3 and re.fullmatch(r"\d{6}", parts[0])
-            and parts[1] and parts[2] in CHANNEL_WORDS):
-        return parts[0], parts[1], CHANNEL_WORDS[parts[2]]
-
-    day = None
-    m = re.search(r"_(\d{6})_\d{6}$", stem)   # 녹음기가 끝에 날짜_시각을 붙인다
-    if m:
-        day, stem = m.group(1), stem[:m.start()]
-    else:
-        m = re.match(r"(\d{6})_", stem)       # 사람이 정리한 이름은 날짜로 시작하기도 한다
-        if m:
-            day = m.group(1)
-
-    m = re.search(r"\[([^\]]+)\]", stem)      # 제목의 [고객사]
-    company = m.group(1).strip() if m and m.group(1).strip() else None
-
-    channel = next((v for k, v in CHANNEL_WORDS.items() if k in stem), None)
-    return day, company, channel
-
-
 def relative_name(path: Path, folder: Path) -> str:
     return path.relative_to(folder).as_posix()
 
@@ -163,15 +124,20 @@ def discover_sources(folder: Path) -> list[AudioSource]:
     for path in sorted(inbox.rglob("*"), key=lambda p: p.as_posix().casefold()):
         if not path.is_file() or path.suffix.lower() not in AUDIO_EXTS:
             continue
+        label = parse_label(path.name)
+        if not label or label.internal:
+            continue
         rel = path.relative_to(inbox)
         if len(rel.parts) != 2 or not rel.parts[0].strip():
             invalid.append(relative_name(path, folder))
             continue
+        if rel.parts[0] != label.company:
+            raise SourceLayoutError("고객사 폴더와 녹음 라벨이 다릅니다: " + relative_name(path, folder))
         found.append(AudioSource(
             path=path,
             relative_path=relative_name(path, folder),
             company=rel.parts[0].strip(),
-            channel="통화",
+            channel=label.channel,
         ))
 
     if invalid:
@@ -190,12 +156,10 @@ def plan_sources(folder: Path, ledger: dict[str, str], taken: set[str],
     seen: dict[str, tuple[AudioSource, str | None]] = {}
 
     for source in discover_sources(folder):
-        path_key = f"path:{source.relative_path}"
         digest = file_sha256(source.path)
         digest_key = f"sha256:{digest}"
-        day, parsed_company, parsed_channel = parse_name(source.path.name)
-        company = source.company or parsed_company
-        channel = parsed_channel or source.channel
+        label = parse_label(source.path.name)
+        company, channel = label.company, label.channel
         try:
             client_slug = client_slug_for(company or "")
         except UnknownCompanyError as exc:
@@ -203,9 +167,6 @@ def plan_sources(folder: Path, ledger: dict[str, str], taken: set[str],
 
         # 경로만 같고 내용이 바뀐 파일은 새 녹음이다. 파일 내용이 같을 때만
         # 처리 완료로 본다.
-        if ledger.get(path_key) == digest:
-            continue
-
         if digest_key in ledger:
             recorded_company = ledger.get(f"sha256-company:{digest}")
             if recorded_company and recorded_company != company:
@@ -214,6 +175,9 @@ def plan_sources(folder: Path, ledger: dict[str, str], taken: set[str],
                     f"  이전 고객사: {recorded_company}\n"
                     f"  현재 경로: {source.relative_path}"
                 )
+            previous_channel = ledger.get(f"sha256-channel:{digest}")
+            if previous_channel and previous_channel != channel:
+                raise SourceLayoutError("이미 처리한 녹음의 통화/미팅 유형이 바뀌었습니다")
             continue
 
         previous = seen.get(digest)
@@ -224,6 +188,8 @@ def plan_sources(folder: Path, ledger: dict[str, str], taken: set[str],
                     "같은 녹음이 둘 이상의 고객사 접수함에 있다:\n"
                     f"  {previous_source.relative_path}\n  {source.relative_path}"
                 )
+            if previous_source.channel != channel:
+                raise SourceLayoutError("같은 녹음에 통화와 미팅 라벨이 함께 있습니다")
             # 같은 고객사에 같은 파일을 두 번 올린 것은 한 건으로 합친다.
             continue
         seen[digest] = (source, company)
@@ -232,11 +198,7 @@ def plan_sources(folder: Path, ledger: dict[str, str], taken: set[str],
         if stored_stem:
             stem = stored_stem
         else:
-            base = "_".join([
-                day or datetime.fromtimestamp(source.path.stat().st_mtime).strftime("%y%m%d"),
-                company or "미분류",
-                channel or "녹음",
-            ])
+            base = source.path.stem
             stem, n = base, 2
             while stem in taken:
                 stem, n = f"{base}_{n}", n + 1
@@ -291,7 +253,7 @@ def source_modified_at(path: Path) -> str:
 
 def occurred_at(stem: str) -> str:
     try:
-        return datetime.strptime(stem[:6], "%y%m%d").date().isoformat()
+        return datetime(2000 + int(stem[:2]), int(stem[2:4]), int(stem[4:6])).date().isoformat()
     except ValueError:
         return ""
 
@@ -310,6 +272,17 @@ def ensure_job(store: RecordingJobStore, plan: TranscriptionPlan) -> dict:
         occurred_at=occurred_at(plan.stem),
         transcript_name=f"{plan.stem}.txt",
     )
+
+
+def recover_notion_record(store: RecordingJobStore, job: dict,
+                         notion: NotionDraftClient) -> bool:
+    """로컬 장부 유실/서버 이전에도 이미 기록한 음성의 유료 전사를 반복하지 않는다."""
+    existing = notion.find_existing(job)
+    if not existing:
+        return False
+    store.mark_awaiting_approval(job['id'], notion_page_id=existing.page_id,
+                               notion_url=existing.url)
+    return True
 
 
 def recover_finished_transcripts(folder: Path, ledger: dict[str, str],
@@ -334,6 +307,7 @@ def recover_finished_transcripts(folder: Path, ledger: dict[str, str],
         ledger[f"sha256:{digest}"] = Path(transcript_name).stem
         ledger[f"sha256-company:{digest}"] = str(job.get("company_name") or "")
         ledger[f"sha256-client-slug:{digest}"] = str(job.get("company_slug") or "")
+        ledger[f"sha256-channel:{digest}"] = str(job.get("channel") or "")
         recovered.append(digest)
 
     if not recovered:
@@ -439,7 +413,7 @@ def main() -> int:
     print(f"전사 대상 {len(todo)}건 (모델 {model})")
     for plan in todo:
         p, stem, company = plan.source.path, plan.stem, plan.company
-        mark = "" if company else "   ← 고객사 미상. 요약할 때 본문 보고 정한다"
+        mark = ""
         size = p.stat().st_size / 1048576
         print(f"  {plan.source.relative_path}\n"
               f"    → {stem}.txt  ({size:.1f}MB){mark}\n"
@@ -453,6 +427,7 @@ def main() -> int:
     if not api_key:
         sys.exit("GEMINI_API_KEY 가 없다. .env 에 넣어라.")
     client = genai.Client(api_key=api_key)
+    notion = NotionDraftClient(os.environ.get("NOTION_TOKEN", ""))
 
     fails = 0
     for plan in todo:
@@ -460,22 +435,28 @@ def main() -> int:
         print(f"\n{plan.source.relative_path}", flush=True)
         job_ready = False
         try:
-            ensure_job(jobs, plan)
+            job = ensure_job(jobs, plan)
             job_ready = True
-            jobs.mark_transcribing(plan.digest)
-            text = transcribe(client, model, p, company)
-            if not text:
-                raise ValueError("전사 결과가 비었다")
-            write_text_atomic(folder / f"{stem}.txt", text)
+            recovered = recover_notion_record(jobs, job, notion)
+            if not recovered:
+                jobs.mark_transcribing(plan.digest)
+                text = transcribe(client, model, p, company)
+                if not text:
+                    raise ValueError("전사 결과가 비었다")
+                write_text_atomic(folder / f"{stem}.txt", text)
             # 경로와 내용 해시를 함께 남긴다. 같은 파일을 다른 이름으로 다시
             # 접수해도 한 번만 처리하고, 같은 이름의 다른 파일은 따로 처리한다.
             ledger[f"path:{plan.source.relative_path}"] = plan.digest
             ledger[f"sha256:{plan.digest}"] = stem
             ledger[f"sha256-company:{plan.digest}"] = company or ""
             ledger[f"sha256-client-slug:{plan.digest}"] = plan.client_slug
+            ledger[f"sha256-channel:{plan.digest}"] = plan.channel
             save_json_atomic(LEDGER, ledger)
-            jobs.mark_transcribed(plan.digest)
-            print(f"    → {stem}.txt ({len(text):,}자)")
+            if recovered:
+                print("    → 기존 Notion 기록 연결 (전사·요약 생략)")
+            else:
+                jobs.mark_transcribed(plan.digest)
+                print(f"    → {stem}.txt ({len(text):,}자)")
         except Exception as e:
             if job_ready:
                 try:

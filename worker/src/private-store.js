@@ -103,5 +103,30 @@ export function createPrivateStore(env) {
       await db.batch(snapshotSql(input).map(([sql, values]) => db.prepare(sql).bind(...values)));
       return this.latest(input.slug);
     },
+
+    async refreshCommunications(input) {
+      if (!Number.isSafeInteger(input.startedAt) || input.startedAt > Date.now() + 60000)
+        throw new Error("invalid_snapshot_request");
+      const previous = await this.latest(input.slug);
+      if (!previous || input.company !== previous.payload.company.name)
+        throw new Error("customer_mismatch");
+      if (input.startedAt <= previous.startedAt) throw new Error("stale_snapshot");
+      // 기존 공지·일정과 이미지를 보존한다. 소통과 연결된 할 일 인덱스만 교체한다.
+      const payload = {...previous.payload, talks: input.talks,
+        actions: input.actions, actions_done: input.actions_done};
+      const rows = await db.prepare(`SELECT path, content_type, content_base64 FROM customer_assets
+        WHERE slug = ? AND build_key = ?`).bind(input.slug, previous.buildKey).all();
+      const assets = Object.fromEntries(rows.results.map(row =>
+        [row.path, {type: row.content_type, data: row.content_base64}]));
+      const statements = snapshotSql({...input, payload, assets});
+      const [insert, values] = statements[0];
+      statements[0] = [insert.replace("VALUES (?, ?, ?, ?, ?, 0)",
+        "SELECT ?, ?, ?, ?, ?, 0 WHERE ? = (SELECT build_key FROM customer_snapshots WHERE slug = ? AND ready = 1 ORDER BY source_started_at DESC, id DESC LIMIT 1)"),
+        [...values, previous.buildKey, input.slug]];
+      await db.batch(statements.map(([sql, params]) => db.prepare(sql).bind(...params)));
+      const saved = await this.latest(input.slug);
+      if (saved?.buildKey !== input.buildKey) throw new Error("stale_snapshot");
+      return saved;
+    },
   };
 }

@@ -15,6 +15,7 @@ function d1(sqlite) {
         bind(...args) {
           return {
             first: async () => sqlite.prepare(sql).get(...args) || null,
+            all: async () => ({results: sqlite.prepare(sql).all(...args)}),
             run: () => sqlite.prepare(sql).run(...args),
           };
         },
@@ -100,6 +101,41 @@ describe("분리된 고객 정상 결과 저장소", () => {
     expect(sqlite.prepare("SELECT count(*) AS n FROM customer_snapshots").get().n).toBe(10);
     expect(sqlite.prepare("SELECT min(source_started_at) AS n FROM customer_snapshots").get().n).toBe(3);
     expect((await store.latest("whiffkorea")).buildKey).toBe("job-12");
+  });
+
+  it("서버 소통 갱신은 기존 공지·일정·이미지를 보존하고 실제 저장 뒤 완료한다", async () => {
+    const old = {...payload(), company:{name:"가상 검수 기업", logo:"logo/whiffkorea.png"},
+      notice:{title:"공지 유지"}, events:[{title:"일정 유지"}]};
+    const asset = {type:"image/png", data:"YWJjZA=="};
+    await store.save({slug:"whiffkorea", buildKey:"base", startedAt:1, payload:old,
+      assets:{"logo/whiffkorea.png":asset}});
+    const input = {slug:"whiffkorea", company:"가상 검수 기업", buildKey:"talks", startedAt:2,
+      talks:[{title:"통화 반영", channel:"유선"}], actions:[], actions_done:0};
+    const env = {AUTOMATION_TOKEN:"test-token", PRIVATE_DB:d1(sqlite)};
+    sqlite.exec("INSERT INTO customer_credentials(slug,password_hash,salt,iterations) VALUES ('whiffkorea','fake','fake',100000)");
+    const send = (value, token="test-token") => worker.fetch(new Request("https://private.test/ops/communications", {
+      method:"POST", headers:{authorization:`Bearer ${token}`, "content-type":"application/json"},
+      body:JSON.stringify(value),
+    }), env);
+    expect((await send(input, "wrong")).status).toBe(401);
+    expect((await send({...input, startedAt:Date.now()+120000})).status).toBe(422);
+    expect((await send({...input, company:"다른 기업"})).status).toBe(422);
+    expect((await send({...input, talks:[{pid:"내부 주소"}]})).status).toBe(422);
+    expect((await send(input)).status).toBe(200);
+    expect((await store.latest("whiffkorea")).payload).toEqual({...old, talks:input.talks});
+    expect((await store.asset("whiffkorea", "logo/whiffkorea.png")).content_base64).toBe(asset.data);
+    expect((await send({...input, buildKey:"late", startedAt:1})).status).toBe(409);
+    expect((await store.latest("whiffkorea")).buildKey).toBe("talks");
+    expect(sqlite.prepare("SELECT count(*) AS n FROM customer_snapshots").get().n).toBe(2);
+    const batch = env.PRIVATE_DB.batch.bind(env.PRIVATE_DB);
+    env.PRIVATE_DB.batch = async statements => {
+      await store.save({slug:"whiffkorea", buildKey:"concurrent", startedAt:3,
+        payload:{...old, notice:{title:"동시 갱신 공지"}}, assets:{"logo/whiffkorea.png":asset}});
+      return batch(statements);
+    };
+    expect((await send({...input, buildKey:"racing", startedAt:4})).status).toBe(409);
+    expect((await store.latest("whiffkorea")).payload.notice.title).toBe("동시 갱신 공지");
+    expect(sqlite.prepare("SELECT count(*) AS n FROM customer_snapshots").get().n).toBe(3);
   });
 
   it("잘못된·과대 결과와 비밀번호 필드는 쓰기 전에 거절하며 기존 결과를 유지한다", async () => {

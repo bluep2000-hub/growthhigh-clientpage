@@ -55,6 +55,7 @@ class TalkSourceTests(unittest.TestCase):
     def test_parse_maps_all_supported_board_channels(self):
         expected = {
             "유선": "통화",
+            "미팅": "미팅",
             "메일": "메일",
             "대면미팅": "미팅",
             "비대면미팅": "미팅",
