@@ -16,6 +16,23 @@ def row(*values):
 
 
 class RoadmapTests(unittest.TestCase):
+    def test_monthly_plan_explicit_year_boundary_and_invalid_ranges(self):
+        rows = [row("시기", "실행 항목", "주요 성과 / 산출물", "비고"),
+                row("'26년 12월~'27년 1월", "(정책자금)", "예상 상담", "")]
+
+        class Notion:
+            def children(self, pid):
+                return rows if pid == "monthly" else [
+                    heading("heading_1", "진행 시나리오"),
+                    heading("heading_2", "주요 로드맵"), {"type": "table", "id": "monthly"}]
+
+        result = builder.fetch_monthly_roadmap(Notion(), "source")
+        self.assertEqual((result["start"], result["phases"][0]["span"]), ("2026-12", 2))
+        for period in ("'27년 1월~'26년 12월", "'26년 12월~'27년 13월"):
+            rows[1] = row(period, "(정책자금)", "", "")
+            with self.subTest(period=period), self.assertRaisesRegex(builder.ClientFailure, "월 범위"):
+                builder.fetch_monthly_roadmap(Notion(), "source")
+
     def test_legacy_schedule_keeps_years_gaps_and_undated_items(self):
         def entry(title, periods, description):
             return {"properties":{"주요항목":{"multi_select":[{"name":title}]},

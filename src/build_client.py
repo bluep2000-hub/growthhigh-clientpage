@@ -669,17 +669,22 @@ def fetch_monthly_roadmap(nt: Notion, page_id: str, *, start_month=None,
         if len(values) < 4:
             raise ClientFailure("진행 시나리오 표의 항목이 누락되었습니다")
         period, action, output, note = values[:4]
-        match = re.fullmatch(r"['‘’]?([0-9]{2})년\s*([0-9]{1,2})(?:\s*[~～–-]\s*([0-9]{1,2}))?월", period)
+        match = re.fullmatch(
+            r"['‘’]?([0-9]{2})년\s*([0-9]{1,2})"
+            r"(?:(?:월)?\s*[~～–-]\s*(?:['‘’]?([0-9]{2})년\s*)?([0-9]{1,2}))?월", period)
         if not match:
             raise ClientFailure(f"진행 시나리오 시기를 읽을 수 없습니다: {period}")
         year, begin_month = 2000 + int(match[1]), int(match[2])
-        end_month = int(match[3] or begin_month)
-        if not 1 <= begin_month <= end_month <= 12:
+        end_year = 2000 + int(match[3]) if match[3] else year
+        end_month = int(match[4] or begin_month)
+        start = year * 12 + begin_month - 1
+        end = end_year * 12 + end_month - 1
+        if not (1 <= begin_month <= 12 and 1 <= end_month <= 12 and start <= end):
             raise ClientFailure(f"진행 시나리오 월 범위 오류: {period}")
         tasks = lines(action)
         title = tasks.pop(0).strip("() ") if tasks and tasks[0].startswith("(") else period
-        phases.append({"period": period, "title": title, "start": year * 12 + begin_month - 1,
-                       "span": end_month - begin_month + 1,
+        phases.append({"period": period, "title": title, "start": start,
+                       "span": end - start + 1,
                        "tasks": tasks, "outputs": lines(output), "notes": lines(note)})
 
     if not phases:
