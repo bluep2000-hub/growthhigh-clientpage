@@ -47,6 +47,41 @@ const bad = new Request("https://client.growthhigh.co.kr/whiffkorea/auth/custome
 });
 assert.equal((await onRequest({ request: bad, env, next: () => new Response("static") })).status, 403);
 
+const route = (path, init) => onRequest({
+  request: new Request(`https://client.growthhigh.co.kr${path}`, init), env,
+  next: () => new Response("static"),
+});
+const previousPage = await route("/beshare/page/?edit");
+assert.equal(previousPage.status, 302);
+assert.equal(previousPage.headers.get("location"), "/bshare/page/?edit");
+assert.equal((await route("/beshare/")).headers.get("location"), "/bshare/");
+
+const aliasLogin = await route("/bshare/auth/customer/login", {
+  method: "POST",
+  headers: { origin: "https://client.growthhigh.co.kr", cookie: "test_session=present" },
+  body: JSON.stringify({ password: "test-password" }),
+});
+assert.equal(aliasLogin.status, 200);
+assert.equal(new URL(forwarded.url).pathname, "/beshare/auth/customer/login");
+assert.equal(forwarded.headers.get("cookie"), "test_session=present");
+assert.deepEqual(await forwarded.json(), { password: "test-password" });
+
+await route("/beshare/api/customer?edit");
+assert.equal(new URL(forwarded.url).pathname + new URL(forwarded.url).search, "/beshare/api/customer?edit");
+await route("/bshare-example/health");
+assert.equal(new URL(forwarded.url).pathname, "/bshare-example/health");
+
+const regularFetch = env.PRIVATE_WORKER.fetch;
+env.PRIVATE_WORKER.fetch = request => {
+  assert.equal(new URL(request.url).pathname + new URL(request.url).search, "/beshare/page/?edit");
+  return new Response(null, {status: 302, headers: {location: "/beshare/?edit", "cache-control": "no-store"}});
+};
+const loginRedirect = await route("/bshare/page/?edit");
+assert.equal(loginRedirect.status, 302);
+assert.equal(loginRedirect.headers.get("location"), "/bshare/?edit");
+assert.equal(loginRedirect.headers.get("cache-control"), "no-store");
+env.PRIVATE_WORKER.fetch = regularFetch;
+
 env.PRIVATE_WORKER.fetch = () => Response.json({error:"not_found"},{status:404});
 assert.equal(await (await onRequest({request:new Request("https://client.growthhigh.co.kr/zeroback/"),env,
   next:() => new Response("static")})).text(), "static");
